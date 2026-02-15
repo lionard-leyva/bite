@@ -1,4 +1,5 @@
 import { View, Pressable, Text, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { pickImage } from '../services/imageService';
 
 interface PhotoPickerProps {
@@ -22,11 +23,17 @@ export default function PhotoPicker({
       <View className="items-center gap-2">
         <Image
           source={{ uri: photoUri }}
-          className="h-40 w-full rounded-lg"
+          className="h-40 w-full rounded-card"
           resizeMode="cover"
         />
-        <Pressable onPress={onPhotoRemoved} accessibilityRole="button" accessibilityLabel="Quitar foto">
-          <Text className="text-sm text-red-500">Quitar foto</Text>
+        <Pressable
+          className="flex-row items-center gap-1.5 rounded-pill bg-primary/10 px-4 py-2"
+          onPress={onPhotoRemoved}
+          accessibilityRole="button"
+          accessibilityLabel="Quitar foto"
+        >
+          <Ionicons name="trash-outline" size={14} color="#FF5A5F" />
+          <Text className="text-sm font-medium text-primary">Quitar foto</Text>
         </Pressable>
       </View>
     );
@@ -35,20 +42,22 @@ export default function PhotoPicker({
   return (
     <View className="flex-row gap-3">
       <Pressable
-        className="flex-1 items-center rounded-lg border border-gray-300 py-3"
+        className="flex-1 items-center gap-1.5 rounded-card border border-dashed border-border py-4"
         onPress={() => handlePick('camera')}
         accessibilityRole="button"
         accessibilityLabel="Tomar foto con camara"
       >
-        <Text className="text-sm text-gray-600">Camara</Text>
+        <Ionicons name="camera-outline" size={24} color="#717171" />
+        <Text className="text-sm text-text-secondary">Camara</Text>
       </Pressable>
       <Pressable
-        className="flex-1 items-center rounded-lg border border-gray-300 py-3"
+        className="flex-1 items-center gap-1.5 rounded-card border border-dashed border-border py-4"
         onPress={() => handlePick('gallery')}
         accessibilityRole="button"
         accessibilityLabel="Elegir foto de galeria"
       >
-        <Text className="text-sm text-gray-600">Galeria</Text>
+        <Ionicons name="images-outline" size={24} color="#717171" />
+        <Text className="text-sm text-text-secondary">Galeria</Text>
       </Pressable>
     </View>
   );

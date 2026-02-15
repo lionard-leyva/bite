@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { getListInviteCode, getListMembers, leaveSharedList } from '../services/listService';
 import { getLocalRestaurantCount } from '../services/localStorageService';
 import ShareListModal from '../components/ShareListModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function ProfileScreen() {
   const {
@@ -18,6 +20,9 @@ export default function ProfileScreen() {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [members, setMembers] = useState<{ userId: string; email: string; displayName: string }[]>([]);
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+  const [createAccountModalVisible, setCreateAccountModalVisible] = useState(false);
+  const [leaveListModalVisible, setLeaveListModalVisible] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [localCount, setLocalCount] = useState(0);
 
@@ -49,55 +54,27 @@ export default function ProfileScreen() {
   const otherMembers = members.filter((m) => m.userId !== userId);
   const isShared = otherMembers.length > 0;
 
-  async function handleLogout() {
-    Alert.alert('Cerrar sesion', '¿Seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar sesion', style: 'destructive', onPress: () => logout() },
-    ]);
+  async function handleConfirmLogout() {
+    setLogoutModalVisible(false);
+    await logout();
   }
 
-  function handleCreateAccount() {
-    Alert.alert(
-      'Crear cuenta',
-      localCount > 0
-        ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''}. Al crear cuenta podras sincronizarlos y compartir.`
-        : 'Crea una cuenta para sincronizar y compartir tu lista.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Continuar',
-          onPress: async () => {
-            // Navigate to auth - logout from skip mode triggers AuthScreen
-            await logout();
-          },
-        },
-      ],
-    );
+  async function handleConfirmCreateAccount() {
+    setCreateAccountModalVisible(false);
+    await logout();
   }
 
-  function handleLeaveList() {
-    Alert.alert(
-      'Dejar de compartir',
-      'Volveras a tener una lista personal. Los restaurantes que guardaste seguiran en la lista compartida.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Dejar de compartir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const newListId = await leaveSharedList(userId, listId);
-              refreshListId(newListId);
-              setInviteCode(null);
-              setMembers([]);
-              loadListInfo();
-            } catch {
-              Alert.alert('Error', 'No se pudo dejar la lista compartida');
-            }
-          },
-        },
-      ],
-    );
+  async function handleConfirmLeaveList() {
+    setLeaveListModalVisible(false);
+    try {
+      const newListId = await leaveSharedList(userId, listId);
+      refreshListId(newListId);
+      setInviteCode(null);
+      setMembers([]);
+      loadListInfo();
+    } catch {
+      Alert.alert('Error', 'No se pudo dejar la lista compartida');
+    }
   }
 
   function handleJoined(newListId: string) {
@@ -108,58 +85,60 @@ export default function ProfileScreen() {
 
   if (loadingProfile) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#e63946" />
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" color="#FF5A5F" />
       </View>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView className="flex-1 bg-background" contentContainerStyle={{ paddingBottom: 40 }}>
       <View className="items-center pt-12 pb-6">
-        <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <Text className="text-3xl">&#x1F464;</Text>
+        {/* Avatar */}
+        <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-primary/15">
+          <Ionicons name="person" size={36} color="#FF5A5F" />
         </View>
         {skipMode ? (
           <>
-            <Text className="text-lg font-semibold text-gray-900">
+            <Text className="text-subtitle font-semibold text-text-primary">
               Modo sin cuenta
             </Text>
-            <Text className="text-sm text-gray-400">
+            <Text className="text-sm text-text-tertiary">
               Datos guardados solo en este dispositivo
             </Text>
           </>
         ) : (
           <>
-            <Text className="text-lg font-semibold text-gray-900">
+            <Text className="text-subtitle font-semibold text-text-primary">
               {user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
             </Text>
-            <Text className="text-sm text-gray-400">{user?.email}</Text>
+            <Text className="text-sm text-text-tertiary">{user?.email}</Text>
           </>
         )}
       </View>
 
-      <View className="px-4">
+      <View className="px-5">
         {/* List section - only for logged in users */}
         {!skipMode && (
-          <View className="mb-6 rounded-xl bg-gray-50 p-4">
-            <Text className="mb-3 text-xs font-medium uppercase text-gray-400">
+          <View className="mb-6 rounded-modal bg-surface border border-border p-4">
+            <Text className="mb-3 text-label font-medium uppercase tracking-wider text-text-tertiary">
               Mi lista
             </Text>
 
             {isShared ? (
               <View className="gap-2">
                 <View className="flex-row items-center gap-2">
-                  <Text className="text-sm text-green-600">Compartiendo con:</Text>
+                  <Ionicons name="people" size={14} color="#00A699" />
+                  <Text className="text-sm text-success">Compartiendo con:</Text>
                 </View>
                 {otherMembers.map((m) => (
-                  <Text key={m.userId} className="text-sm font-medium text-gray-900">
+                  <Text key={m.userId} className="text-sm font-medium text-text-primary">
                     {m.displayName || m.email}
                   </Text>
                 ))}
                 {inviteCode && (
                   <View className="mt-2">
-                    <Text className="text-xs text-gray-400">
+                    <Text className="text-caption text-text-tertiary">
                       Codigo: {inviteCode.slice(0, 3)}-{inviteCode.slice(3)}
                     </Text>
                   </View>
@@ -167,17 +146,19 @@ export default function ProfileScreen() {
               </View>
             ) : (
               <View className="gap-2">
-                <Text className="text-sm text-gray-500">
+                <Text className="text-sm text-text-secondary">
                   Lista personal. Comparte con tu pareja para ver restaurantes juntos.
                 </Text>
               </View>
             )}
 
             <Pressable
-              className="mt-3 items-center rounded-lg border border-red-200 bg-red-50 py-3"
+              className="mt-3 flex-row items-center justify-center gap-2 rounded-button bg-primary py-3"
               onPress={() => setShareModalVisible(true)}
+              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             >
-              <Text className="text-sm font-medium text-red-600">
+              <Ionicons name="heart-outline" size={16} color="white" />
+              <Text className="text-sm font-semibold text-white">
                 {isShared ? 'Gestionar lista compartida' : 'Compartir con pareja'}
               </Text>
             </Pressable>
@@ -185,9 +166,9 @@ export default function ProfileScreen() {
             {isShared && (
               <Pressable
                 className="mt-2 items-center py-2"
-                onPress={handleLeaveList}
+                onPress={() => setLeaveListModalVisible(true)}
               >
-                <Text className="text-xs text-gray-400">Dejar de compartir</Text>
+                <Text className="text-caption text-text-tertiary">Dejar de compartir</Text>
               </Pressable>
             )}
           </View>
@@ -195,33 +176,39 @@ export default function ProfileScreen() {
 
         {/* Skip mode info */}
         {skipMode && (
-          <View className="mb-6 rounded-xl bg-amber-50 p-4">
-            <Text className="mb-1 text-sm font-medium text-amber-700">
-              Modo sin cuenta
-            </Text>
-            <Text className="mb-3 text-xs text-amber-600">
-              {localCount > 0
-                ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''} localmente. Crea una cuenta para sincronizar y compartir.`
-                : 'Crea una cuenta para sincronizar entre dispositivos y compartir con tu pareja.'}
-            </Text>
-            <Pressable
-              className="items-center rounded-lg bg-red-500 py-3"
-              onPress={handleCreateAccount}
-            >
-              <Text className="text-sm font-semibold text-white">
-                Crear cuenta
+          <View className="mb-6 flex-row gap-3 rounded-modal bg-warning/10 border border-warning/30 p-4">
+            <Ionicons name="alert-circle-outline" size={20} color="#FFB400" style={{ marginTop: 2 }} />
+            <View className="flex-1">
+              <Text className="mb-1 text-sm font-medium text-text-primary">
+                Modo sin cuenta
               </Text>
-            </Pressable>
+              <Text className="mb-3 text-caption text-text-secondary">
+                {localCount > 0
+                  ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''} localmente. Crea una cuenta para sincronizar y compartir.`
+                  : 'Crea una cuenta para sincronizar entre dispositivos y compartir con tu pareja.'}
+              </Text>
+              <Pressable
+                className="items-center rounded-button bg-primary py-3"
+                onPress={() => setCreateAccountModalVisible(true)}
+                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+              >
+                <Text className="text-sm font-semibold text-white">
+                  Crear cuenta
+                </Text>
+              </Pressable>
+            </View>
           </View>
         )}
 
         {/* Logout */}
         {!skipMode && (
           <Pressable
-            className="items-center rounded-xl border border-gray-200 py-4"
-            onPress={handleLogout}
+            className="flex-row items-center justify-center gap-2 rounded-button border border-border py-4"
+            onPress={() => setLogoutModalVisible(true)}
+            style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           >
-            <Text className="text-sm font-medium text-gray-500">
+            <Ionicons name="log-out-outline" size={18} color="#717171" />
+            <Text className="text-sm font-medium text-text-secondary">
               Cerrar sesion
             </Text>
           </Pressable>
@@ -234,6 +221,39 @@ export default function ProfileScreen() {
         inviteCode={inviteCode}
         onClose={() => setShareModalVisible(false)}
         onJoined={handleJoined}
+      />
+
+      <ConfirmModal
+        visible={logoutModalVisible}
+        title="Cerrar sesion"
+        message="¿Seguro que quieres cerrar sesion?"
+        confirmLabel="Cerrar sesion"
+        destructive
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setLogoutModalVisible(false)}
+      />
+
+      <ConfirmModal
+        visible={createAccountModalVisible}
+        title="Crear cuenta"
+        message={
+          localCount > 0
+            ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''}. Al crear cuenta podras sincronizarlos y compartir.`
+            : 'Crea una cuenta para sincronizar y compartir tu lista.'
+        }
+        confirmLabel="Continuar"
+        onConfirm={handleConfirmCreateAccount}
+        onCancel={() => setCreateAccountModalVisible(false)}
+      />
+
+      <ConfirmModal
+        visible={leaveListModalVisible}
+        title="Dejar de compartir"
+        message="Volveras a tener una lista personal. Los restaurantes que guardaste seguiran en la lista compartida."
+        confirmLabel="Dejar de compartir"
+        destructive
+        onConfirm={handleConfirmLeaveList}
+        onCancel={() => setLeaveListModalVisible(false)}
       />
     </ScrollView>
   );

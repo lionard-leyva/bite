@@ -34,12 +34,11 @@ describe('RestaurantCard', () => {
     expect(getByText('Calle Mayor 10, Madrid')).toBeTruthy();
   });
 
-  it('renders star rating', () => {
+  it('renders numeric rating', () => {
     const { getByText } = render(
       <RestaurantCard restaurant={mockRestaurant} onPress={() => {}} />,
     );
-    // 4 filled + 1 empty: ★★★★☆
-    expect(getByText('★★★★☆')).toBeTruthy();
+    expect(getByText('4')).toBeTruthy();
   });
 
   it('calls onPress when tapped', () => {
@@ -55,7 +54,7 @@ describe('RestaurantCard', () => {
     const { getByText } = render(
       <RestaurantCard restaurant={mockRestaurant} onPress={() => {}} />,
     );
-    expect(getByText('✓')).toBeTruthy();
+    expect(getByText('Visitado')).toBeTruthy();
   });
 
   it('shows pending indicator for unvisited restaurant', () => {
@@ -63,15 +62,14 @@ describe('RestaurantCard', () => {
     const { getByText } = render(
       <RestaurantCard restaurant={unvisited} onPress={() => {}} />,
     );
-    expect(getByText('○')).toBeTruthy();
+    expect(getByText('Pendiente')).toBeTruthy();
   });
 
   it('shows placeholder when no photo', () => {
-    const { getByText } = render(
+    const { getByTestId } = render(
       <RestaurantCard restaurant={mockRestaurant} onPress={() => {}} />,
     );
-    // Plate emoji as placeholder
-    expect(getByText('🍽')).toBeTruthy();
+    expect(getByTestId('photo-placeholder')).toBeTruthy();
   });
 
   it('has accessibility label with restaurant info', () => {

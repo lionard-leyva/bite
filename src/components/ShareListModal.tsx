@@ -7,7 +7,11 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { joinListByCode } from '../services/listService';
 import InviteCodeDisplay from './InviteCodeDisplay';
@@ -53,35 +57,47 @@ export default function ShareListModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View className="flex-1 bg-white px-6 pt-6">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={90}
+      >
+      <ScrollView
+        className="flex-1 bg-background px-6 pt-6"
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-xl font-bold text-gray-900">
+          <Text className="text-title font-bold text-text-primary">
             Compartir lista
           </Text>
-          <Pressable onPress={onClose} hitSlop={12}>
-            <Text className="text-base text-gray-400">Cerrar</Text>
+          <Pressable
+            className="h-8 w-8 items-center justify-center rounded-full bg-border"
+            onPress={onClose}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={18} color="#222222" />
           </Pressable>
         </View>
 
-        {/* Tabs */}
-        <View className="mb-6 flex-row rounded-lg bg-gray-100 p-1">
+        {/* Pill tab toggle */}
+        <View className="mb-6 flex-row rounded-pill bg-border p-1">
           <Pressable
-            className={`flex-1 items-center rounded-md py-2.5 ${tab === 'create' ? 'bg-white shadow-sm' : ''}`}
+            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'create' ? 'bg-text-primary' : ''}`}
             onPress={() => setTab('create')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'create' ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${tab === 'create' ? 'text-white' : 'text-text-secondary'}`}
             >
               Mi codigo
             </Text>
           </Pressable>
           <Pressable
-            className={`flex-1 items-center rounded-md py-2.5 ${tab === 'join' ? 'bg-white shadow-sm' : ''}`}
+            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'join' ? 'bg-text-primary' : ''}`}
             onPress={() => setTab('join')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'join' ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${tab === 'join' ? 'text-white' : 'text-text-secondary'}`}
             >
               Unirme con codigo
             </Text>
@@ -93,46 +109,48 @@ export default function ShareListModal({
           <View className="flex-1 items-center pt-8">
             {inviteCode ? (
               <>
-                <Text className="mb-6 text-center text-sm text-gray-500">
+                <Text className="mb-6 text-center text-sm text-text-secondary">
                   Comparte este codigo con tu pareja para que se una a tu lista
                 </Text>
                 <InviteCodeDisplay code={inviteCode} />
               </>
             ) : (
-              <Text className="text-sm text-gray-400">
+              <Text className="text-sm text-text-tertiary">
                 Cargando codigo...
               </Text>
             )}
           </View>
         ) : (
           <View className="pt-4">
-            <Text className="mb-4 text-sm text-gray-500">
+            <Text className="mb-4 text-sm text-text-secondary">
               Introduce el codigo que te compartieron
             </Text>
             <TextInput
-              className="mb-4 rounded-lg border border-gray-300 px-4 py-3 text-center text-xl font-bold tracking-widest"
+              className="mb-4 rounded-input border border-border px-4 py-3 text-center text-xl font-bold tracking-widest text-text-primary"
               placeholder="ABC-123"
+              placeholderTextColor="#B0B0B0"
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
               maxLength={7}
             />
             <Pressable
-              className={`items-center rounded-xl py-4 ${loading ? 'bg-gray-300' : 'bg-red-500'}`}
+              className={`items-center rounded-button py-4 ${loading ? 'bg-border' : 'bg-primary'}`}
               onPress={handleJoin}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-base font-semibold text-white">
+                <Text className="text-body font-semibold text-white">
                   Unirme
                 </Text>
               )}
             </Pressable>
           </View>
         )}
-      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
@@ -122,22 +123,23 @@ export default function SaveScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-background"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={90}
     >
       <ScrollView
-        className="flex-1 px-4 pt-4"
+        className="flex-1 px-5 pt-4"
         keyboardShouldPersistTaps="handled"
       >
         {/* Location section */}
-        <Text className="mb-1 text-xs font-medium uppercase text-gray-400">
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Ubicacion
         </Text>
 
         {location.loading ? (
           <View className="mb-4 flex-row items-center gap-2">
-            <ActivityIndicator size="small" />
-            <Text className="text-sm text-gray-500">Detectando ubicacion...</Text>
+            <ActivityIndicator size="small" color="#FF5A5F" />
+            <Text className="text-sm text-text-secondary">Detectando ubicacion...</Text>
           </View>
         ) : null}
 
@@ -155,40 +157,45 @@ export default function SaveScreen() {
               styles={{
                 textInput: {
                   borderWidth: 1,
-                  borderColor: '#d1d5db',
-                  borderRadius: 8,
+                  borderColor: '#EBEBEB',
+                  borderRadius: 12,
                   paddingHorizontal: 12,
                   height: 44,
                   fontSize: 16,
+                  backgroundColor: '#FFFFFF',
+                  color: '#222222',
                 },
-                listView: { backgroundColor: 'white' },
+                listView: { backgroundColor: '#FFFFFF' },
               }}
               textInputProps={{
                 value: name,
                 onChangeText: setName,
+                placeholderTextColor: '#B0B0B0',
               }}
             />
           </View>
         ) : (
           <View className="mb-4 gap-2">
             {!MAPS_KEY && !manualMode ? (
-              <Text className="mb-1 text-xs text-amber-600">
+              <Text className="mb-1 text-caption text-warning">
                 Busqueda no disponible. Introduce el nombre manualmente.
               </Text>
             ) : (
-              <Text className="mb-1 text-xs text-amber-600">
+              <Text className="mb-1 text-caption text-warning">
                 No pudimos buscar restaurantes. Introduce el nombre manualmente.
               </Text>
             )}
             <TextInput
-              className="rounded-lg border border-gray-300 px-3 py-2.5 text-base"
+              className="rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
               placeholder="Nombre del restaurante"
+              placeholderTextColor="#B0B0B0"
               value={name}
               onChangeText={setName}
             />
             <TextInput
-              className="rounded-lg border border-gray-300 px-3 py-2.5 text-base"
+              className="rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
               placeholder="Direccion (opcional)"
+              placeholderTextColor="#B0B0B0"
               value={address}
               onChangeText={setAddress}
             />
@@ -196,13 +203,13 @@ export default function SaveScreen() {
         )}
 
         {location.address && !name ? (
-          <Text className="mb-4 text-sm text-gray-500">
+          <Text className="mb-4 text-sm text-text-secondary">
             Cerca de: {location.address}
           </Text>
         ) : null}
 
         {/* Rating */}
-        <Text className="mb-1 text-xs font-medium uppercase text-gray-400">
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Rating
         </Text>
         <View className="mb-4">
@@ -210,26 +217,36 @@ export default function SaveScreen() {
         </View>
 
         {/* Visited toggle */}
-        <Text className="mb-1 text-xs font-medium uppercase text-gray-400">
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Estado
         </Text>
         <View className="mb-4 flex-row gap-2">
           <Pressable
-            className={`flex-1 items-center rounded-lg border py-2.5 ${visited ? 'border-green-500 bg-green-50' : 'border-gray-300'}`}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${visited ? 'border-visited bg-visited/10' : 'border-border'}`}
             onPress={() => setVisited(true)}
           >
+            <Ionicons
+              name={visited ? 'checkmark-circle' : 'checkmark-circle-outline'}
+              size={16}
+              color={visited ? '#66BB6A' : '#A0A0A0'}
+            />
             <Text
-              className={`text-sm font-medium ${visited ? 'text-green-700' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${visited ? 'text-visited' : 'text-text-tertiary'}`}
             >
               Visitado
             </Text>
           </Pressable>
           <Pressable
-            className={`flex-1 items-center rounded-lg border py-2.5 ${!visited ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`}
+            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${!visited ? 'border-primary bg-primary/10' : 'border-border'}`}
             onPress={() => setVisited(false)}
           >
+            <Ionicons
+              name={!visited ? 'time' : 'time-outline'}
+              size={16}
+              color={!visited ? '#FF5A5F' : '#B0B0B0'}
+            />
             <Text
-              className={`text-sm font-medium ${!visited ? 'text-blue-700' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${!visited ? 'text-primary' : 'text-text-tertiary'}`}
             >
               Pendiente
             </Text>
@@ -237,12 +254,13 @@ export default function SaveScreen() {
         </View>
 
         {/* Note */}
-        <Text className="mb-1 text-xs font-medium uppercase text-gray-400">
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Nota (opcional)
         </Text>
         <TextInput
-          className="mb-4 rounded-lg border border-gray-300 px-3 py-2.5 text-base"
+          className="mb-4 rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
           placeholder="Ej: La pasta increible"
+          placeholderTextColor="#B0B0B0"
           value={note}
           onChangeText={setNote}
           multiline
@@ -250,7 +268,7 @@ export default function SaveScreen() {
         />
 
         {/* Photo */}
-        <Text className="mb-1 text-xs font-medium uppercase text-gray-400">
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Foto (opcional)
         </Text>
         <View className="mb-6">
@@ -263,14 +281,15 @@ export default function SaveScreen() {
 
         {/* Save button */}
         <Pressable
-          className={`mb-8 items-center rounded-xl py-4 ${canSave && !saving ? 'bg-red-500' : 'bg-gray-300'}`}
+          className={`mb-8 items-center rounded-button py-4 ${canSave && !saving ? 'bg-primary' : 'bg-border'}`}
           onPress={handleSave}
           disabled={!canSave || saving}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
           {saving ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-base font-semibold text-white">
+            <Text className="text-body font-semibold text-white">
               Guardar
             </Text>
           )}

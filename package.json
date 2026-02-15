@@ -29,6 +29,9 @@
         "testMatch": [
           "**/*.test.tsx"
         ],
+        "moduleNameMapper": {
+          "@expo/vector-icons": "<rootDir>/jest/__mocks__/@expo/vector-icons.js"
+        },
         "transformIgnorePatterns": [
           "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|nativewind)"
         ]
@@ -36,6 +39,7 @@
     ]
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.13.0",
     "@react-navigation/native": "^7.1.28",
@@ -50,11 +54,13 @@
     "firebase": "^12.9.0",
     "nativewind": "^4",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-maps": "1.20.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-web": "^0.21.0",
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {

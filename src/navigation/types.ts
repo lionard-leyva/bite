@@ -7,6 +7,7 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
+  Loading: undefined;
   Auth: undefined;
   Tabs: NavigatorScreenParams<TabParamList>;
   Save: undefined;

@@ -25,6 +25,12 @@ interface SaveRestaurantInput {
 export async function saveRestaurant(
   input: SaveRestaurantInput,
 ): Promise<string> {
+  if (!input.listId || input.listId === 'local') {
+    throw new Error(
+      'No se pudo determinar tu lista. Cierra sesion y vuelve a iniciar.',
+    );
+  }
+
   const docRef = await addDoc(collection(db, 'restaurants'), {
     name: input.name,
     address: input.address,

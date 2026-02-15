@@ -156,6 +156,8 @@ Marcar con [x] cuando se completen.
 - Si fotos saturan Storage → reducir compresion a quality 0.6 en `src/config/constants.ts`
 - **Migracion de fotos locales**: `migrateLocalData()` migra restaurantes pero no re-sube fotos locales a Storage (pasa `photoUri: null`). Las fotos guardadas en modo skip se pierden al migrar. Post-MVP.
 - **Toggle visitado en skip mode**: `DetailScreen` deshabilita el toggle en modo sin cuenta. Solo funciona con Firestore.
+- **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
+- **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
 ## 11. Testing
 

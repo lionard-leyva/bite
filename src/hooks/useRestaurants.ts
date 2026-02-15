@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   query,
@@ -7,6 +7,7 @@ import {
   orderBy,
   type Timestamp,
 } from 'firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native';
 import { db } from '../config/firebase';
 import { useAuth } from './useAuth';
 import { getLocalRestaurants } from '../services/localStorageService';
@@ -16,6 +17,7 @@ interface UseRestaurantsReturn {
   restaurants: Restaurant[];
   loading: boolean;
   error: string | null;
+  refreshLocal: () => void;
 }
 
 function toDate(val: Timestamp | Date | null | undefined): Date {
@@ -30,6 +32,19 @@ export function useRestaurants(): UseRestaurantsReturn {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [localVersion, setLocalVersion] = useState(0);
+
+  const refreshLocal = useCallback(() => {
+    setLocalVersion((v) => v + 1);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (skipMode) {
+        setLocalVersion((v) => v + 1);
+      }
+    }, [skipMode]),
+  );
 
   useEffect(() => {
     if (!listId) {
@@ -82,13 +97,21 @@ export function useRestaurants(): UseRestaurantsReturn {
         setError(null);
       },
       (err) => {
+        console.error('[useRestaurants] onSnapshot error:', err.message);
+        if (err.message.includes('index')) {
+          console.error(
+            '[useRestaurants] Missing Firestore composite index. ' +
+            'Create it in Firebase Console: restaurants collection, ' +
+            'fields: listId (Ascending), createdAt (Descending).',
+          );
+        }
         setError(err.message);
         setLoading(false);
       },
     );
 
     return unsubscribe;
-  }, [listId, skipMode]);
+  }, [listId, skipMode, localVersion]);
 
-  return { restaurants, loading, error };
+  return { restaurants, loading, error, refreshLocal };
 }

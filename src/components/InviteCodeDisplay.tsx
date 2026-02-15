@@ -1,4 +1,5 @@
-import { View, Text, Pressable, Alert, Share } from 'react-native';
+import { View, Text, Pressable, Share } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface InviteCodeDisplayProps {
   code: string;
@@ -17,16 +18,17 @@ export default function InviteCodeDisplay({ code }: InviteCodeDisplayProps) {
   }
 
   return (
-    <View className="items-center gap-3">
-      <Text className="text-xs text-gray-400">Tu codigo de invitacion</Text>
-      <Text className="text-3xl font-bold tracking-widest text-gray-900">
+    <View className="items-center gap-4 rounded-card border border-border bg-surface p-6">
+      <Text className="text-caption text-text-secondary">Tu codigo de invitacion</Text>
+      <Text className="text-hero font-bold tracking-widest text-text-primary">
         {formatted}
       </Text>
       <Pressable
-        className="rounded-full bg-gray-100 px-5 py-2"
+        className="flex-row items-center gap-2 rounded-pill bg-primary px-6 py-3"
         onPress={handleShare}
       >
-        <Text className="text-sm font-medium text-gray-600">Compartir codigo</Text>
+        <Ionicons name="share-outline" size={18} color="white" />
+        <Text className="text-sm font-semibold text-white">Compartir codigo</Text>
       </Pressable>
     </View>
   );

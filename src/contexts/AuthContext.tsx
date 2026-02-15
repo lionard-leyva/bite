@@ -47,9 +47,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Show loading screen during the entire auth state transition
+      setIsLoading(true);
+
       if (firebaseUser) {
-        setUser(firebaseUser);
-        setUserId(firebaseUser.uid);
         setSkipModeState(false);
         await setSkipMode(false);
 
@@ -65,13 +66,17 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         const userListId = await ensureUserList(firebaseUser.uid);
-        setListId(userListId);
 
         // Detect local restaurants from skip mode for migration
         const localCount = await getLocalRestaurantCount();
         if (localCount > 0) {
           setPendingMigration(true);
         }
+
+        // Set all state at once AFTER async setup is complete
+        setUserId(firebaseUser.uid);
+        setListId(userListId);
+        setUser(firebaseUser);
       } else {
         setUser(null);
         const wasSkip = await getSkipMode();

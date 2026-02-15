@@ -1,10 +1,13 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, Image, ScrollView, Pressable, Alert, Linking, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useAuth } from '../hooks/useAuth';
 import { toggleVisited, deleteRestaurant } from '../services/restaurantService';
+import { deleteLocalRestaurant, updateLocalRestaurantVisited } from '../services/localStorageService';
 import StarRating from '../components/StarRating';
+import ConfirmModal from '../components/ConfirmModal';
 import { timeAgo } from '../utils/timeAgo';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -25,8 +28,9 @@ export default function DetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<DetailRoute>();
   const { restaurantId } = route.params;
-  const { restaurants } = useRestaurants();
+  const { restaurants, refreshLocal } = useRestaurants();
   const { skipMode } = useAuth();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const restaurant = useMemo(
     () => restaurants.find((r) => r.id === restaurantId),
@@ -35,53 +39,61 @@ export default function DetailScreen() {
 
   if (!restaurant) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <Text className="text-base text-gray-400">Restaurante no encontrado</Text>
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-body text-text-tertiary">Restaurante no encontrado</Text>
       </View>
     );
   }
 
-  function handleToggleVisited() {
-    if (skipMode) return;
+  async function handleToggleVisited() {
+    if (skipMode) {
+      try {
+        await updateLocalRestaurantVisited(restaurant!.id, !restaurant!.visited);
+        refreshLocal();
+      } catch {
+        Alert.alert('Error', 'No se pudo actualizar el estado');
+      }
+      return;
+    }
     toggleVisited(restaurant!.id, !restaurant!.visited);
   }
 
-  function handleDelete() {
-    Alert.alert(
-      'Eliminar',
-      `¿Seguro que quieres eliminar "${restaurant!.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteRestaurant(restaurant!.id);
-            navigation.goBack();
-          },
-        },
-      ],
-    );
+  async function handleConfirmDelete() {
+    try {
+      if (skipMode) {
+        await deleteLocalRestaurant(restaurant!.id);
+        refreshLocal();
+      } else {
+        await deleteRestaurant(restaurant!.id);
+      }
+      setShowDeleteModal(false);
+      navigation.goBack();
+    } catch {
+      Alert.alert('Error', 'No se pudo eliminar el restaurante');
+    }
   }
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <ScrollView className="flex-1 bg-background">
       {/* Photo */}
       {restaurant.photoURL ? (
-        <Image
-          source={{ uri: restaurant.photoURL }}
-          className="h-64 w-full"
-          resizeMode="cover"
-        />
+        <View className="relative">
+          <Image
+            source={{ uri: restaurant.photoURL }}
+            className="h-72 w-full"
+            resizeMode="cover"
+          />
+          <View className="absolute bottom-0 left-0 right-0 h-16" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }} />
+        </View>
       ) : (
-        <View className="h-48 w-full items-center justify-center bg-gray-100">
-          <Text className="text-5xl">&#x1F37D;</Text>
+        <View className="h-56 w-full items-center justify-center bg-primary-light">
+          <Ionicons name="restaurant-outline" size={56} color="#FF5A5F" />
         </View>
       )}
 
-      <View className="px-4 pt-4 pb-8">
+      <View className="px-5 pt-4 pb-8">
         {/* Name */}
-        <Text className="text-2xl font-bold text-gray-900">
+        <Text className="text-title font-bold text-text-primary">
           {restaurant.name}
         </Text>
 
@@ -92,37 +104,47 @@ export default function DetailScreen() {
 
         {/* Address */}
         {restaurant.address ? (
-          <Text className="mt-2 text-sm text-gray-500">
-            {restaurant.address}
-          </Text>
+          <View className="mt-2 flex-row items-center gap-1.5">
+            <Ionicons name="location-outline" size={16} color="#717171" />
+            <Text className="flex-1 text-body text-text-secondary">
+              {restaurant.address}
+            </Text>
+          </View>
         ) : null}
 
         {/* Note */}
         {restaurant.note ? (
-          <View className="mt-3 rounded-lg bg-gray-50 p-3">
-            <Text className="text-sm text-gray-700">
+          <View className="mt-3 flex-row items-start gap-2 rounded-card bg-surface border border-border p-3">
+            <Ionicons name="chatbubble-outline" size={14} color="#717171" style={{ marginTop: 2 }} />
+            <Text className="flex-1 text-sm text-text-primary">
               "{restaurant.note}"
             </Text>
           </View>
         ) : null}
 
         {/* Time ago */}
-        <Text className="mt-3 text-xs text-gray-400">
+        <Text className="mt-3 text-caption text-text-tertiary">
           {timeAgo(restaurant.createdAt)}
         </Text>
 
         {/* Visited toggle */}
         <Pressable
-          className={`mt-4 items-center rounded-lg border py-3 ${
+          className={`mt-4 flex-row items-center justify-center gap-2 rounded-button border py-3 ${
             restaurant.visited
-              ? 'border-green-500 bg-green-50'
-              : 'border-orange-400 bg-orange-50'
+              ? 'border-visited bg-visited/10'
+              : 'border-warning bg-warning/10'
           }`}
           onPress={handleToggleVisited}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
+          <Ionicons
+            name={restaurant.visited ? 'checkmark-circle' : 'time-outline'}
+            size={18}
+            color={restaurant.visited ? '#66BB6A' : '#FFB400'}
+          />
           <Text
             className={`text-sm font-medium ${
-              restaurant.visited ? 'text-green-700' : 'text-orange-600'
+              restaurant.visited ? 'text-visited' : 'text-warning'
             }`}
           >
             {restaurant.visited ? 'Visitado' : 'Pendiente de ir'}
@@ -131,24 +153,38 @@ export default function DetailScreen() {
 
         {/* Directions */}
         <Pressable
-          className="mt-3 items-center rounded-lg bg-blue-500 py-3"
+          className="mt-3 flex-row items-center justify-center gap-2 rounded-button border-2 border-primary py-3"
           onPress={() =>
             openMaps(restaurant.latitude, restaurant.longitude, restaurant.name)
           }
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <Text className="text-sm font-semibold text-white">
+          <Ionicons name="navigate-outline" size={18} color="#FF5A5F" />
+          <Text className="text-sm font-semibold text-primary">
             Como llegar
           </Text>
         </Pressable>
 
         {/* Delete */}
         <Pressable
-          className="mt-3 items-center rounded-lg border border-red-200 py-3"
-          onPress={handleDelete}
+          className="mt-3 flex-row items-center justify-center gap-2 rounded-button border border-primary/30 py-3"
+          onPress={() => setShowDeleteModal(true)}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <Text className="text-sm font-medium text-red-500">Eliminar</Text>
+          <Ionicons name="trash-outline" size={16} color="#FF5A5F" />
+          <Text className="text-sm font-medium text-primary">Eliminar</Text>
         </Pressable>
       </View>
+
+      <ConfirmModal
+        visible={showDeleteModal}
+        title="Eliminar"
+        message={`¿Seguro que quieres eliminar "${restaurant.name}"?`}
+        confirmLabel="Eliminar"
+        destructive
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </ScrollView>
   );
 }

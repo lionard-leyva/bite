@@ -7,8 +7,10 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 
 type Tab = 'login' | 'register';
@@ -20,18 +22,31 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  function handleEmailChange(text: string) {
+    setEmail(text);
+    if (emailError) setEmailError('');
+  }
+
+  function handlePasswordChange(text: string) {
+    setPassword(text);
+    if (passwordError) setPasswordError('');
+  }
 
   function validate(): boolean {
+    let valid = true;
     const trimmed = email.trim();
     if (!trimmed || !trimmed.includes('@')) {
-      Alert.alert('Email', 'Introduce un email valido');
-      return false;
+      setEmailError('Introduce un email valido');
+      valid = false;
     }
     if (password.length < 6) {
-      Alert.alert('Password', 'La contraseña debe tener al menos 6 caracteres');
-      return false;
+      setPasswordError('Al menos 6 caracteres');
+      valid = false;
     }
-    return true;
+    return valid;
   }
 
   async function handleSubmit() {
@@ -62,36 +77,48 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-white"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      className="flex-1 bg-background"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={90}
     >
-      <View className="flex-1 justify-center px-6">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        className="px-6"
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Brand icon */}
+        <View className="items-center mb-3">
+          <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
+            <Ionicons name="restaurant" size={40} color="#FF5A5F" />
+          </View>
+        </View>
+
         {/* Header */}
-        <Text className="mb-2 text-center text-3xl font-bold text-gray-900">
+        <Text className="mb-2 text-center font-bold text-text-primary" style={{ fontSize: 36 }}>
           Bite
         </Text>
-        <Text className="mb-8 text-center text-base text-gray-500">
+        <Text className="mb-10 text-center text-body text-text-secondary">
           Guarda tus restaurantes favoritos
         </Text>
 
-        {/* Tabs */}
-        <View className="mb-6 flex-row rounded-lg bg-gray-100 p-1">
+        {/* Pill tab switcher */}
+        <View className="mb-6 flex-row rounded-pill bg-border p-1">
           <Pressable
-            className={`flex-1 items-center rounded-md py-2 ${tab === 'login' ? 'bg-white shadow-sm' : ''}`}
+            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'login' ? 'bg-text-primary' : ''}`}
             onPress={() => setTab('login')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'login' ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${tab === 'login' ? 'text-white' : 'text-text-secondary'}`}
             >
               Iniciar sesion
             </Text>
           </Pressable>
           <Pressable
-            className={`flex-1 items-center rounded-md py-2 ${tab === 'register' ? 'bg-white shadow-sm' : ''}`}
+            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'register' ? 'bg-text-primary' : ''}`}
             onPress={() => setTab('register')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'register' ? 'text-gray-900' : 'text-gray-500'}`}
+              className={`text-sm font-medium ${tab === 'register' ? 'text-white' : 'text-text-secondary'}`}
             >
               Registrarse
             </Text>
@@ -100,33 +127,44 @@ export default function AuthScreen() {
 
         {/* Form */}
         <TextInput
-          className="mb-3 rounded-lg border border-gray-300 px-4 py-3 text-base"
+          className={`rounded-input border bg-surface px-4 py-3 text-body text-text-primary ${emailError ? 'border-primary' : 'border-border'}`}
           placeholder="Email"
+          placeholderTextColor="#A0A0A0"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={handleEmailChange}
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
         />
+        {emailError ? (
+          <Text className="mt-1 text-caption text-primary">{emailError}</Text>
+        ) : null}
+        <View className="h-3" />
         <TextInput
-          className="mb-4 rounded-lg border border-gray-300 px-4 py-3 text-base"
+          className={`rounded-input border bg-surface px-4 py-3 text-body text-text-primary ${passwordError ? 'border-primary' : 'border-border'}`}
           placeholder="Contraseña"
+          placeholderTextColor="#A0A0A0"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={handlePasswordChange}
           secureTextEntry
           textContentType="password"
         />
+        {passwordError ? (
+          <Text className="mt-1 text-caption text-primary">{passwordError}</Text>
+        ) : null}
+        <View className="h-4" />
 
         {/* Submit */}
         <Pressable
-          className={`mb-4 items-center rounded-xl py-4 ${loading ? 'bg-gray-300' : 'bg-red-500'}`}
+          className={`mb-4 items-center rounded-button py-4 ${loading ? 'bg-border' : 'bg-primary'}`}
           onPress={handleSubmit}
           disabled={loading}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
           {loading ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-base font-semibold text-white">
+            <Text className="text-body font-semibold text-white">
               {tab === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
             </Text>
           )}
@@ -134,25 +172,26 @@ export default function AuthScreen() {
 
         {/* Divider */}
         <View className="mb-4 flex-row items-center">
-          <View className="flex-1 border-b border-gray-200" />
-          <Text className="mx-3 text-sm text-gray-400">o</Text>
-          <View className="flex-1 border-b border-gray-200" />
+          <View className="flex-1 border-b border-border" />
+          <Text className="mx-3 text-sm text-text-tertiary">o</Text>
+          <View className="flex-1 border-b border-border" />
         </View>
 
         {/* Skip */}
         <Pressable
-          className="items-center rounded-xl border border-gray-300 py-4"
+          className="items-center rounded-button border border-border bg-surface py-4"
           onPress={handleSkip}
+          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <Text className="text-base font-medium text-gray-600">
+          <Text className="text-body font-medium text-text-secondary">
             Continuar sin cuenta
           </Text>
         </Pressable>
 
-        <Text className="mt-3 text-center text-xs text-gray-400">
+        <Text className="mt-3 text-center text-caption text-text-tertiary">
           Podras crear cuenta despues para sincronizar y compartir
         </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }

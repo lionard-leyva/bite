@@ -1,4 +1,5 @@
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { RATING_MAX } from '../config/constants';
 
 interface StarRatingProps {
@@ -25,9 +26,11 @@ export default function StarRating({
             accessibilityRole="button"
             accessibilityLabel={`${value} estrella${value > 1 ? 's' : ''}`}
           >
-            <Text style={{ fontSize: size }}>
-              {filled ? '\u2605' : '\u2606'}
-            </Text>
+            <Ionicons
+              name={filled ? 'star' : 'star-outline'}
+              size={size}
+              color={filled ? '#FFB400' : '#EBEBEB'}
+            />
           </Pressable>
         );
       })}

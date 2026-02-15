@@ -9,7 +9,7 @@ export default function App() {
     <AuthProvider>
       <NavigationContainer>
         <RootNavigator />
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </NavigationContainer>
     </AuthProvider>
   );

@@ -40,4 +40,21 @@ describe('timeAgo', () => {
     const date = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
     expect(timeAgo(date)).toBe('Hace 1 año');
   });
+
+  it('handles null gracefully', () => {
+    expect(timeAgo(null)).toBe('Justo ahora');
+  });
+
+  it('handles undefined gracefully', () => {
+    expect(timeAgo(undefined)).toBe('Justo ahora');
+  });
+
+  it('handles ISO string from JSON.parse', () => {
+    const iso = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    expect(timeAgo(iso)).toBe('Hace 2h');
+  });
+
+  it('handles invalid date string', () => {
+    expect(timeAgo('not-a-date')).toBe('Justo ahora');
+  });
 });

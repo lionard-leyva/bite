@@ -17,6 +17,20 @@ const firebaseConfig = {
   appId: extra.FIREBASE_APP_ID,
 };
 
+if (__DEV__) {
+  console.log('Firebase config loaded:', {
+    apiKey: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + '...' : 'MISSING',
+    projectId: firebaseConfig.projectId || 'MISSING',
+    authDomain: firebaseConfig.authDomain || 'MISSING',
+  });
+}
+
+if (!firebaseConfig.apiKey) {
+  throw new Error(
+    'Firebase API key not found. Check that app.config.js extra.FIREBASE_API_KEY is set and expo-constants is loading correctly.'
+  );
+}
+
 const app = initializeApp(firebaseConfig);
 
 export const auth = initializeAuth(app, {

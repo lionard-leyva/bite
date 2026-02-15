@@ -10,6 +10,14 @@ import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+function LoadingScreen() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFAFA' }}>
+      <ActivityIndicator size="large" color="#FF5A5F" />
+    </View>
+  );
+}
+
 export default function RootNavigator() {
   const { user, skipMode, isLoading, pendingMigration, migrateLocalData, dismissMigration } = useAuth();
   const migrationShown = useRef(false);
@@ -43,19 +51,11 @@ export default function RootNavigator() {
     }
   }, [pendingMigration, migrateLocalData, dismissMigration]);
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#e63946" />
-      </View>
-    );
-  }
-
-  const isAuthenticated = user !== null || skipMode;
-
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!isAuthenticated ? (
+      {isLoading ? (
+        <Stack.Screen name="Loading" component={LoadingScreen} />
+      ) : user === null && !skipMode ? (
         <Stack.Screen name="Auth" component={AuthScreen} />
       ) : (
         <>
@@ -63,12 +63,23 @@ export default function RootNavigator() {
           <Stack.Screen
             name="Save"
             component={SaveScreen}
-            options={{ presentation: 'modal', headerShown: true, title: 'Guardar restaurante' }}
+            options={{
+              presentation: 'modal',
+              headerShown: true,
+              title: 'Guardar restaurante',
+              headerStyle: { backgroundColor: '#FAFAFA' },
+              headerTintColor: '#222222',
+            }}
           />
           <Stack.Screen
             name="Detail"
             component={DetailScreen}
-            options={{ headerShown: true, title: '' }}
+            options={{
+              headerShown: true,
+              title: '',
+              headerStyle: { backgroundColor: '#FAFAFA' },
+              headerTintColor: '#222222',
+            }}
           />
         </>
       )}

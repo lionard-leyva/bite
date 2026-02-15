@@ -1,6 +1,11 @@
-export function timeAgo(date: Date): string {
+export function timeAgo(date: Date | string | null | undefined): string {
+  if (!date) return 'Justo ahora';
+
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return 'Justo ahora';
+
   const now = Date.now();
-  const seconds = Math.floor((now - date.getTime()) / 1000);
+  const seconds = Math.floor((now - d.getTime()) / 1000);
 
   if (seconds < 60) return 'Justo ahora';
 
