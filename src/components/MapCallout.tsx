@@ -20,8 +20,6 @@ interface MapCalloutProps {
   etaInfoText?: string | null;
   /** Whether ETA is loading from Directions API */
   etaLoading?: boolean;
-  /** Callback to open native maps navigation */
-  onNavigate?: () => void;
 }
 
 function MiniStars({ rating }: { rating: number }) {
@@ -49,13 +47,11 @@ function MapCalloutInner({
   onPress,
   etaInfoText,
   etaLoading,
-  onNavigate,
 }: MapCalloutProps) {
-  // Use ETA info if available, otherwise fall back to Haversine distance
   const navigationLine = etaInfoText ?? distanceText;
 
   return (
-    <Callout tooltip onPress={onNavigate ?? onPress}>
+    <Callout tooltip onPress={onPress}>
       <View style={{ alignItems: 'center' }}>
         {/* Card */}
         <View
@@ -143,26 +139,21 @@ function MapCalloutInner({
             </View>
           </View>
 
-          {/* "Ir ahora" button — only shows when onNavigate is provided */}
-          {onNavigate && (
-            <View
-              style={{
-                marginTop: 8,
-                backgroundColor: '#FF5A5F',
-                borderRadius: 8,
-                paddingVertical: 6,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-                gap: 4,
-              }}
-            >
-              <Ionicons name="navigate" size={13} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
-                Ir ahora
-              </Text>
-            </View>
-          )}
+          {/* "Ver detalle" hint — tells user what tapping does */}
+          <View
+            style={{
+              marginTop: 8,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+              Toca para ver detalle
+            </Text>
+            <Ionicons name="chevron-forward" size={11} color="#9CA3AF" />
+          </View>
         </View>
 
         {/* Triangle arrow */}

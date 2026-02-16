@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
-import { useLocation } from '../hooks/useLocation';
+import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { saveRestaurant } from '../services/restaurantService';
 import { saveLocalRestaurant } from '../services/localStorageService';
 import StarRating from '../components/StarRating';
@@ -26,7 +27,7 @@ const MAPS_KEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ?? '';
 export default function SaveScreen() {
   const navigation = useNavigation();
   const { userId, listId, skipMode } = useAuth();
-  const location = useLocation();
+  const location = useUserLocation();
 
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -41,22 +42,24 @@ export default function SaveScreen() {
 
   const placesRef = useRef<any>(null);
 
-  // Auto-fill address from GPS when location loads
+  // Auto-fill address hint from GPS (display only — NOT used as restaurant coords)
   const hasAutoFilled = useRef(false);
   useEffect(() => {
     if (location.address && !hasAutoFilled.current && !name) {
       hasAutoFilled.current = true;
-      setAddress(location.address);
-      setLatitude(location.latitude);
-      setLongitude(location.longitude);
+      // Only set address text for display; lat/lng must come from Places API or geocoding
     }
   }, [location.address]);
 
   function handlePlaceSelected(data: any, details: any) {
     setName(data.structured_formatting?.main_text ?? data.description);
     setAddress(details?.formatted_address ?? data.description);
-    setLatitude(details?.geometry?.location?.lat ?? location.latitude);
-    setLongitude(details?.geometry?.location?.lng ?? location.longitude);
+    const placeLat = details?.geometry?.location?.lat;
+    const placeLng = details?.geometry?.location?.lng;
+    if (placeLat != null && placeLng != null) {
+      setLatitude(placeLat);
+      setLongitude(placeLng);
+    }
   }
 
   async function handleSave() {
@@ -71,15 +74,33 @@ export default function SaveScreen() {
       return;
     }
 
-    const finalLat = latitude ?? location.latitude;
-    const finalLng = longitude ?? location.longitude;
+    setSaving(true);
 
+    let finalLat = latitude;
+    let finalLng = longitude;
+
+    // If no coords yet (manual mode), geocode the address
     if (finalLat == null || finalLng == null) {
-      Alert.alert('Ubicacion', 'No se pudo determinar la ubicacion');
-      return;
+      const queryAddress = address.trim() || finalName;
+      try {
+        const results = await Location.geocodeAsync(queryAddress);
+        if (results.length > 0) {
+          finalLat = results[0].latitude;
+          finalLng = results[0].longitude;
+        }
+      } catch (_) {
+        // geocoding failed — fall through to error below
+      }
     }
 
-    setSaving(true);
+    if (finalLat == null || finalLng == null) {
+      setSaving(false);
+      Alert.alert(
+        'Ubicacion',
+        'No se pudo determinar la ubicacion del restaurante. Intenta usar el buscador o introduce una direccion mas precisa.',
+      );
+      return;
+    }
     try {
       if (skipMode) {
         await saveLocalRestaurant({
@@ -197,7 +218,7 @@ export default function SaveScreen() {
             />
             <TextInput
               className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
-              placeholder="Direccion (opcional)"
+              placeholder="Direccion del restaurante"
               placeholderTextColor="#A0A0A0"
               value={address}
               onChangeText={setAddress}
