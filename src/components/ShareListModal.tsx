@@ -128,11 +128,12 @@ export default function ShareListModal({
             <TextInput
               className="mb-4 rounded-input border border-border px-4 py-3 text-center text-xl font-bold tracking-widest text-text-primary"
               placeholder="ABC-123"
-              placeholderTextColor="#B0B0B0"
+              placeholderTextColor="#A0A0A0"
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
               maxLength={7}
+              style={{ minHeight: 48, textAlignVertical: 'center' }}
             />
             <Pressable
               className={`items-center rounded-button py-4 ${loading ? 'bg-border' : 'bg-primary'}`}

@@ -4,7 +4,7 @@
 
 **Bite** - App movil para guardar y recordar restaurantes en pareja/amigos. Guardar un sitio en 2 taps, compartir lista en tiempo real.
 
-**Stack**: React Native + Expo + Firebase (Auth, Firestore, Storage) + TypeScript + NativeWind
+**Stack**: React Native + Expo + Firebase (Auth, Firestore, Storage) + TypeScript + NativeWind + Express proxy (directions)
 
 Spec completa en `SPEC.md`.
 
@@ -30,17 +30,20 @@ restaurants.filter(r =>
 
 **No editar restaurantes en v1**: Si se equivoca, eliminar y re-guardar. Evita conflictos de edicion concurrente entre pareja. Editar es post-MVP.
 
+**Directions proxy**: El cliente NO llama a Google Directions API directamente. Un servidor Express ligero en `server/` actua como proxy (`POST /api/directions`), mantiene la API key server-side, cachea respuestas 5 min, deduplica requests simultaneos y aplica rate limiting. El cliente solo envia `{ origin: {lat,lng}, destination: {lat,lng} }` y recibe `{ distanceKm, durationMinutes }`. Si el proxy no responde, el callout muestra distancia Haversine como fallback.
+
 ## 3. Estructura del Proyecto
 
 ```
+server/             # Express proxy (directions API, rate limit, cache)
 src/
 ├── __tests__/      # Jest tests (timeAgo, searchFilter, StarRating, RestaurantCard)
 ├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay
 ├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService
-├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation
+├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService
+├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA
 ├── types/          # User, Restaurant, RestaurantList (interfaces TypeScript)
 ├── utils/          # timeAgo
 └── config/         # firebase.ts, constants.ts
@@ -103,12 +106,16 @@ src/
 ## 6. Comandos de Desarrollo
 
 ```bash
-# Iniciar
+# Iniciar app
 npm install
 npx expo start
 
+# Iniciar proxy (en otra terminal)
+cd server && npm install && npm run dev
+
 # Testing
-npm test
+npm test                # Client (32 tests, 4 suites)
+npm run server:test     # Server (13 tests, 2 suites)
 
 # Build
 eas build --platform ios
@@ -125,9 +132,17 @@ FIREBASE_STORAGE_BUCKET=
 FIREBASE_MESSAGING_SENDER_ID=
 FIREBASE_APP_ID=
 GOOGLE_MAPS_API_KEY=
+DIRECTIONS_PROXY_URL=http://localhost:3001/api/directions
 ```
 
-No commitear `.env`. Usar `app.config.js` con `expo-constants` para acceder en runtime.
+Server (`server/.env`):
+```
+GOOGLE_DIRECTIONS_API_KEY=
+CORS_ORIGINS=
+PORT=3001
+```
+
+No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `process.env` directamente. `GOOGLE_DIRECTIONS_API_KEY` solo vive en el server, nunca en el cliente.
 
 ## 8. Reglas de Codigo (Code Conventions)
 
@@ -164,9 +179,10 @@ Marcar con [x] cuando se completen.
 ### Ejecutar tests
 
 ```bash
-npm test              # Todos (28 tests, 4 suites)
+npm test              # Client (32 tests, 4 suites)
 npm run test:watch    # Watch mode
 npx jest --no-cache   # Sin cache
+npm run server:test   # Server (13 tests, 2 suites)
 ```
 
 ### Configuracion
@@ -185,6 +201,8 @@ Requiere `react-native-worklets` como dev dependency (peer dep de RN 0.81 para b
 | searchFilter | `src/__tests__/searchFilter.test.ts` | 8 | Filtros visitado/pendiente, busqueda por nombre/direccion, combinaciones, trim |
 | StarRating | `src/__tests__/StarRating.test.tsx` | 4 | Render 5 estrellas, onRate callback, estrellas llenas, accessibility labels |
 | RestaurantCard | `src/__tests__/RestaurantCard.test.tsx` | 8 | Nombre, direccion, estrellas, onPress, indicador visitado/pendiente, placeholder foto, accessibility |
+| validateDirections | `server/__tests__/directions.test.js` | 8 | Validacion de inputs (lat/lng rangos, tipos, missing fields) |
+| cache | `server/__tests__/directions.test.js` | 5 | TTL expiry, key rounding, dedup inflight, get/set |
 
 ### Escenarios de prueba manual
 

@@ -13,11 +13,12 @@ export default function SearchBar({ value, onChangeText }: SearchBarProps) {
       <TextInput
         className="flex-1 text-body text-text-primary"
         placeholder="Buscar..."
-        placeholderTextColor="#B0B0B0"
+        placeholderTextColor="#A0A0A0"
         value={value}
         onChangeText={onChangeText}
         autoCorrect={false}
         accessibilityLabel="Buscar restaurantes"
+        style={{ textAlignVertical: 'center' }}
       />
       {value.length > 0 && (
         <Pressable

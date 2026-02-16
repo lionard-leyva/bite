@@ -157,20 +157,22 @@ export default function SaveScreen() {
               styles={{
                 textInput: {
                   borderWidth: 1,
-                  borderColor: '#EBEBEB',
+                  borderColor: '#F0EDED',
                   borderRadius: 12,
-                  paddingHorizontal: 12,
-                  height: 44,
+                  paddingHorizontal: 16,
+                  minHeight: 48,
                   fontSize: 16,
+                  lineHeight: 24,
                   backgroundColor: '#FFFFFF',
-                  color: '#222222',
+                  color: '#2D2D2D',
+                  textAlignVertical: 'center',
                 },
                 listView: { backgroundColor: '#FFFFFF' },
               }}
               textInputProps={{
                 value: name,
                 onChangeText: setName,
-                placeholderTextColor: '#B0B0B0',
+                placeholderTextColor: '#A0A0A0',
               }}
             />
           </View>
@@ -186,18 +188,20 @@ export default function SaveScreen() {
               </Text>
             )}
             <TextInput
-              className="rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
+              className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
               placeholder="Nombre del restaurante"
-              placeholderTextColor="#B0B0B0"
+              placeholderTextColor="#A0A0A0"
               value={name}
               onChangeText={setName}
+              style={{ minHeight: 48, textAlignVertical: 'center' }}
             />
             <TextInput
-              className="rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
+              className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
               placeholder="Direccion (opcional)"
-              placeholderTextColor="#B0B0B0"
+              placeholderTextColor="#A0A0A0"
               value={address}
               onChangeText={setAddress}
+              style={{ minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
         )}
@@ -258,13 +262,14 @@ export default function SaveScreen() {
           Nota (opcional)
         </Text>
         <TextInput
-          className="mb-4 rounded-input border border-border bg-surface px-3 py-2.5 text-body text-text-primary"
+          className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
           placeholder="Ej: La pasta increible"
-          placeholderTextColor="#B0B0B0"
+          placeholderTextColor="#A0A0A0"
           value={note}
           onChangeText={setNote}
           multiline
           maxLength={200}
+          style={{ minHeight: 80, textAlignVertical: 'top' }}
         />
 
         {/* Photo */}

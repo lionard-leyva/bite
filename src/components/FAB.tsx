@@ -1,12 +1,14 @@
 import { useRef } from 'react';
 import { Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FAB_SIZE } from '../config/constants';
 
 interface FABProps {
   onPress: () => void;
+  bottomOffset?: number;
 }
 
-export default function FAB({ onPress }: FABProps) {
+export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   function onPressIn() {
@@ -25,12 +27,27 @@ export default function FAB({ onPress }: FABProps) {
 
   return (
     <Animated.View
-      className="absolute bottom-8 right-5"
-      style={{ transform: [{ scale: scaleAnim }] }}
+      style={{
+        position: 'absolute',
+        bottom: bottomOffset,
+        right: 20,
+        transform: [{ scale: scaleAnim }],
+      }}
     >
       <Pressable
-        className="h-16 w-16 items-center justify-center rounded-full bg-primary"
-        style={{ elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6 }}
+        style={{
+          width: FAB_SIZE,
+          height: FAB_SIZE,
+          borderRadius: FAB_SIZE / 2,
+          backgroundColor: '#FF5A5F',
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#FF5A5F',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}

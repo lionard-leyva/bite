@@ -135,6 +135,7 @@ export default function AuthScreen() {
           autoCapitalize="none"
           keyboardType="email-address"
           textContentType="emailAddress"
+          style={{ minHeight: 48, textAlignVertical: 'center' }}
         />
         {emailError ? (
           <Text className="mt-1 text-caption text-primary">{emailError}</Text>
@@ -148,6 +149,7 @@ export default function AuthScreen() {
           onChangeText={handlePasswordChange}
           secureTextEntry
           textContentType="password"
+          style={{ minHeight: 48, textAlignVertical: 'center' }}
         />
         {passwordError ? (
           <Text className="mt-1 text-caption text-primary">{passwordError}</Text>

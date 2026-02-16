@@ -40,6 +40,7 @@ export default ({ config }) => ({
     FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID || "161393276832",
     FIREBASE_APP_ID: process.env.FIREBASE_APP_ID || "1:161393276832:web:ba8edf81428a051079d6c5",
     GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+    DIRECTIONS_PROXY_URL: process.env.DIRECTIONS_PROXY_URL,
   },
   plugins: [
     "expo-location",
