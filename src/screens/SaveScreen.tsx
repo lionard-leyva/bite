@@ -15,7 +15,6 @@ import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplet
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
@@ -27,18 +26,9 @@ import StarRating from '../components/StarRating';
 import PriceSlider from '../components/PriceSlider';
 import PhotoPicker from '../components/PhotoPicker';
 import DragHandle from '../components/DragHandle';
-import { PRICE_DEFAULT, NEARBY_SEARCH_RADIUS } from '../config/constants';
+import { PRICE_DEFAULT } from '../config/constants';
 
 const MAPS_KEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ?? '';
-
-type DetectionState = 'detecting' | 'suggestion' | 'dismissed' | 'accepted';
-
-interface Suggestion {
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-}
 
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
@@ -47,7 +37,6 @@ export default function SaveScreen() {
   const route = useRoute<SaveRoute>();
   const { userId, listId, skipMode } = useAuth();
   const location = useUserLocation();
-  const insets = useSafeAreaInsets();
 
   const editId = route.params?.restaurantId ?? null;
   const [isEditMode, setIsEditMode] = useState(false);
@@ -63,13 +52,6 @@ export default function SaveScreen() {
   const [pricePerPerson, setPricePerPerson] = useState(PRICE_DEFAULT);
   const [saving, setSaving] = useState(false);
   const [manualMode, setManualMode] = useState(false);
-  const [showPlacesSearch, setShowPlacesSearch] = useState(false);
-
-  const [detectionState, setDetectionState] = useState<DetectionState>(
-    editId ? 'accepted' : (MAPS_KEY ? 'detecting' : 'dismissed'),
-  );
-  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
-  const hasDetected = useRef(!!editId);
 
   // One-shot read for edit mode — no listener, no re-renders on other screens
   const hasPrePopulated = useRef(false);
@@ -107,7 +89,6 @@ export default function SaveScreen() {
         setNote(data.note);
         setPhotoUri(data.photoURL);
         setPricePerPerson(data.pricePerPerson ?? PRICE_DEFAULT);
-        setDetectionState('accepted');
       } catch (err) {
         console.warn('[SaveScreen] Failed to load restaurant for edit:', err);
       }
@@ -116,73 +97,18 @@ export default function SaveScreen() {
 
   const placesRef = useRef<any>(null);
 
-  // Auto-fill address hint from GPS (display only — NOT used as restaurant coords)
-  const hasAutoFilled = useRef(false);
+  // Auto-fill GPS coords and address when location becomes available (non-edit mode)
+  const hasAutoFilledGPS = useRef(!!editId);
   useEffect(() => {
-    if (location.address && !hasAutoFilled.current && !name) {
-      hasAutoFilled.current = true;
-      // Only set address text for display; lat/lng must come from Places API or geocoding
-    }
-  }, [location.address]);
-
-  // Auto-detect nearby restaurant via Places Nearby Search
-  useEffect(() => {
-    if (hasDetected.current) return;
-    if (!MAPS_KEY) return;
+    if (hasAutoFilledGPS.current) return;
     if (location.latitude == null || location.longitude == null) return;
-    hasDetected.current = true;
-
-    (async () => {
-      try {
-        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.latitude},${location.longitude}&radius=${NEARBY_SEARCH_RADIUS}&type=restaurant&key=${MAPS_KEY}`;
-        console.log('[SaveScreen] Nearby search:', `lat=${location.latitude}, lng=${location.longitude}, radius=${NEARBY_SEARCH_RADIUS}`);
-        const res = await fetch(url);
-        const json = await res.json();
-        console.log('[SaveScreen] Nearby search status:', json.status, 'results:', json.results?.length ?? 0);
-        if (json.status !== 'OK') {
-          console.warn('[SaveScreen] Nearby search failed:', json.status, json.error_message);
-        }
-        if (json.results && json.results.length > 0) {
-          const place = json.results[0];
-          setSuggestion({
-            name: place.name,
-            address: place.vicinity ?? place.formatted_address ?? '',
-            lat: place.geometry.location.lat,
-            lng: place.geometry.location.lng,
-          });
-          setDetectionState('suggestion');
-        } else {
-          setDetectionState('dismissed');
-        }
-      } catch (err) {
-        console.warn('[SaveScreen] Nearby search error:', err);
-        setDetectionState('dismissed');
-      }
-    })();
-  }, [location.latitude, location.longitude]);
-
-  function acceptSuggestion() {
-    if (!suggestion) return;
-    setName(suggestion.name);
-    setAddress(suggestion.address);
-    setLatitude(suggestion.lat);
-    setLongitude(suggestion.lng);
-    setDetectionState('accepted');
-  }
-
-  function dismissSuggestion() {
-    setDetectionState('dismissed');
-    setSuggestion(null);
-  }
-
-  function clearAccepted() {
-    setName('');
-    setAddress('');
-    setLatitude(null);
-    setLongitude(null);
-    setDetectionState('dismissed');
-    setSuggestion(null);
-  }
+    hasAutoFilledGPS.current = true;
+    setLatitude(location.latitude);
+    setLongitude(location.longitude);
+    if (location.address) {
+      setAddress(location.address);
+    }
+  }, [location.latitude, location.longitude, location.address]);
 
   function handlePlaceSelected(data: any, details: any) {
     setName(data.structured_formatting?.main_text ?? data.description);
@@ -337,33 +263,27 @@ export default function SaveScreen() {
           Ubicacion
         </Text>
 
-        {/* GPS location indicator — always visible */}
-        <Pressable
-          onPress={() => {
-            if (detectionState === 'accepted') {
-              clearAccepted();
-            }
-            setShowPlacesSearch(true);
-          }}
+        {/* GPS address indicator */}
+        <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             borderWidth: 1,
-            borderColor: detectionState === 'accepted' ? '#00A699' : '#F0EDED',
+            borderColor: address ? '#00A699' : '#F0EDED',
             borderRadius: 12,
             paddingHorizontal: 12,
             minHeight: 48,
-            backgroundColor: detectionState === 'accepted' ? '#F0FDFA' : '#FFFFFF',
+            backgroundColor: address ? '#F0FDFA' : '#FFFFFF',
             marginBottom: 8,
           }}
         >
-          {location.loading || detectionState === 'detecting' ? (
+          {location.loading ? (
             <ActivityIndicator size={16} color="#FF5A5F" style={{ marginRight: 8 }} />
           ) : (
             <Ionicons
-              name={detectionState === 'accepted' ? 'checkmark-circle' : 'locate'}
+              name={address ? 'locate' : 'locate-outline'}
               size={18}
-              color={detectionState === 'accepted' ? '#00A699' : '#FF5A5F'}
+              color={address ? '#00A699' : '#FF5A5F'}
               style={{ marginRight: 8 }}
             />
           )}
@@ -372,67 +292,27 @@ export default function SaveScreen() {
             style={{
               flex: 1,
               fontSize: 15,
-              color: (location.loading || detectionState === 'detecting') ? '#6B7280' : '#1F2937',
+              color: location.loading ? '#6B7280' : '#1F2937',
             }}
           >
-            {(location.loading || detectionState === 'detecting')
+            {location.loading
               ? 'Tu ubicaci\u00F3n...'
-              : detectionState === 'accepted'
-                ? name
-                : location.address ?? 'Ubicaci\u00F3n no disponible'}
+              : address || 'Ubicaci\u00F3n no disponible'}
           </Text>
-          {detectionState === 'accepted' && (
-            <Pressable onPress={clearAccepted} hitSlop={8}>
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-            </Pressable>
-          )}
-        </Pressable>
+        </View>
 
-        {/* Auto-detection suggestion banner */}
-        {detectionState === 'suggestion' && suggestion && (
-          <View style={{
-            marginBottom: 8,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: 'rgba(255,90,95,0.3)',
-            backgroundColor: 'rgba(255,90,95,0.05)',
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-          }}>
-            <Text className="text-sm font-medium text-text-primary">
-              {'\u{1F4CD}'} {'\u00BF'}Est{'\u00E1'}s en {suggestion.name}?
-            </Text>
-            <Text className="mt-0.5 text-caption text-text-secondary" numberOfLines={1}>
-              {suggestion.address}
-            </Text>
-            <View className="mt-2 flex-row gap-2">
-              <Pressable
-                className="flex-1 items-center rounded-button bg-primary py-2"
-                onPress={acceptSuggestion}
-              >
-                <Text className="text-sm font-semibold text-white">S{'\u00ED'}</Text>
-              </Pressable>
-              <Pressable
-                className="flex-1 items-center rounded-button border border-border py-2"
-                onPress={dismissSuggestion}
-              >
-                <Text className="text-sm font-medium text-text-secondary">No</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* Expandable Places search — shown on tap or after dismissing suggestion */}
-        {(showPlacesSearch || detectionState === 'dismissed') && !manualMode && MAPS_KEY ? (
+        {/* Restaurant name */}
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
+          Nombre
+        </Text>
+        {!manualMode && MAPS_KEY ? (
           <View className="z-10 mb-4">
             <GooglePlacesAutocomplete
               ref={placesRef}
-              placeholder="Buscar restaurante..."
+              placeholder="Nombre del restaurante..."
               fetchDetails
               onPress={(data, details) => {
                 handlePlaceSelected(data, details);
-                setShowPlacesSearch(false);
-                setDetectionState('accepted');
               }}
               onFail={() => setManualMode(true)}
               query={{ key: MAPS_KEY, language: 'es' }}
@@ -460,17 +340,8 @@ export default function SaveScreen() {
               }}
             />
           </View>
-        ) : (showPlacesSearch || detectionState === 'dismissed') ? (
+        ) : (
           <View className="mb-4 gap-2">
-            {!MAPS_KEY && !manualMode ? (
-              <Text className="mb-1 text-caption text-warning">
-                Busqueda no disponible. Introduce el nombre manualmente.
-              </Text>
-            ) : (
-              <Text className="mb-1 text-caption text-warning">
-                No pudimos buscar restaurantes. Introduce el nombre manualmente.
-              </Text>
-            )}
             <TextInput
               className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
               placeholder="Nombre del restaurante"
@@ -488,7 +359,7 @@ export default function SaveScreen() {
               style={{ minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
-        ) : null}
+        )}
 
         {/* Rating */}
         <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">

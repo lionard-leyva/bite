@@ -96,9 +96,6 @@ export const PRICE_LABELS = ['Súper barato', 'Económico', 'Normal', 'Caro', 'L
 export const PRICE_DEFAULT = 20;
 export const PRICE_TRACK_COLOR = '#ef4444';
 
-// Nearby search
-export const NEARBY_SEARCH_RADIUS = 150;
-
 // Bottom sheet animation
 export const SHEET_SPRING_TENSION = 65;
 export const SHEET_SPRING_FRICTION = 11;

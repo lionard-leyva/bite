@@ -1,5 +1,8 @@
-import { View, Text, Pressable, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Pressable, Modal } from 'react-native';
+import { initialWindowMetrics } from 'react-native-safe-area-context';
 import DragHandle from './DragHandle';
+
+const BOTTOM_INSET = initialWindowMetrics?.insets.bottom ?? 34;
 
 interface ConfirmModalProps {
   visible: boolean;
@@ -23,86 +26,85 @@ export default function ConfirmModal({
   onCancel,
 }: ConfirmModalProps) {
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <Pressable
-        style={{
-          flex: 1,
-          justifyContent: 'flex-end',
-          backgroundColor: 'rgba(0,0,0,0.5)',
-        }}
-        onPress={onCancel}
-      >
-        <Pressable onPress={(e) => e.stopPropagation()}>
-          <View
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+        {/* Backdrop */}
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onPress={onCancel}
+        />
+
+        {/* Sheet */}
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            paddingHorizontal: 24,
+            paddingBottom: BOTTOM_INSET + 20,
+          }}
+        >
+          <DragHandle />
+
+          <Text
             style={{
-              backgroundColor: '#FFFFFF',
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              paddingHorizontal: 24,
-              paddingBottom: 34,
+              marginTop: 12,
+              marginBottom: 8,
+              fontSize: 18,
+              fontWeight: '700',
+              color: '#1F2937',
             }}
           >
-            <DragHandle />
+            {title}
+          </Text>
+          <Text
+            style={{
+              marginBottom: 24,
+              fontSize: 15,
+              color: '#6B7280',
+              lineHeight: 22,
+            }}
+          >
+            {message}
+          </Text>
 
-            <Text
-              style={{
-                marginTop: 12,
-                marginBottom: 8,
-                fontSize: 18,
-                fontWeight: '700',
-                color: '#1F2937',
-              }}
-            >
-              {title}
+          {/* Confirm button — full width, on top */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onConfirm()}
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              paddingVertical: 16,
+              backgroundColor: destructive ? '#FF5A5F' : '#1F2937',
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+              {confirmLabel}
             </Text>
-            <Text
-              style={{
-                marginBottom: 24,
-                fontSize: 15,
-                color: '#6B7280',
-                lineHeight: 22,
-              }}
-            >
-              {message}
+          </TouchableOpacity>
+
+          {/* Cancel button — full width, below */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onCancel()}
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#E5E7EB',
+              paddingVertical: 16,
+            }}
+          >
+            <Text style={{ fontSize: 16, fontWeight: '500', color: '#6B7280' }}>
+              {cancelLabel}
             </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable
-                style={({ pressed }) => ({
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#E5E7EB',
-                  paddingVertical: 14,
-                  opacity: pressed ? 0.85 : 1,
-                })}
-                onPress={onCancel}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '500', color: '#6B7280' }}>
-                  {cancelLabel}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => ({
-                  flex: 1,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  backgroundColor: destructive ? '#FF5A5F' : '#1F2937',
-                  opacity: pressed ? 0.85 : 1,
-                })}
-                onPress={onConfirm}
-              >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>
-                  {confirmLabel}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Pressable>
-      </Pressable>
+          </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
