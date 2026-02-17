@@ -86,6 +86,7 @@ export function useRestaurants(): UseRestaurantsReturn {
             note: d.note,
             photoURL: d.photoURL,
             visited: d.visited,
+            pricePerPerson: d.pricePerPerson ?? 20,
             createdBy: d.createdBy,
             createdAt: toDate(d.createdAt),
             updatedAt: toDate(d.updatedAt),

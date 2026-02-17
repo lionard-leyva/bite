@@ -40,6 +40,14 @@ export async function clearLocalRestaurants(): Promise<void> {
   await AsyncStorage.removeItem(KEYS.RESTAURANTS);
 }
 
+export async function updateLocalRestaurant(updated: Restaurant): Promise<void> {
+  const existing = await getLocalRestaurants();
+  const mapped = existing.map((r) =>
+    r.id === updated.id ? { ...updated, updatedAt: new Date() } : r,
+  );
+  await AsyncStorage.setItem(KEYS.RESTAURANTS, JSON.stringify(mapped));
+}
+
 export async function deleteLocalRestaurant(id: string): Promise<void> {
   const existing = await getLocalRestaurants();
   const filtered = existing.filter((r) => r.id !== id);

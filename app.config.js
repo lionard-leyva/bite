@@ -25,7 +25,13 @@ export default ({ config }) => ({
       backgroundColor: "#ef4444",
     },
     edgeToEdgeEnabled: true,
-    package: "com.bite.app",
+    package: "com.lionardleyva.bite",
+    versionCode: 1,
+    permissions: [
+      "ACCESS_FINE_LOCATION",
+      "CAMERA",
+      "READ_EXTERNAL_STORAGE",
+    ],
     config: {
       googleMaps: {
         apiKey: process.env.GOOGLE_MAPS_API_KEY,
@@ -33,6 +39,9 @@ export default ({ config }) => ({
     },
   },
   extra: {
+    eas: {
+      projectId: "56a33e34-71eb-4068-ade3-42d358c1d0ef",
+    },
     FIREBASE_API_KEY: process.env.FIREBASE_API_KEY || "AIzaSyC4lIS9YErPRAbjZvs-jEAjhwGPWGLqx7U",
     FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN || "bite-ba28f.firebaseapp.com",
     FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || "bite-ba28f",

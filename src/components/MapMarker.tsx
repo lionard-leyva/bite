@@ -1,76 +1,131 @@
-import { memo, useRef, useEffect } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { memo } from 'react';
+import { Text, View, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  PIN_PENDING,
-  PIN_VISITED,
+  MARKER_PIN_SIZE,
+  MARKER_PIN_ICON_SIZE,
+  MARKER_PIN_TAIL_WIDTH,
+  MARKER_PIN_TAIL_HEIGHT,
+  MARKER_SHADOW_RADIUS,
+  MARKER_SHADOW_OPACITY,
+  MARKER_BG_DEFAULT,
+  MARKER_BG_SELECTED,
+  MARKER_SELECTED_SCALE,
+  MARKER_VISITED_ACCENT,
+  MARKER_PENDING_ACCENT,
 } from '../config/constants';
 
 interface MapMarkerProps {
+  name: string;
   rating: number;
   visited: boolean;
   isSelected: boolean;
-  /** True when another marker is selected (dims this one) */
-  dimmed: boolean;
 }
 
-function MapMarkerInner({ rating, visited, isSelected, dimmed }: MapMarkerProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = useRef(new Animated.Value(1)).current;
+const BORDER_W = 2;
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: isSelected ? 1.18 : dimmed ? 0.85 : 1,
-        useNativeDriver: true,
-        friction: 7,
-        tension: 120,
-      }),
-      Animated.timing(opacity, {
-        toValue: dimmed ? 0.45 : 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [isSelected, dimmed, scale, opacity]);
+function MapMarkerInner({ name, rating, visited, isSelected }: MapMarkerProps) {
+  const bg = isSelected ? MARKER_BG_SELECTED : MARKER_BG_DEFAULT;
+  const borderColor = isSelected ? MARKER_BG_SELECTED : '#FF5A5F';
+  const scale = isSelected ? MARKER_SELECTED_SCALE : 1;
+  const accentColor = visited ? MARKER_VISITED_ACCENT : MARKER_PENDING_ACCENT;
 
-  const color = visited ? PIN_VISITED : PIN_PENDING;
+  const iconColor = isSelected
+    ? (visited ? '#6EE7B7' : '#FCA5A5')
+    : accentColor;
+
+  const shadow = Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: isSelected ? 0.28 : MARKER_SHADOW_OPACITY,
+      shadowRadius: isSelected ? 10 : MARKER_SHADOW_RADIUS,
+    },
+    android: {
+      elevation: isSelected ? 10 : 5,
+    },
+  });
+
+  // Outer (border) triangle is slightly larger than inner (fill) triangle
+  const outerHalf = (MARKER_PIN_TAIL_WIDTH / 2) + BORDER_W;
+  const outerH = MARKER_PIN_TAIL_HEIGHT + BORDER_W;
+  const innerHalf = MARKER_PIN_TAIL_WIDTH / 2;
+  const innerH = MARKER_PIN_TAIL_HEIGHT;
 
   return (
-    <Animated.View
-      style={{
-        transform: [{ scale }],
-        opacity,
-        backgroundColor: color,
-        paddingHorizontal: 8,
-        paddingTop: 6,
-        paddingBottom: 5,
-        borderRadius: 16,
-        alignItems: 'center',
-        borderWidth: isSelected ? 2.5 : 2,
-        borderColor: '#fff',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: isSelected ? 3 : 1 },
-        shadowOpacity: isSelected ? 0.35 : 0.25,
-        shadowRadius: isSelected ? 5 : 2,
-        elevation: isSelected ? 8 : 3,
-        minWidth: 36,
-      }}
-    >
-      <Text style={{ fontSize: 16, lineHeight: 18 }}>
-        {'\u{1F374}'}
-      </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1 }}>
-        <Text style={{ fontSize: 10, lineHeight: 12, color: '#fff', fontWeight: '800' }}>
-          {'\u{2B50}'}{rating}
+    <View style={{ alignItems: 'center', transform: [{ scale }] }}>
+      {/* Round pin head */}
+      <View
+        style={{
+          width: MARKER_PIN_SIZE,
+          height: MARKER_PIN_SIZE,
+          borderRadius: MARKER_PIN_SIZE / 2,
+          backgroundColor: bg,
+          borderWidth: BORDER_W,
+          borderColor,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...shadow,
+        }}
+      >
+        {/* Bite logo */}
+        <Ionicons
+          name="restaurant"
+          size={MARKER_PIN_ICON_SIZE}
+          color={iconColor}
+        />
+
+        {/* Rating: "3 ★" */}
+        <Text
+          style={{
+            fontSize: 9,
+            fontWeight: '800',
+            color: '#FFB800',
+            marginTop: 1,
+          }}
+        >
+          {rating} {'\u2605'}
         </Text>
       </View>
-    </Animated.View>
+
+      {/* Bordered pointy tail — outer (border color) + inner (fill) stacked */}
+      <View style={{ alignItems: 'center', marginTop: -BORDER_W }}>
+        {/* Outer triangle (border) */}
+        <View
+          style={{
+            width: 0,
+            height: 0,
+            borderLeftWidth: outerHalf,
+            borderRightWidth: outerHalf,
+            borderTopWidth: outerH,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: borderColor,
+          }}
+        />
+        {/* Inner triangle (fill) overlaid on top */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            width: 0,
+            height: 0,
+            borderLeftWidth: innerHalf,
+            borderRightWidth: innerHalf,
+            borderTopWidth: innerH,
+            borderLeftColor: 'transparent',
+            borderRightColor: 'transparent',
+            borderTopColor: bg,
+          }}
+        />
+      </View>
+    </View>
   );
 }
 
 export default memo(MapMarkerInner, (prev, next) =>
+  prev.name === next.name &&
   prev.rating === next.rating &&
   prev.visited === next.visited &&
-  prev.isSelected === next.isSelected &&
-  prev.dimmed === next.dimmed,
+  prev.isSelected === next.isSelected,
 );

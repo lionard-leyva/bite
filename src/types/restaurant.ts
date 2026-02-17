@@ -8,6 +8,7 @@ export interface Restaurant {
   note: string;
   photoURL: string | null;
   visited: boolean;
+  pricePerPerson?: number;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

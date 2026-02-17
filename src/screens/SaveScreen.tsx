@@ -14,20 +14,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { doc, getDoc, type Timestamp } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { saveRestaurant } from '../services/restaurantService';
-import { saveLocalRestaurant } from '../services/localStorageService';
+import { saveLocalRestaurant, updateLocalRestaurant, getLocalRestaurants } from '../services/localStorageService';
+import type { RootStackParamList } from '../navigation/types';
 import StarRating from '../components/StarRating';
+import PriceSlider from '../components/PriceSlider';
 import PhotoPicker from '../components/PhotoPicker';
+import DragHandle from '../components/DragHandle';
+import { PRICE_DEFAULT, NEARBY_SEARCH_RADIUS } from '../config/constants';
 
 const MAPS_KEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ?? '';
 
+type DetectionState = 'detecting' | 'suggestion' | 'dismissed' | 'accepted';
+
+interface Suggestion {
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
+
 export default function SaveScreen() {
   const navigation = useNavigation();
+  const route = useRoute<SaveRoute>();
   const { userId, listId, skipMode } = useAuth();
   const location = useUserLocation();
+  const insets = useSafeAreaInsets();
+
+  const editId = route.params?.restaurantId ?? null;
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -37,8 +60,59 @@ export default function SaveScreen() {
   const [visited, setVisited] = useState(true);
   const [note, setNote] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [pricePerPerson, setPricePerPerson] = useState(PRICE_DEFAULT);
   const [saving, setSaving] = useState(false);
   const [manualMode, setManualMode] = useState(false);
+  const [showPlacesSearch, setShowPlacesSearch] = useState(false);
+
+  const [detectionState, setDetectionState] = useState<DetectionState>(
+    editId ? 'accepted' : (MAPS_KEY ? 'detecting' : 'dismissed'),
+  );
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const hasDetected = useRef(!!editId);
+
+  // One-shot read for edit mode — no listener, no re-renders on other screens
+  const hasPrePopulated = useRef(false);
+  useEffect(() => {
+    if (!editId || hasPrePopulated.current) return;
+    hasPrePopulated.current = true;
+
+    (async () => {
+      try {
+        let data: any = null;
+        if (skipMode) {
+          const locals = await getLocalRestaurants();
+          data = locals.find((r) => r.id === editId);
+        } else {
+          const snap = await getDoc(doc(db, 'restaurants', editId));
+          if (snap.exists()) {
+            const d = snap.data();
+            const toDate = (v: Timestamp | Date | null | undefined) => {
+              if (!v) return new Date();
+              if (v instanceof Date) return v;
+              if (typeof (v as Timestamp).toDate === 'function') return (v as Timestamp).toDate();
+              return new Date();
+            };
+            data = { id: snap.id, ...d, createdAt: toDate(d.createdAt), updatedAt: toDate(d.updatedAt) };
+          }
+        }
+        if (!data) return;
+        setIsEditMode(true);
+        setName(data.name);
+        setAddress(data.address);
+        setLatitude(data.latitude);
+        setLongitude(data.longitude);
+        setRating(data.rating);
+        setVisited(data.visited);
+        setNote(data.note);
+        setPhotoUri(data.photoURL);
+        setPricePerPerson(data.pricePerPerson ?? PRICE_DEFAULT);
+        setDetectionState('accepted');
+      } catch (err) {
+        console.warn('[SaveScreen] Failed to load restaurant for edit:', err);
+      }
+    })();
+  }, [editId, skipMode]);
 
   const placesRef = useRef<any>(null);
 
@@ -50,6 +124,65 @@ export default function SaveScreen() {
       // Only set address text for display; lat/lng must come from Places API or geocoding
     }
   }, [location.address]);
+
+  // Auto-detect nearby restaurant via Places Nearby Search
+  useEffect(() => {
+    if (hasDetected.current) return;
+    if (!MAPS_KEY) return;
+    if (location.latitude == null || location.longitude == null) return;
+    hasDetected.current = true;
+
+    (async () => {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.latitude},${location.longitude}&radius=${NEARBY_SEARCH_RADIUS}&type=restaurant&key=${MAPS_KEY}`;
+        console.log('[SaveScreen] Nearby search:', `lat=${location.latitude}, lng=${location.longitude}, radius=${NEARBY_SEARCH_RADIUS}`);
+        const res = await fetch(url);
+        const json = await res.json();
+        console.log('[SaveScreen] Nearby search status:', json.status, 'results:', json.results?.length ?? 0);
+        if (json.status !== 'OK') {
+          console.warn('[SaveScreen] Nearby search failed:', json.status, json.error_message);
+        }
+        if (json.results && json.results.length > 0) {
+          const place = json.results[0];
+          setSuggestion({
+            name: place.name,
+            address: place.vicinity ?? place.formatted_address ?? '',
+            lat: place.geometry.location.lat,
+            lng: place.geometry.location.lng,
+          });
+          setDetectionState('suggestion');
+        } else {
+          setDetectionState('dismissed');
+        }
+      } catch (err) {
+        console.warn('[SaveScreen] Nearby search error:', err);
+        setDetectionState('dismissed');
+      }
+    })();
+  }, [location.latitude, location.longitude]);
+
+  function acceptSuggestion() {
+    if (!suggestion) return;
+    setName(suggestion.name);
+    setAddress(suggestion.address);
+    setLatitude(suggestion.lat);
+    setLongitude(suggestion.lng);
+    setDetectionState('accepted');
+  }
+
+  function dismissSuggestion() {
+    setDetectionState('dismissed');
+    setSuggestion(null);
+  }
+
+  function clearAccepted() {
+    setName('');
+    setAddress('');
+    setLatitude(null);
+    setLongitude(null);
+    setDetectionState('dismissed');
+    setSuggestion(null);
+  }
 
   function handlePlaceSelected(data: any, details: any) {
     setName(data.structured_formatting?.main_text ?? data.description);
@@ -103,8 +236,8 @@ export default function SaveScreen() {
     }
     try {
       if (skipMode) {
-        await saveLocalRestaurant({
-          id: Date.now().toString(36),
+        const localData = {
+          id: editId ?? Date.now().toString(36),
           name: finalName,
           address: address || '',
           latitude: finalLat,
@@ -112,14 +245,21 @@ export default function SaveScreen() {
           rating,
           note: note.trim(),
           visited,
+          pricePerPerson,
           photoURL: photoUri,
           createdBy: userId,
           createdAt: new Date(),
           updatedAt: new Date(),
           listId: 'local',
-        });
+        };
+        if (isEditMode) {
+          await updateLocalRestaurant(localData);
+        } else {
+          await saveLocalRestaurant(localData);
+        }
       } else {
         await saveRestaurant({
+          id: editId ?? undefined,
           name: finalName,
           address: address || '',
           latitude: finalLat,
@@ -127,6 +267,7 @@ export default function SaveScreen() {
           rating,
           note: note.trim(),
           visited,
+          pricePerPerson,
           photoUri,
           userId,
           listId,
@@ -146,31 +287,153 @@ export default function SaveScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={60}
     >
+      {/* Custom modal header */}
+      <DragHandle />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingBottom: 8,
+        }}
+      >
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={12}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: '#F0F0F0',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="close" size={18} color="#222222" />
+        </Pressable>
+        <Text
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            fontSize: 17,
+            fontWeight: '600',
+            color: '#1F2937',
+          }}
+        >
+          {isEditMode ? 'Editar restaurante' : 'Guardar restaurante'}
+        </Text>
+        {/* Invisible spacer to keep title centered */}
+        <View style={{ width: 32 }} />
+      </View>
+
       <ScrollView
         className="flex-1 px-5 pt-4"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Location section */}
+        {/* Location box */}
         <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Ubicacion
         </Text>
 
-        {location.loading ? (
-          <View className="mb-4 flex-row items-center gap-2">
-            <ActivityIndicator size="small" color="#FF5A5F" />
-            <Text className="text-sm text-text-secondary">Detectando ubicacion...</Text>
-          </View>
-        ) : null}
+        {/* GPS location indicator — always visible */}
+        <Pressable
+          onPress={() => {
+            if (detectionState === 'accepted') {
+              clearAccepted();
+            }
+            setShowPlacesSearch(true);
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: detectionState === 'accepted' ? '#00A699' : '#F0EDED',
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            minHeight: 48,
+            backgroundColor: detectionState === 'accepted' ? '#F0FDFA' : '#FFFFFF',
+            marginBottom: 8,
+          }}
+        >
+          {location.loading || detectionState === 'detecting' ? (
+            <ActivityIndicator size={16} color="#FF5A5F" style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons
+              name={detectionState === 'accepted' ? 'checkmark-circle' : 'locate'}
+              size={18}
+              color={detectionState === 'accepted' ? '#00A699' : '#FF5A5F'}
+              style={{ marginRight: 8 }}
+            />
+          )}
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontSize: 15,
+              color: (location.loading || detectionState === 'detecting') ? '#6B7280' : '#1F2937',
+            }}
+          >
+            {(location.loading || detectionState === 'detecting')
+              ? 'Tu ubicaci\u00F3n...'
+              : detectionState === 'accepted'
+                ? name
+                : location.address ?? 'Ubicaci\u00F3n no disponible'}
+          </Text>
+          {detectionState === 'accepted' && (
+            <Pressable onPress={clearAccepted} hitSlop={8}>
+              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            </Pressable>
+          )}
+        </Pressable>
 
-        {!manualMode && MAPS_KEY ? (
+        {/* Auto-detection suggestion banner */}
+        {detectionState === 'suggestion' && suggestion && (
+          <View style={{
+            marginBottom: 8,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(255,90,95,0.3)',
+            backgroundColor: 'rgba(255,90,95,0.05)',
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+          }}>
+            <Text className="text-sm font-medium text-text-primary">
+              {'\u{1F4CD}'} {'\u00BF'}Est{'\u00E1'}s en {suggestion.name}?
+            </Text>
+            <Text className="mt-0.5 text-caption text-text-secondary" numberOfLines={1}>
+              {suggestion.address}
+            </Text>
+            <View className="mt-2 flex-row gap-2">
+              <Pressable
+                className="flex-1 items-center rounded-button bg-primary py-2"
+                onPress={acceptSuggestion}
+              >
+                <Text className="text-sm font-semibold text-white">S{'\u00ED'}</Text>
+              </Pressable>
+              <Pressable
+                className="flex-1 items-center rounded-button border border-border py-2"
+                onPress={dismissSuggestion}
+              >
+                <Text className="text-sm font-medium text-text-secondary">No</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Expandable Places search — shown on tap or after dismissing suggestion */}
+        {(showPlacesSearch || detectionState === 'dismissed') && !manualMode && MAPS_KEY ? (
           <View className="z-10 mb-4">
             <GooglePlacesAutocomplete
               ref={placesRef}
               placeholder="Buscar restaurante..."
               fetchDetails
-              onPress={handlePlaceSelected}
+              onPress={(data, details) => {
+                handlePlaceSelected(data, details);
+                setShowPlacesSearch(false);
+                setDetectionState('accepted');
+              }}
               onFail={() => setManualMode(true)}
               query={{ key: MAPS_KEY, language: 'es' }}
               nearbyPlacesAPI="GoogleReverseGeocoding"
@@ -197,7 +460,7 @@ export default function SaveScreen() {
               }}
             />
           </View>
-        ) : (
+        ) : (showPlacesSearch || detectionState === 'dismissed') ? (
           <View className="mb-4 gap-2">
             {!MAPS_KEY && !manualMode ? (
               <Text className="mb-1 text-caption text-warning">
@@ -225,12 +488,6 @@ export default function SaveScreen() {
               style={{ minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
-        )}
-
-        {location.address && !name ? (
-          <Text className="mb-4 text-sm text-text-secondary">
-            Cerca de: {location.address}
-          </Text>
         ) : null}
 
         {/* Rating */}
@@ -278,6 +535,14 @@ export default function SaveScreen() {
           </Pressable>
         </View>
 
+        {/* Price */}
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
+          Precio por persona
+        </Text>
+        <View className="mb-4">
+          <PriceSlider value={pricePerPerson} onChange={setPricePerPerson} />
+        </View>
+
         {/* Note */}
         <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
           Nota (opcional)
@@ -316,7 +581,7 @@ export default function SaveScreen() {
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-body font-semibold text-white">
-              Guardar
+              {isEditMode ? 'Actualizar' : 'Guardar'}
             </Text>
           )}
         </Pressable>

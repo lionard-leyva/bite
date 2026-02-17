@@ -1,5 +1,6 @@
 import { memo, useRef } from 'react';
-import { View, Text, Image, Pressable, Animated } from 'react-native';
+import { View, Text, Pressable, Animated } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { timeAgo } from '../utils/timeAgo';
 import type { Restaurant } from '../types';
@@ -62,8 +63,11 @@ export default memo(function RestaurantCard({
           {restaurant.photoURL ? (
             <Image
               source={{ uri: restaurant.photoURL }}
-              className="h-44 w-full"
-              resizeMode="cover"
+              style={{ height: 176, width: '100%' }}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+              placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
             />
           ) : (
             <View
@@ -101,7 +105,16 @@ export default memo(function RestaurantCard({
           </Text>
 
           <View className="mt-1 flex-row items-center justify-between">
-            <MiniStars rating={restaurant.rating} />
+            <View className="flex-row items-center gap-1.5">
+              <MiniStars rating={restaurant.rating} />
+              {restaurant.pricePerPerson ? (
+                <View style={{ backgroundColor: '#FFF7ED', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#EA580C' }}>
+                    {'\u20AC'}{restaurant.pricePerPerson}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             <Text className="text-caption text-text-tertiary">
               {timeAgo(restaurant.createdAt)}
             </Text>

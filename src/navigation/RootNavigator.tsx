@@ -65,10 +65,7 @@ export default function RootNavigator() {
             component={SaveScreen}
             options={{
               presentation: 'modal',
-              headerShown: true,
-              title: 'Guardar restaurante',
-              headerStyle: { backgroundColor: '#FAFAFA' },
-              headerTintColor: '#222222',
+              headerShown: false,
             }}
           />
           <Stack.Screen

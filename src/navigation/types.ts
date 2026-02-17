@@ -10,6 +10,6 @@ export type RootStackParamList = {
   Loading: undefined;
   Auth: undefined;
   Tabs: NavigatorScreenParams<TabParamList>;
-  Save: undefined;
+  Save: { restaurantId?: string } | undefined;
   Detail: { restaurantId: string };
 };

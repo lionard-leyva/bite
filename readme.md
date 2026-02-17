@@ -100,12 +100,50 @@ Tests incluyen:
 - `StarRating` — componente de rating interactivo
 - `RestaurantCard` — card de restaurante con datos y accesibilidad
 
-## Build
+## Build (APK para compartir)
+
+Este proyecto usa `app.config.js` (config dinamica). La configuracion Android ya incluye:
+
+- `package: "com.lionardleyva.bite"`
+- `versionCode: 1`
+- permisos: `ACCESS_FINE_LOCATION`, `CAMERA`, `READ_EXTERNAL_STORAGE`
+- Maps API key via `GOOGLE_MAPS_API_KEY`
+
+### 1. Instalar EAS CLI
 
 ```bash
-eas build --platform ios
-eas build --platform android
+npm install -g eas-cli
 ```
+
+### 2. Login y vincular proyecto
+
+```bash
+eas login
+```
+
+El proyecto EAS queda ligado por `extra.eas.projectId` en `app.config.js`.
+
+### 3. Crear variable de entorno para Maps (produccion)
+
+```bash
+eas env:create production --name GOOGLE_MAPS_API_KEY --value TU_KEY_AQUI --visibility secret
+```
+
+### 4. Build APK (perfil preview)
+
+```bash
+eas build --platform android --profile preview
+```
+
+### 5. Descargar y compartir
+
+- EAS devuelve un link de descarga del `.apk`.
+- Compartelo por WhatsApp/email.
+- El receptor instala en Android.
+
+Notas:
+- `buildType: "apk"` genera instalable.
+- `production` usa `app-bundle` para Play Store.
 
 ## Arquitectura
 

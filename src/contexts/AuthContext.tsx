@@ -138,6 +138,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         rating: r.rating,
         note: r.note,
         visited: r.visited,
+        pricePerPerson: r.pricePerPerson,
         photoUri: null,
         userId: user.uid,
         listId,

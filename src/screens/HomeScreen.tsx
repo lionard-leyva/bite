@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { View, Text, ActivityIndicator, Pressable, Image } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable, Platform, Animated, Easing } from 'react-native';
+import { Image } from 'expo-image';
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker } from 'react-native-maps';
 import MapView from 'react-native-maps';
@@ -14,20 +15,41 @@ import { timeAgo } from '../utils/timeAgo';
 import { openNativeNavigation } from '../services/navigationService';
 import FAB from '../components/FAB';
 import MapMarker from '../components/MapMarker';
+import UserLocationMarker from '../components/UserLocationMarker';
+import DragHandle from '../components/DragHandle';
 import type { RootStackParamList } from '../navigation/types';
 import type { Restaurant } from '../types';
 import {
   CLUSTER_RADIUS,
   CLUSTER_COLOR,
+  CLUSTER_FONT_SIZE,
   FAB_SIZE,
   FAB_BOTTOM_OFFSET,
   LOCATION_BUTTON_SIZE,
-  CALLOUT_PHOTO_SIZE,
+  CARD_BOTTOM_POSITION,
+  CARD_HORIZONTAL_MARGIN,
+  CARD_CONTENT_PADDING_H,
+  CARD_CONTENT_PADDING_V,
+  CARD_PHOTO_HEIGHT,
+  CARD_BORDER_RADIUS,
+  Z_MARKER,
+  Z_MARKER_SELECTED,
+  Z_CLUSTER,
+  Z_FAB,
+  Z_CARD,
+  EDGE_PADDING_TOP,
+  EDGE_PADDING_RIGHT,
+  EDGE_PADDING_BOTTOM,
+  EDGE_PADDING_LEFT,
+  PRICE_VALUES,
+  PRICE_LABELS,
+  MARKER_PILL_HEIGHT,
+  SHEET_SPRING_TENSION,
+  SHEET_SPRING_FRICTION,
+  SHEET_DISMISS_TRANSLATE,
 } from '../config/constants';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-// --- Haversine ---
 
 function getDistanceKm(
   lat1: number, lon1: number,
@@ -48,8 +70,6 @@ function getDistanceKm(
   return `${d.toFixed(1)}km`;
 }
 
-// --- Offset for markers at identical coordinates ---
-
 const COORD_PRECISION = 5;
 const OFFSET_STEP = 0.00015;
 
@@ -63,7 +83,6 @@ function applyNearbyOffsets(restaurants: Restaurant[]): Map<string, OffsetCoord>
     if (arr) arr.push(r.id);
     else groups.set(key, [r.id]);
   }
-
   const offsets = new Map<string, OffsetCoord>();
   for (const r of restaurants) {
     offsets.set(r.id, { latitude: r.latitude, longitude: r.longitude });
@@ -83,7 +102,10 @@ function applyNearbyOffsets(restaurants: Restaurant[]): Map<string, OffsetCoord>
   return offsets;
 }
 
-// --- Dedup ---
+function getPriceLabel(price: number): string {
+  const idx = PRICE_VALUES.indexOf(price as (typeof PRICE_VALUES)[number]);
+  return idx >= 0 ? PRICE_LABELS[idx] : '';
+}
 
 function dedupeById(restaurants: Restaurant[]): Restaurant[] {
   const seen = new Set<string>();
@@ -98,6 +120,8 @@ function dedupeById(restaurants: Restaurant[]): Restaurant[] {
 
 // =============================================================
 
+const CARD_BOTTOM = CARD_BOTTOM_POSITION;
+
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { restaurants: rawRestaurants, loading, error } = useRestaurants();
@@ -107,11 +131,11 @@ export default function HomeScreen() {
   const hasInitiallyFit = useRef(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const cardTranslateY = useRef(new Animated.Value(SHEET_DISMISS_TRANSLATE)).current;
 
   const restaurants = useMemo(() => dedupeById(rawRestaurants), [rawRestaurants]);
   const coordOffsets = useMemo(() => applyNearbyOffsets(restaurants), [restaurants]);
 
-  // Clear stale selection
   useEffect(() => {
     if (selectedId && !restaurants.some((r) => r.id === selectedId)) {
       setSelectedId(null);
@@ -122,6 +146,33 @@ export default function HomeScreen() {
     () => restaurants.find((r) => r.id === selectedId) ?? null,
     [restaurants, selectedId],
   );
+
+  const isDismissing = useRef(false);
+
+  useEffect(() => {
+    if (selectedId && !isDismissing.current) {
+      cardTranslateY.setValue(SHEET_DISMISS_TRANSLATE);
+      Animated.spring(cardTranslateY, {
+        toValue: 0,
+        tension: SHEET_SPRING_TENSION,
+        friction: SHEET_SPRING_FRICTION,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [selectedId]);
+
+  const dismissCard = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.timing(cardTranslateY, {
+      toValue: SHEET_DISMISS_TRANSLATE,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setSelectedId(null);
+      isDismissing.current = false;
+    });
+  }, [cardTranslateY]);
 
   const { infoText: etaInfoText, etaLoading } = useNavigationETA({
     restaurantId: selectedId,
@@ -145,7 +196,6 @@ export default function HomeScreen() {
     left: 16,
   }), [insets.top]);
 
-  // Auto-fit
   useEffect(() => {
     if (hasInitiallyFit.current || loading || restaurants.length === 0) return;
     hasInitiallyFit.current = true;
@@ -156,10 +206,10 @@ export default function HomeScreen() {
     const timer = setTimeout(() => {
       mapRef.current?.fitToCoordinates(coords, {
         edgePadding: {
-          top: mapPadding.top + 60,
-          right: mapPadding.right + 60,
-          bottom: mapPadding.bottom + 60,
-          left: mapPadding.left + 60,
+          top: EDGE_PADDING_TOP,
+          right: EDGE_PADDING_RIGHT,
+          bottom: EDGE_PADDING_BOTTOM,
+          left: EDGE_PADDING_LEFT,
         },
         animated: false,
       });
@@ -180,38 +230,34 @@ export default function HomeScreen() {
     );
   }, [location.latitude, location.longitude]);
 
-  // Marker tap: toggle select
   const handleMarkerPress = useCallback((r: Restaurant) => {
-    setSelectedId((prev) => {
-      if (prev === r.id) return null;
-      mapRef.current?.animateToRegion(
-        {
-          latitude: r.latitude,
-          longitude: r.longitude,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
-        },
-        350,
-      );
-      return r.id;
-    });
-  }, []);
+    if (selectedId === r.id) {
+      dismissCard();
+    } else {
+      setSelectedId(r.id);
+    }
+    mapRef.current?.animateToRegion(
+      {
+        latitude: r.latitude,
+        longitude: r.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      },
+      350,
+    );
+  }, [selectedId, dismissCard]);
 
-  // Map background tap: deselect
   const handleMapPress = useCallback(() => {
-    setSelectedId(null);
-  }, []);
+    if (selectedId) dismissCard();
+  }, [selectedId, dismissCard]);
 
-  // Cluster tap: library handles fitToCoordinates via _onClusterPress,
-  // we just need to clear the selected marker.
   const handleClusterPress = useCallback(() => {
-    setSelectedId(null);
-  }, []);
+    if (selectedId) dismissCard();
+  }, [selectedId, dismissCard]);
 
   const renderCluster = useCallback((cluster: any) => {
     const { id, geometry, properties, onPress } = cluster;
     const count = properties.point_count;
-    const size = 40 + Math.min(count, 20);
     return (
       <Marker
         key={`cluster-${id}`}
@@ -221,33 +267,39 @@ export default function HomeScreen() {
         }}
         onPress={onPress}
         tracksViewChanges={false}
+        zIndex={Z_CLUSTER}
       >
         <View
           style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: CLUSTER_COLOR,
-            borderWidth: 3,
-            borderColor: '#fff',
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.2,
-            shadowRadius: 4,
-            elevation: 5,
+            height: MARKER_PILL_HEIGHT,
+            paddingHorizontal: 14,
+            backgroundColor: '#222222',
+            borderRadius: MARKER_PILL_HEIGHT / 2,
+            gap: 4,
+            ...Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.22,
+                shadowRadius: 8,
+              },
+              android: { elevation: 6 },
+            }),
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+          <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: CLUSTER_FONT_SIZE }}>
             {count}
+          </Text>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600' }}>
+            sitios
           </Text>
         </View>
       </Marker>
     );
   }, []);
 
-  // --- Bottom card data ---
   const hasSelection = selectedId != null;
 
   const distanceText = useMemo(() => {
@@ -259,9 +311,9 @@ export default function HomeScreen() {
   }, [selectedRestaurant, location.latitude, location.longitude]);
 
   return (
-    <View className="flex-1">
+    <View style={{ flex: 1 }}>
       {loading ? (
-        <View className="flex-1 items-center justify-center bg-background">
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFAFA' }}>
           <ActivityIndicator size="large" color="#FF5A5F" />
         </View>
       ) : (
@@ -269,37 +321,50 @@ export default function HomeScreen() {
           ref={mapRef}
           style={{ flex: 1 }}
           initialRegion={initialRegion}
-          showsUserLocation
+          mapType="standard"
+          showsUserLocation={false}
           showsMyLocationButton={false}
-          userLocationPriority="balanced"
+          showsCompass={false}
+          showsScale={false}
+          toolbarEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
           mapPadding={mapPadding}
           clusterColor={CLUSTER_COLOR}
           radius={CLUSTER_RADIUS}
-          animationEnabled
+          extent={512}
+          minZoom={0}
+          maxZoom={20}
+          animationEnabled={false}
           onClusterPress={handleClusterPress}
           renderCluster={renderCluster}
           onPress={handleMapPress}
         >
+          {/* Custom user location marker */}
+          {location.latitude != null && location.longitude != null && (
+            <UserLocationMarker latitude={location.latitude} longitude={location.longitude} />
+          )}
+
           {restaurants.map((r) => {
             const isSelected = selectedId === r.id;
             const coord = coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude };
-
             return (
               <Marker
-                key={r.id}
+                key={`${r.id}-${isSelected ? 1 : 0}`}
                 identifier={r.id}
                 coordinate={coord}
-                tracksViewChanges={isSelected}
-                anchor={{ x: 0.5, y: 0.5 }}
-                zIndex={isSelected ? 999 : 1}
+                tracksViewChanges={true}
+                anchor={{ x: 0.5, y: 1 }}
+                zIndex={isSelected ? Z_MARKER_SELECTED : Z_MARKER}
+                opacity={hasSelection && !isSelected ? 0.45 : 1}
                 stopPropagation
                 onPress={() => handleMarkerPress(r)}
               >
                 <MapMarker
+                  name={r.name}
                   rating={r.rating}
                   visited={r.visited}
                   isSelected={isSelected}
-                  dimmed={hasSelection && !isSelected}
                 />
               </Marker>
             );
@@ -308,157 +373,147 @@ export default function HomeScreen() {
       )}
 
       {error && (
-        <View className="absolute top-12 left-4 right-4 z-10 rounded-card bg-red-100 px-4 py-3 border border-red-300">
-          <Text className="text-sm text-red-800">
+        <View style={{ position: 'absolute', top: 48, left: 16, right: 16, zIndex: 10, borderRadius: 12, backgroundColor: '#FEE2E2', paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#FECACA' }}>
+          <Text style={{ fontSize: 14, color: '#991B1B' }}>
             Error cargando restaurantes. Revisa tu conexion o reinicia la app.
           </Text>
         </View>
       )}
 
       {restaurants.length === 0 && !loading && !error && (
-        <View className="absolute bottom-24 left-0 right-0 items-center px-8">
-          <View className="w-full items-center rounded-card bg-surface px-6 py-6 border border-border" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }}>
-            <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+        <View style={{ position: 'absolute', bottom: 96, left: 0, right: 0, alignItems: 'center', paddingHorizontal: 32 }}>
+          <View style={{ width: '100%', alignItems: 'center', borderRadius: 16, backgroundColor: '#fff', paddingHorizontal: 24, paddingVertical: 24, borderWidth: 1, borderColor: '#E5E7EB' }}>
+            <View style={{ marginBottom: 12, height: 80, width: 80, alignItems: 'center', justifyContent: 'center', borderRadius: 40, backgroundColor: 'rgba(255,90,95,0.1)' }}>
               <Ionicons name="restaurant-outline" size={32} color="#FF5A5F" />
             </View>
-            <Text className="mb-1 text-subtitle font-semibold text-text-primary">
+            <Text style={{ marginBottom: 4, fontSize: 17, fontWeight: '600', color: '#1F2937' }}>
               Tu mapa esta vacio
             </Text>
-            <Text className="text-center text-sm text-text-secondary">
+            <Text style={{ textAlign: 'center', fontSize: 14, color: '#6B7280' }}>
               Toca + para guardar tu primer restaurante y verlo aqui
             </Text>
           </View>
         </View>
       )}
 
-      {/* ====== Bottom card: appears when a marker is selected ====== */}
+      {/* ====== Bottom card — Airbnb listing card style ====== */}
       {selectedRestaurant && (
-        <View
+        <Animated.View
           style={{
             position: 'absolute',
-            bottom: FAB_BOTTOM_OFFSET + FAB_SIZE + 16,
-            left: 16,
-            right: 16,
-            backgroundColor: '#fff',
-            borderRadius: 16,
-            padding: 14,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.15,
-            shadowRadius: 12,
-            elevation: 8,
+            bottom: CARD_BOTTOM,
+            left: CARD_HORIZONTAL_MARGIN,
+            right: CARD_HORIZONTAL_MARGIN,
+            backgroundColor: '#FFFFFF',
+            borderRadius: CARD_BORDER_RADIUS,
+            zIndex: Z_CARD,
+            transform: [{ translateY: cardTranslateY }],
+            ...(Platform.OS === 'android'
+              ? { elevation: 12 }
+              : { shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 12 }),
           }}
         >
-          {/* Row: photo + info */}
-          <View style={{ flexDirection: 'row' }}>
-            {/* Photo */}
-            <View
-              style={{
-                width: CALLOUT_PHOTO_SIZE,
-                height: CALLOUT_PHOTO_SIZE,
-                borderRadius: 10,
-                backgroundColor: '#F3F4F6',
-                overflow: 'hidden',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              {selectedRestaurant.photoURL ? (
-                <Image
-                  source={{ uri: selectedRestaurant.photoURL }}
-                  style={{ width: CALLOUT_PHOTO_SIZE, height: CALLOUT_PHOTO_SIZE }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons name="restaurant" size={24} color="#9CA3AF" />
-              )}
+          <DragHandle />
+
+          {/* Photo — full width, Airbnb height */}
+          {selectedRestaurant.photoURL ? (
+            <View style={{ borderRadius: CARD_BORDER_RADIUS - 4, overflow: 'hidden', height: CARD_PHOTO_HEIGHT, marginHorizontal: 4 }}>
+              <Image
+                source={{ uri: selectedRestaurant.photoURL }}
+                style={{ width: '100%', height: CARD_PHOTO_HEIGHT }}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={200}
+                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+              />
             </View>
-
-            {/* Info */}
-            <View style={{ flex: 1, justifyContent: 'center' }}>
-              <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '700', color: '#1F2937' }}>
-                {selectedRestaurant.name}
-              </Text>
-
-              {/* Stars + status pill */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <View style={{ flexDirection: 'row', gap: 1 }}>
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Ionicons
-                      key={i}
-                      name={i <= selectedRestaurant.rating ? 'star' : 'star-outline'}
-                      size={12}
-                      color="#FFB800"
-                    />
-                  ))}
-                </View>
-                <View
-                  style={{
-                    backgroundColor: selectedRestaurant.visited ? '#E6F7F5' : '#FFEEEE',
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                    borderRadius: 4,
-                  }}
-                >
-                  <Text style={{ fontSize: 10, fontWeight: '600', color: selectedRestaurant.visited ? '#00A699' : '#FF5A5F' }}>
-                    {selectedRestaurant.visited ? 'Visitado' : 'Pendiente'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Distance + ETA line */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <Ionicons name="location-outline" size={12} color="#6B7280" />
-                {etaLoading ? (
-                  <ActivityIndicator size={10} color="#9CA3AF" />
-                ) : etaInfoText ? (
-                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
-                    {etaInfoText}
-                  </Text>
-                ) : distanceText ? (
-                  <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '500' }}>
-                    {distanceText}
-                  </Text>
-                ) : null}
-                <Text style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {timeAgo(selectedRestaurant.createdAt)}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Note preview */}
-          {selectedRestaurant.note ? (
-            <Text
-              numberOfLines={2}
-              style={{ fontSize: 13, color: '#6B7280', marginTop: 8 }}
-            >
-              {'\u{1F4AD}'} {selectedRestaurant.note}
-            </Text>
           ) : null}
 
-          {/* Two real buttons: "Ver detalle" + "Ir ahora" */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          {/* Close */}
+          <Pressable
+            onPress={dismissCard}
+            hitSlop={12}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 20,
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="close" size={18} color="#fff" />
+          </Pressable>
+
+          {/* Info section */}
+          <View style={{ paddingHorizontal: CARD_CONTENT_PADDING_H, paddingVertical: CARD_CONTENT_PADDING_V }}>
+            <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>
+              {selectedRestaurant.name}
+            </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 }}>
+              <Text style={{ fontSize: 13 }}>
+                {'\u{2B50}'.repeat(selectedRestaurant.rating)}
+              </Text>
+              <View style={{ backgroundColor: selectedRestaurant.visited ? '#E6F7F5' : '#FFEEEE', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <Text style={{ fontSize: 10, fontWeight: '600', color: selectedRestaurant.visited ? '#00A699' : '#FF5A5F' }}>
+                  {selectedRestaurant.visited ? 'Visitado' : 'Pendiente'}
+                </Text>
+              </View>
+              {selectedRestaurant.pricePerPerson ? (
+                <View style={{ backgroundColor: '#FFF7ED', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#EA580C' }}>
+                    {'\u20AC'}{selectedRestaurant.pricePerPerson} {'\u00B7'} {getPriceLabel(selectedRestaurant.pricePerPerson)}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 5 }}>
+              {etaLoading ? (
+                <ActivityIndicator size={10} color="#9CA3AF" />
+              ) : etaInfoText ? (
+                <Text style={{ fontSize: 12, color: '#6B7280' }}>{'\u{1F4CD}'} {etaInfoText}</Text>
+              ) : distanceText ? (
+                <Text style={{ fontSize: 12, color: '#6B7280' }}>{'\u{1F4CD}'} {distanceText}</Text>
+              ) : null}
+              <Text style={{ fontSize: 12, color: selectedRestaurant.visited ? '#10b981' : '#f59e0b' }}>
+                {selectedRestaurant.visited ? '\u{2705}' : '\u{23F3}'} {timeAgo(selectedRestaurant.createdAt)}
+              </Text>
+            </View>
+
+            {selectedRestaurant.note ? (
+              <Text numberOfLines={2} style={{ fontSize: 13, color: '#6B7280', marginTop: 6 }}>
+                {'\u{1F4AD}'} {selectedRestaurant.note}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Buttons */}
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: CARD_CONTENT_PADDING_H, paddingBottom: CARD_CONTENT_PADDING_V, marginTop: 4 }}>
             <Pressable
-              onPress={() => navigation.navigate('Detail', { restaurantId: selectedRestaurant.id })}
-              style={({ pressed }) => ({
+              onPress={() => {
+                navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
+                setSelectedId(null);
+              }}
+              style={{
                 flex: 1,
-                flexDirection: 'row',
+                backgroundColor: '#ef4444',
+                paddingVertical: 14,
+                borderRadius: 10,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
-                paddingVertical: 10,
-                borderRadius: 10,
-                borderWidth: 1.5,
-                borderColor: '#E5E7EB',
-                backgroundColor: pressed ? '#F9FAFB' : '#fff',
-              })}
+                flexDirection: 'row',
+                gap: 6,
+                minHeight: 48,
+              }}
             >
-              <Ionicons name="information-circle-outline" size={16} color="#374151" />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
-                Ver detalle
-              </Text>
+              <Ionicons name="information-circle-outline" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Ver detalle</Text>
             </Pressable>
 
             <Pressable
@@ -469,51 +524,49 @@ export default function HomeScreen() {
                   selectedRestaurant.name,
                 )
               }
-              style={({ pressed }) => ({
+              style={{
                 flex: 1,
-                flexDirection: 'row',
+                backgroundColor: '#3b82f6',
+                paddingVertical: 14,
+                borderRadius: 10,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
-                paddingVertical: 10,
-                borderRadius: 10,
-                backgroundColor: pressed ? '#E8494E' : '#FF5A5F',
-              })}
+                flexDirection: 'row',
+                gap: 6,
+                minHeight: 48,
+              }}
             >
-              <Ionicons name="navigate" size={15} color="#fff" />
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#fff' }}>
-                Ir ahora
-              </Text>
+              <Ionicons name="navigate" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Ir ahora</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       )}
 
-      {/* My Location FAB */}
+      {/* My Location FAB — Airbnb style */}
       <Pressable
         onPress={handleMyLocation}
         style={{
           position: 'absolute',
-          bottom: FAB_BOTTOM_OFFSET,
-          left: 20,
+          bottom: 180,
+          left: CARD_HORIZONTAL_MARGIN,
           width: LOCATION_BUTTON_SIZE,
           height: LOCATION_BUTTON_SIZE,
           borderRadius: LOCATION_BUTTON_SIZE / 2,
-          backgroundColor: '#fff',
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
+          backgroundColor: '#FFFFFF',
           alignItems: 'center',
           justifyContent: 'center',
+          zIndex: Z_FAB,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.15,
-          shadowRadius: 4,
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
           elevation: 4,
         }}
         accessibilityRole="button"
         accessibilityLabel="Ir a mi ubicacion"
       >
-        <Ionicons name="navigate" size={22} color="#FF5A5F" />
+        <Ionicons name="navigate" size={24} color="#484848" />
       </Pressable>
 
       <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET} />

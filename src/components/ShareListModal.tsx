@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { joinListByCode } from '../services/listService';
 import InviteCodeDisplay from './InviteCodeDisplay';
+import DragHandle from './DragHandle';
 
 type Tab = 'create' | 'join';
 
@@ -63,9 +64,11 @@ export default function ShareListModal({
         keyboardVerticalOffset={90}
       >
       <ScrollView
-        className="flex-1 bg-background px-6 pt-6"
+        className="flex-1 bg-background px-6 pt-0"
         keyboardShouldPersistTaps="handled"
       >
+        <DragHandle />
+
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">
           <Text className="text-title font-bold text-text-primary">
