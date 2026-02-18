@@ -15,12 +15,12 @@ function MiniStars({ rating }: { rating: number }) {
   return (
     <View className="flex-row items-center gap-1">
       <View className="flex-row">
-        {Array.from({ length: 5 }, (_, i) => (
+        {[0, 1, 2, 3, 4].map((k) => (
           <Ionicons
-            key={i}
-            name={i < rating ? 'star' : 'star-outline'}
+            key={`star-${k}`}
+            name={k < rating ? 'star' : 'star-outline'}
             size={12}
-            color={i < rating ? '#FFB400' : '#EBEBEB'}
+            color={k < rating ? '#FFB400' : '#EBEBEB'}
           />
         ))}
       </View>

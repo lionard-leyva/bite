@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useReducer, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,80 @@ const MAPS_KEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ?? '';
 
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
+      {children}
+    </Text>
+  );
+}
+
+function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <>
+      <DragHandle />
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingBottom: 8,
+        }}
+      >
+        <Pressable
+          onPress={onClose}
+          hitSlop={12}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: '#F0F0F0',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="close" size={18} color="#222222" />
+        </Pressable>
+        <Text
+          style={{
+            flex: 1,
+            textAlign: 'center',
+            fontSize: 17,
+            fontWeight: '600',
+            color: '#1F2937',
+          }}
+        >
+          {title}
+        </Text>
+        <View style={{ width: 32 }} />
+      </View>
+    </>
+  );
+}
+
+function PhotoSection({
+  photoUris,
+  onPhotoAdded,
+  onPhotoRemoved,
+}: {
+  photoUris: string[];
+  onPhotoAdded: (uri: string) => void;
+  onPhotoRemoved: (index: number) => void;
+}) {
+  return (
+    <>
+      <SectionLabel>Foto (opcional)</SectionLabel>
+      <View className="mb-6">
+        <PhotoPicker
+          photoUris={photoUris}
+          onPhotoAdded={onPhotoAdded}
+          onPhotoRemoved={onPhotoRemoved}
+        />
+      </View>
+    </>
+  );
+}
+
 export default function SaveScreen() {
   const navigation = useNavigation();
   const route = useRoute<SaveRoute>();
@@ -40,20 +114,64 @@ export default function SaveScreen() {
   const location = useUserLocation();
 
   const editId = route.params?.restaurantId ?? null;
-  const [isEditMode, setIsEditMode] = useState(false);
+  interface SaveFormState {
+    isEditMode: boolean;
+    name: string;
+    address: string;
+    latitude: number | null;
+    longitude: number | null;
+    rating: number;
+    visited: boolean;
+    note: string;
+    photoUris: string[];
+    pricePerPerson: number;
+  }
 
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [rating, setRating] = useState(0);
-  const [visited, setVisited] = useState(true);
-  const [note, setNote] = useState('');
-  const [photoUris, setPhotoUris] = useState<string[]>([]);
-  const [pricePerPerson, setPricePerPerson] = useState(PRICE_DEFAULT);
+  type SaveFormAction =
+    | { type: 'patch'; payload: Partial<SaveFormState> }
+    | { type: 'reset' };
+
+  const initialForm: SaveFormState = {
+    isEditMode: false,
+    name: '',
+    address: '',
+    latitude: null,
+    longitude: null,
+    rating: 0,
+    visited: true,
+    note: '',
+    photoUris: [],
+    pricePerPerson: PRICE_DEFAULT,
+  };
+
+  function formReducer(state: SaveFormState, action: SaveFormAction): SaveFormState {
+    switch (action.type) {
+      case 'patch':
+        return { ...state, ...action.payload };
+      case 'reset':
+        return initialForm;
+      default:
+        return state;
+    }
+  }
+
+  const [form, dispatchForm] = useReducer(formReducer, initialForm);
   const [saving, setSaving] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
+
+  const {
+    isEditMode,
+    name,
+    address,
+    latitude,
+    longitude,
+    rating,
+    visited,
+    note,
+    photoUris,
+    pricePerPerson,
+  } = form;
 
   // One-shot read for edit mode — no listener, no re-renders on other screens
   const hasPrePopulated = useRef(false);
@@ -81,16 +199,21 @@ export default function SaveScreen() {
           }
         }
         if (!data) return;
-        setIsEditMode(true);
-        setName(data.name);
-        setAddress(data.address);
-        setLatitude(data.latitude);
-        setLongitude(data.longitude);
-        setRating(data.rating);
-        setVisited(data.visited);
-        setNote(data.note);
-        setPhotoUris(data.photoURLs?.length ? data.photoURLs : (data.photoURL ? [data.photoURL] : []));
-        setPricePerPerson(data.pricePerPerson ?? PRICE_DEFAULT);
+        dispatchForm({
+          type: 'patch',
+          payload: {
+            isEditMode: true,
+            name: data.name,
+            address: data.address,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            rating: data.rating,
+            visited: data.visited,
+            note: data.note,
+            photoUris: data.photoURLs?.length ? data.photoURLs : (data.photoURL ? [data.photoURL] : []),
+            pricePerPerson: data.pricePerPerson ?? PRICE_DEFAULT,
+          },
+        });
       } catch (err) {
         console.warn('[SaveScreen] Failed to load restaurant for edit:', err);
       }
@@ -100,14 +223,20 @@ export default function SaveScreen() {
   const placesRef = useRef<any>(null);
 
   function handlePlaceSelected(data: any, details: any) {
-    setName(data.structured_formatting?.main_text ?? data.description);
-    setAddress(details?.formatted_address ?? data.description);
+    const nextName = data.structured_formatting?.main_text ?? data.description;
+    const nextAddress = details?.formatted_address ?? data.description;
     const placeLat = details?.geometry?.location?.lat;
     const placeLng = details?.geometry?.location?.lng;
-    if (placeLat != null && placeLng != null) {
-      setLatitude(placeLat);
-      setLongitude(placeLng);
-    }
+    dispatchForm({
+      type: 'patch',
+      payload: {
+        name: nextName,
+        address: nextAddress,
+        ...(placeLat != null && placeLng != null
+          ? { latitude: placeLat, longitude: placeLng }
+          : {}),
+      },
+    });
   }
 
   async function handleGpsFill() {
@@ -116,7 +245,7 @@ export default function SaveScreen() {
     try {
       const addr = await reverseGeocode(location.latitude, location.longitude);
       if (addr) {
-        setAddress(addr);
+        dispatchForm({ type: 'patch', payload: { address: addr } });
         setGpsState('filled');
       } else {
         setGpsState('idle');
@@ -229,53 +358,17 @@ export default function SaveScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={60}
     >
-      {/* Custom modal header */}
-      <DragHandle />
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingBottom: 8,
-        }}
-      >
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={12}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: '#F0F0F0',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Ionicons name="close" size={18} color="#222222" />
-        </Pressable>
-        <Text
-          style={{
-            flex: 1,
-            textAlign: 'center',
-            fontSize: 17,
-            fontWeight: '600',
-            color: '#1F2937',
-          }}
-        >
-          {isEditMode ? 'Editar restaurante' : 'Guardar restaurante'}
-        </Text>
-        {/* Invisible spacer to keep title centered */}
-        <View style={{ width: 32 }} />
-      </View>
+      <SaveHeader
+        title={isEditMode ? 'Editar restaurante' : 'Guardar restaurante'}
+        onClose={() => navigation.goBack()}
+      />
 
       <ScrollView
         className="flex-1 px-5 pt-4"
         keyboardShouldPersistTaps="handled"
       >
         {/* Restaurant name */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Restaurante
-        </Text>
+        <SectionLabel>Restaurante</SectionLabel>
         {!manualMode && MAPS_KEY ? (
           <View className="z-10 mb-4">
             <GooglePlacesAutocomplete
@@ -306,7 +399,7 @@ export default function SaveScreen() {
               }}
               textInputProps={{
                 value: name,
-                onChangeText: setName,
+                onChangeText: (text) => dispatchForm({ type: 'patch', payload: { name: text } }),
                 placeholderTextColor: '#A0A0A0',
               }}
             />
@@ -318,16 +411,14 @@ export default function SaveScreen() {
               placeholder="Nombre del restaurante"
               placeholderTextColor="#A0A0A0"
               value={name}
-              onChangeText={setName}
+              onChangeText={(text) => dispatchForm({ type: 'patch', payload: { name: text } })}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
         )}
 
         {/* Address with GPS button */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Direccion
-        </Text>
+        <SectionLabel>Direccion</SectionLabel>
         <View style={{ position: 'relative', marginBottom: 16 }}>
           <TextInput
             className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
@@ -335,7 +426,7 @@ export default function SaveScreen() {
             placeholderTextColor="#A0A0A0"
             value={address}
             onChangeText={(text) => {
-              setAddress(text);
+              dispatchForm({ type: 'patch', payload: { address: text } });
               if (gpsState === 'filled') setGpsState('idle');
             }}
             style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
@@ -373,21 +464,17 @@ export default function SaveScreen() {
         </View>
 
         {/* Rating */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Rating
-        </Text>
+        <SectionLabel>Rating</SectionLabel>
         <View className="mb-4">
-          <StarRating rating={rating} onRate={setRating} />
+          <StarRating rating={rating} onRate={(v) => dispatchForm({ type: 'patch', payload: { rating: v } })} />
         </View>
 
         {/* Visited toggle */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Estado
-        </Text>
+        <SectionLabel>Estado</SectionLabel>
         <View className="mb-4 flex-row gap-2">
           <Pressable
             className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${visited ? 'border-visited bg-visited/10' : 'border-border'}`}
-            onPress={() => setVisited(true)}
+            onPress={() => dispatchForm({ type: 'patch', payload: { visited: true } })}
           >
             <Ionicons
               name={visited ? 'checkmark-circle' : 'checkmark-circle-outline'}
@@ -402,7 +489,7 @@ export default function SaveScreen() {
           </Pressable>
           <Pressable
             className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${!visited ? 'border-primary bg-primary/10' : 'border-border'}`}
-            onPress={() => setVisited(false)}
+            onPress={() => dispatchForm({ type: 'patch', payload: { visited: false } })}
           >
             <Ionicons
               name={!visited ? 'time' : 'time-outline'}
@@ -418,39 +505,30 @@ export default function SaveScreen() {
         </View>
 
         {/* Price */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Precio por persona
-        </Text>
+        <SectionLabel>Precio por persona</SectionLabel>
         <View className="mb-4">
-          <PriceSlider value={pricePerPerson} onChange={setPricePerPerson} />
+          <PriceSlider value={pricePerPerson} onChange={(v) => dispatchForm({ type: 'patch', payload: { pricePerPerson: v } })} />
         </View>
 
         {/* Note */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Nota (opcional)
-        </Text>
+        <SectionLabel>Nota (opcional)</SectionLabel>
         <TextInput
           className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
           placeholder="Ej: La pasta increible"
           placeholderTextColor="#A0A0A0"
           value={note}
-          onChangeText={setNote}
+          onChangeText={(text) => dispatchForm({ type: 'patch', payload: { note: text } })}
           multiline
           maxLength={200}
           style={{ minHeight: 80, textAlignVertical: 'top' }}
         />
 
         {/* Photo */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Foto (opcional)
-        </Text>
-        <View className="mb-6">
-          <PhotoPicker
-            photoUris={photoUris}
-            onPhotoAdded={(uri) => setPhotoUris((prev) => [...prev, uri])}
-            onPhotoRemoved={(index) => setPhotoUris((prev) => prev.filter((_, i) => i !== index))}
-          />
-        </View>
+        <PhotoSection
+          photoUris={photoUris}
+          onPhotoAdded={(uri) => dispatchForm({ type: 'patch', payload: { photoUris: [...photoUris, uri] } })}
+          onPhotoRemoved={(index) => dispatchForm({ type: 'patch', payload: { photoUris: photoUris.filter((_, i) => i !== index) } })}
+        />
 
         {/* Save button */}
         <Pressable

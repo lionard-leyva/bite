@@ -38,4 +38,4 @@ function validateDirectionsBody(body) {
   return null; // valid
 }
 
-module.exports = { validateDirectionsBody, isValidLat, isValidLng };
+module.exports = { validateDirectionsBody };

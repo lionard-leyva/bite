@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useReducer, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
@@ -17,20 +17,49 @@ export default function ProfileScreen() {
     refreshListId,
   } = useAuth();
 
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [members, setMembers] = useState<{ userId: string; email: string; displayName: string }[]>([]);
-  const [shareModalVisible, setShareModalVisible] = useState(false);
-  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
-  const [createAccountModalVisible, setCreateAccountModalVisible] = useState(false);
-  const [leaveListModalVisible, setLeaveListModalVisible] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [localCount, setLocalCount] = useState(0);
+  interface ProfileState {
+    inviteCode: string | null;
+    members: { userId: string; email: string; displayName: string }[];
+    shareModalVisible: boolean;
+    logoutModalVisible: boolean;
+    createAccountModalVisible: boolean;
+    leaveListModalVisible: boolean;
+    loadingProfile: boolean;
+    localCount: number;
+  }
+
+  type ProfileAction =
+    | { type: 'patch'; payload: Partial<ProfileState> }
+    | { type: 'reset' };
+
+  const initialState: ProfileState = {
+    inviteCode: null,
+    members: [],
+    shareModalVisible: false,
+    logoutModalVisible: false,
+    createAccountModalVisible: false,
+    leaveListModalVisible: false,
+    loadingProfile: true,
+    localCount: 0,
+  };
+
+  function reducer(state: ProfileState, action: ProfileAction): ProfileState {
+    switch (action.type) {
+      case 'patch':
+        return { ...state, ...action.payload };
+      case 'reset':
+        return initialState;
+      default:
+        return state;
+    }
+  }
+
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   const loadListInfo = useCallback(async () => {
     if (skipMode || !listId || listId === 'local') {
       const count = await getLocalRestaurantCount();
-      setLocalCount(count);
-      setLoadingProfile(false);
+      dispatch({ type: 'patch', payload: { localCount: count, loadingProfile: false } });
       return;
     }
 
@@ -39,38 +68,36 @@ export default function ProfileScreen() {
         getListInviteCode(listId),
         getListMembers(listId),
       ]);
-      setInviteCode(code);
-      setMembers(mems);
+      dispatch({ type: 'patch', payload: { inviteCode: code, members: mems } });
     } catch {
       // Ignore errors loading list info
     }
-    setLoadingProfile(false);
+    dispatch({ type: 'patch', payload: { loadingProfile: false } });
   }, [listId, skipMode]);
 
   useEffect(() => {
     loadListInfo();
   }, [loadListInfo]);
 
-  const otherMembers = members.filter((m) => m.userId !== userId);
+  const otherMembers = state.members.filter((m) => m.userId !== userId);
   const isShared = otherMembers.length > 0;
 
   async function handleConfirmLogout() {
-    setLogoutModalVisible(false);
+    dispatch({ type: 'patch', payload: { logoutModalVisible: false } });
     await logout();
   }
 
   async function handleConfirmCreateAccount() {
-    setCreateAccountModalVisible(false);
+    dispatch({ type: 'patch', payload: { createAccountModalVisible: false } });
     await logout();
   }
 
   async function handleConfirmLeaveList() {
-    setLeaveListModalVisible(false);
+    dispatch({ type: 'patch', payload: { leaveListModalVisible: false } });
     try {
       const newListId = await leaveSharedList(userId, listId);
       refreshListId(newListId);
-      setInviteCode(null);
-      setMembers([]);
+      dispatch({ type: 'patch', payload: { inviteCode: null, members: [] } });
       loadListInfo();
     } catch {
       Alert.alert('Error', 'No se pudo dejar la lista compartida');
@@ -79,11 +106,11 @@ export default function ProfileScreen() {
 
   function handleJoined(newListId: string) {
     refreshListId(newListId);
-    setShareModalVisible(false);
+    dispatch({ type: 'patch', payload: { shareModalVisible: false } });
     loadListInfo();
   }
 
-  if (loadingProfile) {
+  if (state.loadingProfile) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#FF5A5F" />
@@ -136,10 +163,10 @@ export default function ProfileScreen() {
                     {m.displayName || m.email}
                   </Text>
                 ))}
-                {inviteCode && (
+                {state.inviteCode && (
                   <View className="mt-2">
                     <Text className="text-caption text-text-tertiary">
-                      Codigo: {inviteCode.slice(0, 3)}-{inviteCode.slice(3)}
+                      Codigo: {state.inviteCode.slice(0, 3)}-{state.inviteCode.slice(3)}
                     </Text>
                   </View>
                 )}
@@ -152,11 +179,11 @@ export default function ProfileScreen() {
               </View>
             )}
 
-            <Pressable
-              className="mt-3 flex-row items-center justify-center gap-2 rounded-button bg-primary py-3"
-              onPress={() => setShareModalVisible(true)}
-              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-            >
+              <Pressable
+                className="mt-3 flex-row items-center justify-center gap-2 rounded-button bg-primary py-3"
+                onPress={() => dispatch({ type: 'patch', payload: { shareModalVisible: true } })}
+                style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+              >
               <Ionicons name="heart-outline" size={16} color="white" />
               <Text className="text-sm font-semibold text-white">
                 {isShared ? 'Gestionar lista compartida' : 'Compartir con pareja'}
@@ -166,7 +193,7 @@ export default function ProfileScreen() {
             {isShared && (
               <Pressable
                 className="mt-2 items-center py-2"
-                onPress={() => setLeaveListModalVisible(true)}
+                onPress={() => dispatch({ type: 'patch', payload: { leaveListModalVisible: true } })}
               >
                 <Text className="text-caption text-text-tertiary">Dejar de compartir</Text>
               </Pressable>
@@ -184,12 +211,12 @@ export default function ProfileScreen() {
               </Text>
               <Text className="mb-3 text-caption text-text-secondary">
                 {localCount > 0
-                  ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''} localmente. Crea una cuenta para sincronizar y compartir.`
+                  ? `Tienes ${state.localCount} restaurante${state.localCount > 1 ? 's' : ''} guardado${state.localCount > 1 ? 's' : ''} localmente. Crea una cuenta para sincronizar y compartir.`
                   : 'Crea una cuenta para sincronizar entre dispositivos y compartir con tu pareja.'}
               </Text>
               <Pressable
                 className="items-center rounded-button bg-primary py-3"
-                onPress={() => setCreateAccountModalVisible(true)}
+                onPress={() => dispatch({ type: 'patch', payload: { createAccountModalVisible: true } })}
                 style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
               >
                 <Text className="text-sm font-semibold text-white">
@@ -204,7 +231,7 @@ export default function ProfileScreen() {
         {!skipMode && (
           <Pressable
             className="flex-row items-center justify-center gap-2 rounded-button border border-border py-4"
-            onPress={() => setLogoutModalVisible(true)}
+            onPress={() => dispatch({ type: 'patch', payload: { logoutModalVisible: true } })}
             style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           >
             <Ionicons name="log-out-outline" size={18} color="#717171" />
@@ -217,43 +244,43 @@ export default function ProfileScreen() {
 
       {/* Share modal */}
       <ShareListModal
-        visible={shareModalVisible}
-        inviteCode={inviteCode}
-        onClose={() => setShareModalVisible(false)}
+        visible={state.shareModalVisible}
+        inviteCode={state.inviteCode}
+        onClose={() => dispatch({ type: 'patch', payload: { shareModalVisible: false } })}
         onJoined={handleJoined}
       />
 
       <ConfirmModal
-        visible={logoutModalVisible}
+        visible={state.logoutModalVisible}
         title="Cerrar sesion"
         message="¿Seguro que quieres cerrar sesion?"
         confirmLabel="Cerrar sesion"
         destructive
         onConfirm={handleConfirmLogout}
-        onCancel={() => setLogoutModalVisible(false)}
+        onCancel={() => dispatch({ type: 'patch', payload: { logoutModalVisible: false } })}
       />
 
       <ConfirmModal
-        visible={createAccountModalVisible}
+        visible={state.createAccountModalVisible}
         title="Crear cuenta"
         message={
-          localCount > 0
-            ? `Tienes ${localCount} restaurante${localCount > 1 ? 's' : ''} guardado${localCount > 1 ? 's' : ''}. Al crear cuenta podras sincronizarlos y compartir.`
+          state.localCount > 0
+            ? `Tienes ${state.localCount} restaurante${state.localCount > 1 ? 's' : ''} guardado${state.localCount > 1 ? 's' : ''}. Al crear cuenta podras sincronizarlos y compartir.`
             : 'Crea una cuenta para sincronizar y compartir tu lista.'
         }
         confirmLabel="Continuar"
         onConfirm={handleConfirmCreateAccount}
-        onCancel={() => setCreateAccountModalVisible(false)}
+        onCancel={() => dispatch({ type: 'patch', payload: { createAccountModalVisible: false } })}
       />
 
       <ConfirmModal
-        visible={leaveListModalVisible}
+        visible={state.leaveListModalVisible}
         title="Dejar de compartir"
         message="Volveras a tener una lista personal. Los restaurantes que guardaste seguiran en la lista compartida."
         confirmLabel="Dejar de compartir"
         destructive
         onConfirm={handleConfirmLeaveList}
-        onCancel={() => setLeaveListModalVisible(false)}
+        onCancel={() => dispatch({ type: 'patch', payload: { leaveListModalVisible: false } })}
       />
     </ScrollView>
   );

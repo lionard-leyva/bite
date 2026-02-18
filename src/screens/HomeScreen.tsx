@@ -1,7 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useReducer, useMemo, useRef, useEffect, useCallback } from 'react';
 import { View, Text, ActivityIndicator, Pressable, Platform, Animated, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image';
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, type Region } from 'react-native-maps';
 import MapView from 'react-native-maps';
@@ -16,31 +15,20 @@ import { openNativeNavigation, haversineKm, formatDistance } from '../services/n
 import FAB from '../components/FAB';
 import MapMarker from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
-import DragHandle from '../components/DragHandle';
-import SearchBar from '../components/SearchBar';
-import FilterButtons from '../components/FilterButtons';
+import HomeHeader from '../components/HomeHeader';
 import type { FilterValue } from '../components/FilterButtons';
 import type { RootStackParamList } from '../navigation/types';
-import { getPrimaryPhoto } from '../types';
 import type { Restaurant } from '../types';
 import {
   CLUSTER_RADIUS,
   CLUSTER_COLOR,
   CLUSTER_FONT_SIZE,
-  FAB_SIZE,
   FAB_BOTTOM_OFFSET,
   LOCATION_BUTTON_SIZE,
-  CARD_BOTTOM_POSITION,
-  CARD_HORIZONTAL_MARGIN,
-  CARD_CONTENT_PADDING_H,
-  CARD_CONTENT_PADDING_V,
-  CARD_PHOTO_HEIGHT,
-  CARD_BORDER_RADIUS,
   Z_MARKER,
   Z_MARKER_SELECTED,
   Z_CLUSTER,
   Z_FAB,
-  Z_CARD,
   EDGE_PADDING_TOP,
   EDGE_PADDING_RIGHT,
   EDGE_PADDING_BOTTOM,
@@ -59,6 +47,7 @@ import {
   EXPAND_BUTTON_SIZE,
   EXPAND_BUTTON_RADIUS,
 } from '../config/constants';
+import MapDetailCard from '../components/MapDetailCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -161,8 +150,6 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
   prev.restaurant.visited === next.restaurant.visited,
 );
 
-const CARD_BOTTOM = CARD_BOTTOM_POSITION;
-
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { restaurants: rawRestaurants, loading, error } = useRestaurants({ mode: 'all' });
@@ -170,16 +157,45 @@ export default function HomeScreen() {
   const mapRef = useRef<MapView>(null);
   const hasInitiallyFit = useRef(false);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  interface HomeState {
+    selectedId: string | null;
+    mapExpanded: boolean;
+    searchQuery: string;
+    activeFilter: FilterValue;
+    mapRegion: Region | null;
+    markerTracks: boolean;
+  }
+
+  type HomeAction =
+    | { type: 'patch'; payload: Partial<HomeState> }
+    | { type: 'reset' };
+
+  const initialState: HomeState = {
+    selectedId: null,
+    mapExpanded: false,
+    searchQuery: '',
+    activeFilter: 'all',
+    mapRegion: null,
+    markerTracks: Platform.OS === 'android',
+  };
+
+  function reducer(state: HomeState, action: HomeAction): HomeState {
+    switch (action.type) {
+      case 'patch':
+        return { ...state, ...action.payload };
+      case 'reset':
+        return initialState;
+      default:
+        return state;
+    }
+  }
+
+  const [state, dispatch] = useReducer(reducer, initialState);
+  const { selectedId, mapExpanded, searchQuery, activeFilter, mapRegion, markerTracks } = state;
   const selectedIdRef = useRef<string | null>(null);
   const cardTranslateY = useRef(new Animated.Value(SHEET_DISMISS_TRANSLATE)).current;
   const suppressMapPressRef = useRef(false);
-
-  const [mapExpanded, setMapExpanded] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
   const modalMapRef = useRef<MapView>(null);
-  const [mapRegion, setMapRegion] = useState<Region | null>(null);
 
   const restaurants = useMemo(() => dedupeById(rawRestaurants), [rawRestaurants]);
 
@@ -203,6 +219,19 @@ export default function HomeScreen() {
     return filtered;
   }, [restaurants, activeFilter, searchQuery]);
 
+  // Android: ensure custom marker views render at least once.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    dispatch({ type: 'patch', payload: { markerTracks: true } });
+  }, [visibleRestaurants.length]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!markerTracks) return;
+    const t = setTimeout(() => dispatch({ type: 'patch', payload: { markerTracks: false } }), 400);
+    return () => clearTimeout(t);
+  }, [markerTracks]);
+
   const restaurantMap = useMemo(() => new Map(visibleRestaurants.map((r) => [r.id, r])), [visibleRestaurants]);
   const coordOffsets = useMemo(() => applyNearbyOffsets(visibleRestaurants), [visibleRestaurants]);
 
@@ -212,7 +241,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (selectedId && !restaurantMap.has(selectedId)) {
-      setSelectedId(null);
+      dispatch({ type: 'patch', payload: { selectedId: null } });
     }
   }, [restaurantMap, selectedId]);
 
@@ -243,7 +272,7 @@ export default function HomeScreen() {
       duration: 250,
       useNativeDriver: true,
     }).start(() => {
-      setSelectedId(null);
+      dispatch({ type: 'patch', payload: { selectedId: null } });
       isDismissing.current = false;
     });
   }, [cardTranslateY]);
@@ -265,12 +294,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!mapRegion) {
-      setMapRegion(initialRegion);
+      dispatch({ type: 'patch', payload: { mapRegion: initialRegion } });
     }
   }, [initialRegion, mapRegion]);
 
   const handleRegionChangeComplete = useCallback((region: Region) => {
-    setMapRegion(region);
+    dispatch({ type: 'patch', payload: { mapRegion: region } });
   }, []);
 
   const mapPadding = useMemo(() => ({
@@ -319,7 +348,7 @@ export default function HomeScreen() {
     if (selectedIdRef.current === r.id) {
       dismissCard();
     } else {
-      setSelectedId(r.id);
+      dispatch({ type: 'patch', payload: { selectedId: r.id } });
     }
     mapRef.current?.animateToRegion(
       {
@@ -439,7 +468,7 @@ export default function HomeScreen() {
     onRegionChangeComplete: handleRegionChangeComplete,
   };
 
-  const renderMarkers = () => (
+  const markers = useMemo(() => (
     <>
       {location.latitude != null && location.longitude != null && (
         <UserLocationMarker latitude={location.latitude} longitude={location.longitude} />
@@ -451,36 +480,33 @@ export default function HomeScreen() {
           coord={coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude }}
           isSelected={selectedId === r.id}
           hasSelection={hasSelection}
-          tracksViewChanges={false}
+          tracksViewChanges={Platform.OS === 'android' ? markerTracks : false}
           onPress={handleMarkerPress}
         />
       ))}
     </>
-  );
+  ), [
+    location.latitude,
+    location.longitude,
+    visibleRestaurants,
+    coordOffsets,
+    selectedId,
+    hasSelection,
+    markerTracks,
+    handleMarkerPress,
+  ]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       {/* HEADER */}
-      <View style={layoutStyles.header}>
-        {/* Row 1: city + profile avatar */}
-        <View style={layoutStyles.headerTop}>
-          <View>
-            <Text style={layoutStyles.headerEyebrow}>Explorando</Text>
-            <Text style={layoutStyles.headerCity}>{location.city ?? 'Tu zona'}</Text>
-          </View>
-          <Pressable style={layoutStyles.avatarButton} onPress={() => navigation.navigate('Tabs', { screen: 'Profile' })}>
-            <Ionicons name="person-outline" size={18} color="#484848" />
-          </Pressable>
-        </View>
-
-        {/* Row 2: search bar */}
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} />
-
-        {/* Row 3: filter pills */}
-        <View style={{ marginTop: 8 }}>
-          <FilterButtons active={activeFilter} onSelect={setActiveFilter} />
-        </View>
-      </View>
+      <HomeHeader
+        city={location.city ?? 'Tu zona'}
+        searchQuery={searchQuery}
+        onSearchChange={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
+        activeFilter={activeFilter}
+        onFilterChange={(value) => dispatch({ type: 'patch', payload: { activeFilter: value } })}
+        onProfilePress={() => navigation.navigate('Tabs', { screen: 'Profile' })}
+      />
 
       {/* MAP CARD */}
       {!mapExpanded && (
@@ -496,13 +522,13 @@ export default function HomeScreen() {
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
           >
-              {renderMarkers()}
-            </ClusteredMapView>
+            {markers}
+          </ClusteredMapView>
 
             {/* Expand button */}
             <Pressable
               style={layoutStyles.expandButton}
-              onPress={() => setMapExpanded(true)}
+            onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: true } })}
               accessibilityRole="button"
               accessibilityLabel="Expandir mapa"
             >
@@ -548,146 +574,26 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ====== Bottom card — Airbnb listing card style ====== */}
+      {/* ====== Bottom card — compact detail ====== */}
       {selectedRestaurant && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            bottom: CARD_BOTTOM,
-            left: CARD_HORIZONTAL_MARGIN,
-            right: CARD_HORIZONTAL_MARGIN,
-            backgroundColor: '#FFFFFF',
-            borderRadius: CARD_BORDER_RADIUS,
-            zIndex: Z_CARD,
-            transform: [{ translateY: cardTranslateY }],
-            ...(Platform.OS === 'android'
-              ? { elevation: 6 }
-              : { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.08, shadowRadius: 8 }),
+        <MapDetailCard
+          restaurant={selectedRestaurant}
+          translateY={cardTranslateY}
+          metaLine={metaLine}
+          etaLoading={etaLoading}
+          onClose={dismissCard}
+          onDetail={() => {
+            navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
+            dispatch({ type: 'patch', payload: { selectedId: null } });
           }}
-        >
-          <DragHandle />
-
-          {/* Photo — full width, Airbnb height */}
-          {getPrimaryPhoto(selectedRestaurant) ? (
-            <View style={{ borderRadius: CARD_BORDER_RADIUS - 4, overflow: 'hidden', height: 140, marginHorizontal: 4 }}>
-              <Image
-                source={{ uri: getPrimaryPhoto(selectedRestaurant)! }}
-                style={{ width: '100%', height: 140 }}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={200}
-                placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-              />
-            </View>
-          ) : null}
-
-          {/* Close */}
-          <Pressable
-            onPress={dismissCard}
-            hitSlop={12}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              zIndex: 20,
-              width: 30,
-              height: 30,
-              borderRadius: 15,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="close" size={18} color="#fff" />
-          </Pressable>
-
-          {/* Info section */}
-          <View style={{ paddingHorizontal: CARD_CONTENT_PADDING_H, paddingVertical: 10 }}>
-            <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>
-              {selectedRestaurant.name}
-            </Text>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <Text style={{ fontSize: 13 }}>
-                {'\u{2B50}'.repeat(selectedRestaurant.rating)}
-              </Text>
-              <View style={{ backgroundColor: selectedRestaurant.visited ? '#E6F7F5' : '#FFEEEE', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-                <Text style={{ fontSize: 10, fontWeight: '600', color: selectedRestaurant.visited ? '#00A699' : '#FF5A5F' }}>
-                  {selectedRestaurant.visited ? 'Visitado' : 'Pendiente'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              {etaLoading ? (
-                <ActivityIndicator size={10} color="#9CA3AF" />
-              ) : (
-                <Text style={{ fontSize: 13, color: '#6B7280' }}>
-                  {(() => {
-                    const parts = metaLine.split(' \u00B7 ');
-                    const dist = parts[0] ?? '';
-                    const rest = parts.slice(1).join(' \u00B7 ');
-                    return (
-                      <>
-                        <Text style={{ fontWeight: '700', color: '#111827' }}>{dist}</Text>
-                        {rest ? <Text>{` \u00B7 ${rest}`}</Text> : null}
-                      </>
-                    );
-                  })()}
-                </Text>
-              )}
-            </View>
-
-          </View>
-
-          {/* Buttons */}
-          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: CARD_CONTENT_PADDING_H, paddingBottom: 10, marginTop: 2 }}>
-            <Pressable
-              onPress={() => {
-                navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
-                setSelectedId(null);
-              }}
-              style={{
-                flex: 1,
-                backgroundColor: '#ef4444',
-                paddingVertical: 10,
-                borderRadius: 8,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 6,
-                minHeight: 44,
-              }}
-            >
-              <Ionicons name="information-circle-outline" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Ver detalle</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() =>
-                openNativeNavigation(
-                  selectedRestaurant.latitude,
-                  selectedRestaurant.longitude,
-                  selectedRestaurant.name,
-                )
-              }
-              style={{
-                flex: 1,
-                backgroundColor: '#3b82f6',
-                paddingVertical: 10,
-                borderRadius: 8,
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'row',
-                gap: 6,
-                minHeight: 44,
-              }}
-            >
-              <Ionicons name="navigate" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Ir ahora</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
+          onNavigate={() =>
+            openNativeNavigation(
+              selectedRestaurant.latitude,
+              selectedRestaurant.longitude,
+              selectedRestaurant.name,
+            )
+          }
+        />
       )}
 
       <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET} />
@@ -697,11 +603,11 @@ export default function HomeScreen() {
         visible={mapExpanded}
         animationType="slide"
         statusBarTranslucent
-        onRequestClose={() => setMapExpanded(false)}
+        onRequestClose={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
           <View style={layoutStyles.modalHeader}>
-            <Pressable style={layoutStyles.closeButton} onPress={() => setMapExpanded(false)}>
+            <Pressable style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
               <Ionicons name="close" size={18} color="#222222" />
             </Pressable>
             <Text style={layoutStyles.modalTitle}>Mapa</Text>
@@ -713,7 +619,7 @@ export default function HomeScreen() {
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
           >
-            {renderMarkers()}
+            {markers}
           </ClusteredMapView>
         </SafeAreaView>
       </Modal>
@@ -722,41 +628,6 @@ export default function HomeScreen() {
 }
 
 const layoutStyles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
-    backgroundColor: '#FFFFFF',
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerEyebrow: {
-    fontSize: 12,
-    color: '#999999',
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  headerCity: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#222222',
-    marginTop: 1,
-  },
-  avatarButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
   mapCard: {
     marginHorizontal: MAP_CARD_MARGIN_H,
     marginTop: MAP_CARD_MARGIN_TOP,

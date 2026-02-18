@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useReducer } from 'react';
 import {
   View,
   Text,
@@ -18,33 +18,60 @@ type Tab = 'login' | 'register';
 export default function AuthScreen() {
   const { login, register, skipLogin } = useAuth();
 
-  const [tab, setTab] = useState<Tab>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  interface AuthFormState {
+    tab: Tab;
+    email: string;
+    password: string;
+    loading: boolean;
+    emailError: string;
+    passwordError: string;
+    showPassword: boolean;
+  }
+
+  type AuthFormAction =
+    | { type: 'patch'; payload: Partial<AuthFormState> }
+    | { type: 'reset' };
+
+  const initialState: AuthFormState = {
+    tab: 'login',
+    email: '',
+    password: '',
+    loading: false,
+    emailError: '',
+    passwordError: '',
+    showPassword: false,
+  };
+
+  function reducer(state: AuthFormState, action: AuthFormAction): AuthFormState {
+    switch (action.type) {
+      case 'patch':
+        return { ...state, ...action.payload };
+      case 'reset':
+        return initialState;
+      default:
+        return state;
+    }
+  }
+
+  const [state, dispatch] = useReducer(reducer, initialState);
 
   function handleEmailChange(text: string) {
-    setEmail(text);
-    if (emailError) setEmailError('');
+    dispatch({ type: 'patch', payload: { email: text, emailError: '' } });
   }
 
   function handlePasswordChange(text: string) {
-    setPassword(text);
-    if (passwordError) setPasswordError('');
+    dispatch({ type: 'patch', payload: { password: text, passwordError: '' } });
   }
 
   function validate(): boolean {
     let valid = true;
-    const trimmed = email.trim();
+    const trimmed = state.email.trim();
     if (!trimmed || !trimmed.includes('@')) {
-      setEmailError('Introduce un email valido');
+      dispatch({ type: 'patch', payload: { emailError: 'Introduce un email valido' } });
       valid = false;
     }
-    if (password.length < 6) {
-      setPasswordError('Al menos 6 caracteres');
+    if (state.password.length < 6) {
+      dispatch({ type: 'patch', payload: { passwordError: 'Al menos 6 caracteres' } });
       valid = false;
     }
     return valid;
@@ -52,12 +79,12 @@ export default function AuthScreen() {
 
   async function handleSubmit() {
     if (!validate()) return;
-    setLoading(true);
+    dispatch({ type: 'patch', payload: { loading: true } });
     try {
-      if (tab === 'login') {
-        await login(email.trim(), password);
+      if (state.tab === 'login') {
+        await login(state.email.trim(), state.password);
       } else {
-        await register(email.trim(), password);
+        await register(state.email.trim(), state.password);
       }
       // Success — keep spinner until onAuthStateChanged finishes setup
       // and this screen unmounts. Don't call setLoading(false) here.
@@ -79,7 +106,7 @@ export default function AuthScreen() {
                     ? 'Sin conexion. Revisa tu internet.'
                     : e.message ?? 'Error de autenticacion';
       Alert.alert('Error', msg);
-      setLoading(false);
+      dispatch({ type: 'patch', payload: { loading: false } });
     }
   }
 
@@ -91,12 +118,13 @@ export default function AuthScreen() {
     <KeyboardAvoidingView
       className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 24 }}
         className="px-6"
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Brand icon */}
         <View className="items-center mb-3">
@@ -116,21 +144,21 @@ export default function AuthScreen() {
         {/* Pill tab switcher */}
         <View className="mb-6 flex-row rounded-pill bg-border p-1">
           <Pressable
-            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'login' ? 'bg-text-primary' : ''}`}
-            onPress={() => setTab('login')}
+            className={`flex-1 items-center rounded-pill py-2.5 ${state.tab === 'login' ? 'bg-text-primary' : ''}`}
+            onPress={() => dispatch({ type: 'patch', payload: { tab: 'login' } })}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'login' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${state.tab === 'login' ? 'text-white' : 'text-text-secondary'}`}
             >
               Iniciar sesion
             </Text>
           </Pressable>
           <Pressable
-            className={`flex-1 items-center rounded-pill py-2.5 ${tab === 'register' ? 'bg-text-primary' : ''}`}
-            onPress={() => setTab('register')}
+            className={`flex-1 items-center rounded-pill py-2.5 ${state.tab === 'register' ? 'bg-text-primary' : ''}`}
+            onPress={() => dispatch({ type: 'patch', payload: { tab: 'register' } })}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'register' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${state.tab === 'register' ? 'text-white' : 'text-text-secondary'}`}
             >
               Registrarse
             </Text>
@@ -139,10 +167,10 @@ export default function AuthScreen() {
 
         {/* Form */}
         <TextInput
-          className={`rounded-input border bg-surface px-4 py-3 text-text-primary ${emailError ? 'border-primary' : 'border-border'}`}
+          className={`rounded-input border bg-surface px-4 py-3 text-text-primary ${state.emailError ? 'border-primary' : 'border-border'}`}
           placeholder="Email"
           placeholderTextColor="#A0A0A0"
-          value={email}
+          value={state.email}
           onChangeText={handleEmailChange}
           autoCapitalize="none"
           autoCorrect={false}
@@ -151,21 +179,21 @@ export default function AuthScreen() {
           autoComplete="email"
           style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
         />
-        {emailError ? (
-          <Text className="mt-1 text-caption text-primary">{emailError}</Text>
+        {state.emailError ? (
+          <Text className="mt-1 text-caption text-primary">{state.emailError}</Text>
         ) : null}
         <View className="h-3" />
         <View
-          className={`flex-row items-center rounded-input border bg-surface ${passwordError ? 'border-primary' : 'border-border'}`}
+          className={`flex-row items-center rounded-input border bg-surface ${state.passwordError ? 'border-primary' : 'border-border'}`}
           style={{ minHeight: 48 }}
         >
           <TextInput
             className="flex-1 px-4 py-3 text-text-primary"
             placeholder="Contraseña"
             placeholderTextColor="#A0A0A0"
-            value={password}
+            value={state.password}
             onChangeText={handlePasswordChange}
-            secureTextEntry={!showPassword}
+            secureTextEntry={!state.showPassword}
             textContentType="password"
             autoCapitalize="none"
             autoCorrect={false}
@@ -174,34 +202,34 @@ export default function AuthScreen() {
             style={{ fontSize: 16, lineHeight: 20 }}
           />
           <Pressable
-            onPress={() => setShowPassword((v) => !v)}
+            onPress={() => dispatch({ type: 'patch', payload: { showPassword: !state.showPassword } })}
             hitSlop={8}
             style={{ paddingRight: 14 }}
           >
             <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              name={state.showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
               color="#A0A0A0"
             />
           </Pressable>
         </View>
-        {passwordError ? (
-          <Text className="mt-1 text-caption text-primary">{passwordError}</Text>
+        {state.passwordError ? (
+          <Text className="mt-1 text-caption text-primary">{state.passwordError}</Text>
         ) : null}
         <View className="h-4" />
 
         {/* Submit */}
         <Pressable
-          className={`mb-4 items-center rounded-button py-4 ${loading ? 'bg-border' : 'bg-primary'}`}
+          className={`mb-4 items-center rounded-button py-4 ${state.loading ? 'bg-border' : 'bg-primary'}`}
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={state.loading}
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          {loading ? (
+          {state.loading ? (
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-body font-semibold text-white">
-              {tab === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
+              {state.tab === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
             </Text>
           )}
         </Pressable>

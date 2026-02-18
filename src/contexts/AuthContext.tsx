@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useReducer, useEffect, useRef, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -37,13 +37,41 @@ export interface AuthState {
 
 export const AuthContext = createContext<AuthState | null>(null);
 
+interface AuthStateShape {
+  user: FirebaseUser | null;
+  userId: string;
+  listId: string;
+  isLoading: boolean;
+  skipMode: boolean;
+  pendingMigration: boolean;
+}
+
+type AuthAction =
+  | { type: 'patch'; payload: Partial<AuthStateShape> }
+  | { type: 'reset' };
+
+const initialAuthState: AuthStateShape = {
+  user: null,
+  userId: '',
+  listId: '',
+  isLoading: true,
+  skipMode: false,
+  pendingMigration: false,
+};
+
+function authReducer(state: AuthStateShape, action: AuthAction): AuthStateShape {
+  switch (action.type) {
+    case 'patch':
+      return { ...state, ...action.payload };
+    case 'reset':
+      return { ...initialAuthState, isLoading: false };
+    default:
+      return state;
+  }
+}
+
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userId, setUserId] = useState('');
-  const [listId, setListId] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [skipMode, setSkipModeState] = useState(false);
-  const [pendingMigration, setPendingMigration] = useState(false);
+  const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
   const callIdRef = useRef(0);
   useEffect(() => {
@@ -87,8 +115,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           ]);
           if (callIdRef.current !== thisCall) return;
 
+          const nextPatch: Partial<AuthStateShape> = {
+            skipMode: false,
+            userId: firebaseUser.uid,
+            listId: userListId,
+            user: firebaseUser,
+          };
           if (localCount > 0) {
-            setPendingMigration(true);
+            nextPatch.pendingMigration = true;
           }
 
           if (!alreadyConsolidated) {
@@ -99,40 +133,43 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
           console.warn('[AuthContext] Auth setup OK — uid:', firebaseUser.uid, 'listId:', userListId);
 
-          // Batch all state updates so React commits them in one render
-          setSkipModeState(false);
-          setUserId(firebaseUser.uid);
-          setListId(userListId);
-          setUser(firebaseUser);
+          dispatch({ type: 'patch', payload: nextPatch });
         } else {
-          setUser(null);
-
           const wasSkip = await getSkipMode();
           if (callIdRef.current !== thisCall) return;
 
           if (wasSkip) {
             const deviceId = await getOrCreateDeviceId();
             if (callIdRef.current !== thisCall) return;
-            setUserId(deviceId);
-            setListId('local');
-            setSkipModeState(true);
+            dispatch({
+              type: 'patch',
+              payload: {
+                user: null,
+                userId: deviceId,
+                listId: 'local',
+                skipMode: true,
+              },
+            });
           } else {
-            setUserId('');
-            setListId('');
-            setSkipModeState(false);
+            dispatch({
+              type: 'patch',
+              payload: {
+                user: null,
+                userId: '',
+                listId: '',
+                skipMode: false,
+              },
+            });
           }
         }
       } catch (err) {
         console.error('[AuthContext] Auth setup failed:', err);
         // If setup fails, reset to signed-out state so the user can retry
-        setUser(null);
-        setUserId('');
-        setListId('');
-        setSkipModeState(false);
+        dispatch({ type: 'reset' });
       } finally {
         // Only update isLoading if this is still the latest callback
         if (callIdRef.current === thisCall) {
-          setIsLoading(false);
+          dispatch({ type: 'patch', payload: { isLoading: false } });
         }
       }
     });
@@ -150,24 +187,25 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     await signOut(auth);
-    setUser(null);
-    setUserId('');
-    setListId('');
-    setSkipModeState(false);
+    dispatch({
+      type: 'patch',
+      payload: { user: null, userId: '', listId: '', skipMode: false },
+    });
     await setSkipMode(false);
   }
 
   async function skipLogin() {
     const deviceId = await getOrCreateDeviceId();
-    setUserId(deviceId);
-    setListId('local');
-    setSkipModeState(true);
+    dispatch({
+      type: 'patch',
+      payload: { user: null, userId: deviceId, listId: 'local', skipMode: true },
+    });
     await setSkipMode(true);
-    setIsLoading(false);
+    dispatch({ type: 'patch', payload: { isLoading: false } });
   }
 
   async function migrateLocalData(): Promise<number> {
-    if (!user || skipMode) return 0;
+    if (!state.user || state.skipMode) return 0;
 
     const locals = await getLocalRestaurants();
     if (locals.length === 0) return 0;
@@ -187,35 +225,35 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             visited: r.visited,
             pricePerPerson: r.pricePerPerson,
             photoUris: [],
-            userId: user.uid,
-            listId,
+            userId: state.user.uid,
+            listId: state.listId,
           }),
         ),
       );
     }
 
     await clearLocalRestaurants();
-    setPendingMigration(false);
+    dispatch({ type: 'patch', payload: { pendingMigration: false } });
     return locals.length;
   }
 
   function dismissMigration() {
-    setPendingMigration(false);
+    dispatch({ type: 'patch', payload: { pendingMigration: false } });
   }
 
   function refreshListId(newListId: string) {
-    setListId(newListId);
+    dispatch({ type: 'patch', payload: { listId: newListId } });
   }
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        userId,
-        listId,
-        isLoading,
-        skipMode,
-        pendingMigration,
+        user: state.user,
+        userId: state.userId,
+        listId: state.listId,
+        isLoading: state.isLoading,
+        skipMode: state.skipMode,
+        pendingMigration: state.pendingMigration,
         login,
         register,
         logout,

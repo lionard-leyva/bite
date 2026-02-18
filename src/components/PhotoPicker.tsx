@@ -51,7 +51,7 @@ export default function PhotoPicker({
         >
           {/* Thumbnails */}
           {photoUris.map((uri, index) => (
-            <View key={`${uri}-${index}`} style={{ position: 'relative' }}>
+            <View key={uri ? `photo-${uri}` : `photo-${index}`} style={{ position: 'relative' }}>
               <Image
                 source={{ uri }}
                 style={{ width: 80, height: 80, borderRadius: 12 }}

@@ -96,7 +96,7 @@ export default function DetailScreen() {
           >
             {photos.map((uri, i) => (
               <Image
-                key={`photo-${i}`}
+                key={uri ? `photo-${uri}` : `photo-${i}`}
                 source={{ uri }}
                 style={{ height: 288, width: screenWidth }}
                 contentFit="cover"
@@ -109,9 +109,9 @@ export default function DetailScreen() {
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, backgroundColor: 'rgba(0,0,0,0.1)' }} />
           {photos.length > 1 && (
             <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
-              {photos.map((_, i) => (
+              {photos.map((uri, i) => (
                 <View
-                  key={`dot-${i}`}
+                  key={uri ? `dot-${uri}` : `dot-${i}`}
                   style={{
                     width: 8,
                     height: 8,
@@ -169,7 +169,7 @@ export default function DetailScreen() {
           <View className="mt-3">
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {photos.map((uri, i) => (
-                <Pressable key={`thumb-${i}`} onPress={() => setActivePhotoIndex(i)}>
+                <Pressable key={uri ? `thumb-${uri}` : `thumb-${i}`} onPress={() => setActivePhotoIndex(i)}>
                   <Image
                     source={{ uri }}
                     style={{
