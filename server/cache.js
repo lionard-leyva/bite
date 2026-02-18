@@ -2,6 +2,7 @@
 // No external dependencies — suitable for a single-instance proxy.
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 500;
 
 /** @type {Map<string, { value: any, expiresAt: number }>} */
 const store = new Map();
@@ -29,6 +30,11 @@ function get(key) {
 }
 
 function set(key, value, ttlMs = DEFAULT_TTL_MS) {
+  if (store.size >= MAX_CACHE_SIZE) {
+    // Evict oldest entry (first key in Map insertion order)
+    const oldest = store.keys().next().value;
+    if (oldest !== undefined) store.delete(oldest);
+  }
   store.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 

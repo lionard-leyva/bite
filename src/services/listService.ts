@@ -6,6 +6,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  writeBatch,
   query,
   where,
   arrayUnion,
@@ -44,9 +45,71 @@ export async function getUserListId(userId: string): Promise<string | null> {
 }
 
 export async function ensureUserList(userId: string): Promise<string> {
+  // 1. Check user doc for existing sharedListId
   const existing = await getUserListId(userId);
-  if (existing) return existing;
+  if (existing) {
+    const listDoc = await getDoc(doc(db, 'lists', existing));
+    if (listDoc.exists()) return existing;
+  }
+
+  // 2. Fallback: find any list where user is already a member (prevents duplicates)
+  const listsSnap = await getDocs(
+    query(collection(db, 'lists'), where('members', 'array-contains', userId)),
+  );
+  if (!listsSnap.empty) {
+    const picked = listsSnap.docs[0].id;
+    await setDoc(doc(db, 'users', userId), { sharedListId: picked }, { merge: true });
+    return picked;
+  }
+
+  // 3. No lists at all — create one
   return createPersonalList(userId);
+}
+
+export async function consolidateUserLists(
+  userId: string,
+  currentListId: string,
+): Promise<number> {
+  const listsSnap = await getDocs(
+    query(collection(db, 'lists'), where('members', 'array-contains', userId)),
+  );
+
+  const otherListIds = listsSnap.docs
+    .map((d) => d.id)
+    .filter((id) => id !== currentListId);
+  if (otherListIds.length === 0) return 0;
+
+  // Firestore "in" queries allow up to 10 values. Process in chunks.
+  const chunkSize = 10;
+  let moved = 0;
+
+  for (let i = 0; i < otherListIds.length; i += chunkSize) {
+    const chunk = otherListIds.slice(i, i + chunkSize);
+    const rSnap = await getDocs(
+      query(collection(db, 'restaurants'), where('listId', 'in', chunk)),
+    );
+
+    let batch = writeBatch(db);
+    let batchCount = 0;
+
+    for (const rDoc of rSnap.docs) {
+      batch.update(doc(db, 'restaurants', rDoc.id), { listId: currentListId });
+      moved++;
+      batchCount++;
+
+      if (batchCount >= 400) {
+        await batch.commit();
+        batch = writeBatch(db);
+        batchCount = 0;
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+  }
+
+  return moved;
 }
 
 export async function getListInviteCode(listId: string): Promise<string | null> {
@@ -62,20 +125,16 @@ export async function getListMembers(
   if (!listDoc.exists()) return [];
 
   const memberIds: string[] = listDoc.data()?.members ?? [];
-  const members: { userId: string; email: string; displayName: string }[] = [];
-
-  for (const uid of memberIds) {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      const d = userDoc.data();
-      members.push({
-        userId: uid,
-        email: d.email ?? '',
-        displayName: d.displayName ?? '',
-      });
-    }
-  }
-  return members;
+  const memberDocs = await Promise.all(
+    memberIds.map((uid) => getDoc(doc(db, 'users', uid))),
+  );
+  return memberDocs
+    .filter((d) => d.exists())
+    .map((d) => ({
+      userId: d.id,
+      email: d.data()?.email ?? '',
+      displayName: d.data()?.displayName ?? '',
+    }));
 }
 
 export async function joinListByCode(

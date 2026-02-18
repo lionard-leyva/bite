@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 import {
@@ -18,6 +18,13 @@ interface UserLocationMarkerProps {
 export default function UserLocationMarker({ latitude, longitude }: UserLocationMarkerProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.4)).current;
+  const [trackChanges, setTrackChanges] = useState(true);
+
+  useEffect(() => {
+    // Stop tracking bitmap changes after initial render — animation uses native driver
+    const timer = setTimeout(() => setTrackChanges(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -60,7 +67,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
     <Marker
       coordinate={{ latitude, longitude }}
       anchor={{ x: 0.5, y: 0.5 }}
-      tracksViewChanges={true}
+      tracksViewChanges={trackChanges}
       zIndex={Z_USER_LOCATION}
     >
       <View

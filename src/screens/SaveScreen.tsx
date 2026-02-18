@@ -19,6 +19,7 @@ import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
+import { reverseGeocode } from '../services/locationService';
 import { saveRestaurant } from '../services/restaurantService';
 import { saveLocalRestaurant, updateLocalRestaurant, getLocalRestaurants } from '../services/localStorageService';
 import type { RootStackParamList } from '../navigation/types';
@@ -48,10 +49,11 @@ export default function SaveScreen() {
   const [rating, setRating] = useState(0);
   const [visited, setVisited] = useState(true);
   const [note, setNote] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [pricePerPerson, setPricePerPerson] = useState(PRICE_DEFAULT);
   const [saving, setSaving] = useState(false);
   const [manualMode, setManualMode] = useState(false);
+  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
 
   // One-shot read for edit mode — no listener, no re-renders on other screens
   const hasPrePopulated = useRef(false);
@@ -87,7 +89,7 @@ export default function SaveScreen() {
         setRating(data.rating);
         setVisited(data.visited);
         setNote(data.note);
-        setPhotoUri(data.photoURL);
+        setPhotoUris(data.photoURLs?.length ? data.photoURLs : (data.photoURL ? [data.photoURL] : []));
         setPricePerPerson(data.pricePerPerson ?? PRICE_DEFAULT);
       } catch (err) {
         console.warn('[SaveScreen] Failed to load restaurant for edit:', err);
@@ -97,19 +99,6 @@ export default function SaveScreen() {
 
   const placesRef = useRef<any>(null);
 
-  // Auto-fill GPS coords and address when location becomes available (non-edit mode)
-  const hasAutoFilledGPS = useRef(!!editId);
-  useEffect(() => {
-    if (hasAutoFilledGPS.current) return;
-    if (location.latitude == null || location.longitude == null) return;
-    hasAutoFilledGPS.current = true;
-    setLatitude(location.latitude);
-    setLongitude(location.longitude);
-    if (location.address) {
-      setAddress(location.address);
-    }
-  }, [location.latitude, location.longitude, location.address]);
-
   function handlePlaceSelected(data: any, details: any) {
     setName(data.structured_formatting?.main_text ?? data.description);
     setAddress(details?.formatted_address ?? data.description);
@@ -118,6 +107,22 @@ export default function SaveScreen() {
     if (placeLat != null && placeLng != null) {
       setLatitude(placeLat);
       setLongitude(placeLng);
+    }
+  }
+
+  async function handleGpsFill() {
+    if (!location.latitude || !location.longitude) return;
+    setGpsState('loading');
+    try {
+      const addr = await reverseGeocode(location.latitude, location.longitude);
+      if (addr) {
+        setAddress(addr);
+        setGpsState('filled');
+      } else {
+        setGpsState('idle');
+      }
+    } catch {
+      setGpsState('idle');
     }
   }
 
@@ -138,7 +143,7 @@ export default function SaveScreen() {
     let finalLat = latitude;
     let finalLng = longitude;
 
-    // If no coords yet (manual mode), geocode the address
+    // 1) If no coords from Places selection, geocode the name/address
     if (finalLat == null || finalLng == null) {
       const queryAddress = address.trim() || finalName;
       try {
@@ -148,7 +153,15 @@ export default function SaveScreen() {
           finalLng = results[0].longitude;
         }
       } catch (_) {
-        // geocoding failed — fall through to error below
+        // geocoding failed
+      }
+    }
+
+    // 2) Last resort: use GPS location if geocoding failed
+    if (finalLat == null || finalLng == null) {
+      if (location.latitude != null && location.longitude != null) {
+        finalLat = location.latitude;
+        finalLng = location.longitude;
       }
     }
 
@@ -172,7 +185,8 @@ export default function SaveScreen() {
           note: note.trim(),
           visited,
           pricePerPerson,
-          photoURL: photoUri,
+          photoURL: photoUris[0] ?? null,
+          photoURLs: photoUris,
           createdBy: userId,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -194,7 +208,7 @@ export default function SaveScreen() {
           note: note.trim(),
           visited,
           pricePerPerson,
-          photoUri,
+          photoUris,
           userId,
           listId,
         });
@@ -258,52 +272,9 @@ export default function SaveScreen() {
         className="flex-1 px-5 pt-4"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Location box */}
-        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Ubicacion
-        </Text>
-
-        {/* GPS address indicator */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: address ? '#00A699' : '#F0EDED',
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            minHeight: 48,
-            backgroundColor: address ? '#F0FDFA' : '#FFFFFF',
-            marginBottom: 8,
-          }}
-        >
-          {location.loading ? (
-            <ActivityIndicator size={16} color="#FF5A5F" style={{ marginRight: 8 }} />
-          ) : (
-            <Ionicons
-              name={address ? 'locate' : 'locate-outline'}
-              size={18}
-              color={address ? '#00A699' : '#FF5A5F'}
-              style={{ marginRight: 8 }}
-            />
-          )}
-          <Text
-            numberOfLines={1}
-            style={{
-              flex: 1,
-              fontSize: 15,
-              color: location.loading ? '#6B7280' : '#1F2937',
-            }}
-          >
-            {location.loading
-              ? 'Tu ubicaci\u00F3n...'
-              : address || 'Ubicaci\u00F3n no disponible'}
-          </Text>
-        </View>
-
         {/* Restaurant name */}
         <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
-          Nombre
+          Restaurante
         </Text>
         {!manualMode && MAPS_KEY ? (
           <View className="z-10 mb-4">
@@ -341,25 +312,65 @@ export default function SaveScreen() {
             />
           </View>
         ) : (
-          <View className="mb-4 gap-2">
+          <View className="mb-4">
             <TextInput
-              className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre del restaurante"
               placeholderTextColor="#A0A0A0"
               value={name}
               onChangeText={setName}
-              style={{ minHeight: 48, textAlignVertical: 'center' }}
-            />
-            <TextInput
-              className="rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
-              placeholder="Direccion del restaurante"
-              placeholderTextColor="#A0A0A0"
-              value={address}
-              onChangeText={setAddress}
-              style={{ minHeight: 48, textAlignVertical: 'center' }}
+              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
         )}
+
+        {/* Address with GPS button */}
+        <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
+          Direccion
+        </Text>
+        <View style={{ position: 'relative', marginBottom: 16 }}>
+          <TextInput
+            className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+            placeholder="Direccion del restaurante"
+            placeholderTextColor="#A0A0A0"
+            value={address}
+            onChangeText={(text) => {
+              setAddress(text);
+              if (gpsState === 'filled') setGpsState('idle');
+            }}
+            style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
+          />
+          <Pressable
+            onPress={handleGpsFill}
+            disabled={gpsState === 'loading' || !location.latitude}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              borderWidth: gpsState === 'filled' ? 0 : 1.5,
+              borderColor: '#D1D5DB',
+              backgroundColor: gpsState === 'filled' ? '#00A699' : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Rellenar direccion con GPS"
+          >
+            {gpsState === 'loading' ? (
+              <ActivityIndicator size={14} color="#6B7280" />
+            ) : (
+              <Ionicons
+                name="locate"
+                size={16}
+                color={gpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+              />
+            )}
+          </Pressable>
+        </View>
 
         {/* Rating */}
         <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
@@ -419,7 +430,7 @@ export default function SaveScreen() {
           Nota (opcional)
         </Text>
         <TextInput
-          className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-body text-text-primary"
+          className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
           placeholder="Ej: La pasta increible"
           placeholderTextColor="#A0A0A0"
           value={note}
@@ -435,9 +446,9 @@ export default function SaveScreen() {
         </Text>
         <View className="mb-6">
           <PhotoPicker
-            photoUri={photoUri}
-            onPhotoPicked={setPhotoUri}
-            onPhotoRemoved={() => setPhotoUri(null)}
+            photoUris={photoUris}
+            onPhotoAdded={(uri) => setPhotoUris((prev) => [...prev, uri])}
+            onPhotoRemoved={(index) => setPhotoUris((prev) => prev.filter((_, i) => i !== index))}
           />
         </View>
 

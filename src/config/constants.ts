@@ -3,6 +3,7 @@ export const INVITE_CODE_LENGTH = 6;
 export const PHOTO_MAX_WIDTH = 800;
 export const PHOTO_QUALITY = 0.7;
 export const PHOTO_MAX_SIZE_BYTES = 2 * 1024 * 1024;
+export const PHOTO_MAX_COUNT = 3;
 
 export const RATING_MIN = 1;
 export const RATING_MAX = 5;
@@ -21,21 +22,21 @@ export const MARKER_PILL_FONT_SIZE = 13;
 export const MARKER_TRIANGLE_SIZE = 8;
 export const MARKER_SHADOW_RADIUS = 6;
 export const MARKER_SHADOW_OPACITY = 0.18;
-export const MARKER_BG_DEFAULT = '#FFFFFF';
-export const MARKER_BG_SELECTED = '#222222';
+export const MARKER_BG_DEFAULT = '#FF3B30';
+export const MARKER_BG_SELECTED = '#B91C1C';
 export const MARKER_TEXT_DEFAULT = '#222222';
 export const MARKER_TEXT_SELECTED = '#FFFFFF';
 export const MARKER_BORDER_COLOR = '#E0E0E0';
 export const MARKER_BORDER_WIDTH = 1;
 export const MARKER_SELECTED_SCALE = 1.08;
-export const MARKER_VISITED_ACCENT = '#00A699';
-export const MARKER_PENDING_ACCENT = '#FF5A5F';
+export const MARKER_VISITED_ACCENT = '#FFFFFF';
+export const MARKER_PENDING_ACCENT = '#FFFFFF';
 
 // Clustering
 export const CLUSTER_RADIUS = 60;
 export const CLUSTER_SIZE = 48;
 export const CLUSTER_BORDER_WIDTH = 3;
-export const CLUSTER_COLOR = '#0A8A8A';
+export const CLUSTER_COLOR = '#FF3B30';
 export const CLUSTER_FONT_SIZE = 16;
 
 // User location
@@ -112,3 +113,15 @@ export const DRAG_HANDLE_BORDER_RADIUS = 2;
 export const INPUT_MIN_HEIGHT = 48;
 export const INPUT_PLACEHOLDER_COLOR = '#A0A0A0';
 export const INPUT_MULTILINE_MIN_HEIGHT = 80;
+
+// Map card (HomeScreen redesign)
+export const MAP_CARD_MARGIN_H = 16;
+export const MAP_CARD_MARGIN_TOP = 12;
+export const MAP_CARD_MARGIN_BOTTOM = 8;
+export const MAP_CARD_BORDER_RADIUS = 16;
+export const MAP_CARD_HEIGHT_PERCENT = 0.62;
+export const MAP_CARD_BG = '#E8E8E8';
+
+// Expand button
+export const EXPAND_BUTTON_SIZE = 36;
+export const EXPAND_BUTTON_RADIUS = 18;

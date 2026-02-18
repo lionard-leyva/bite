@@ -26,13 +26,11 @@ const BORDER_W = 2;
 
 function MapMarkerInner({ name, rating, visited, isSelected }: MapMarkerProps) {
   const bg = isSelected ? MARKER_BG_SELECTED : MARKER_BG_DEFAULT;
-  const borderColor = isSelected ? MARKER_BG_SELECTED : '#FF5A5F';
+  const borderColor = bg;
   const scale = isSelected ? MARKER_SELECTED_SCALE : 1;
   const accentColor = visited ? MARKER_VISITED_ACCENT : MARKER_PENDING_ACCENT;
 
-  const iconColor = isSelected
-    ? (visited ? '#6EE7B7' : '#FCA5A5')
-    : accentColor;
+  const iconColor = isSelected ? '#FFFFFF' : accentColor;
 
   const shadow = Platform.select({
     ios: {
@@ -80,7 +78,7 @@ function MapMarkerInner({ name, rating, visited, isSelected }: MapMarkerProps) {
           style={{
             fontSize: 9,
             fontWeight: '800',
-            color: '#FFB800',
+            color: '#FFFFFF',
             marginTop: 1,
           }}
         >

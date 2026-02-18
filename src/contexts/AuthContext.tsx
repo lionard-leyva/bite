@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useState, useEffect, useRef, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -6,9 +6,9 @@ import {
   signOut,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { ensureUserList } from '../services/listService';
+import { ensureUserList, consolidateUserLists } from '../services/listService';
 import {
   getOrCreateDeviceId,
   getSkipMode,
@@ -45,53 +45,96 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [skipMode, setSkipModeState] = useState(false);
   const [pendingMigration, setPendingMigration] = useState(false);
 
+  const callIdRef = useRef(0);
   useEffect(() => {
+    let isFirstCall = true;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Show loading screen during the entire auth state transition
-      setIsLoading(true);
+      const thisCall = ++callIdRef.current;
 
-      if (firebaseUser) {
-        setSkipModeState(false);
-        await setSkipMode(false);
+      // Only rely on the initial isLoading=true for the first call.
+      // Subsequent calls (token refresh, re-auth) must NOT set isLoading=true
+      // because that unmounts all screens (SaveScreen, DetailScreen, etc.).
+      if (isFirstCall) {
+        isFirstCall = false;
+      }
 
-        // Ensure user doc exists
-        await setDoc(
-          doc(db, 'users', firebaseUser.uid),
-          {
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
-            createdAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
+      try {
+        if (firebaseUser) {
+          // Ensure we have a fresh token before any Firestore reads/writes.
+          await firebaseUser.getIdToken(true);
+          await setSkipMode(false);
+          if (callIdRef.current !== thisCall) return;
 
-        const userListId = await ensureUserList(firebaseUser.uid);
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          const alreadyConsolidated = userDoc.exists()
+            ? Boolean(userDoc.data()?.listsConsolidatedAt)
+            : false;
+          const userListId = await ensureUserList(firebaseUser.uid);
+          const [, localCount] = await Promise.all([
+            setDoc(
+              userDocRef,
+              {
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+                createdAt: serverTimestamp(),
+                ...(alreadyConsolidated ? {} : { listsConsolidatedAt: serverTimestamp() }),
+              },
+              { merge: true },
+            ),
+            getLocalRestaurantCount(),
+          ]);
+          if (callIdRef.current !== thisCall) return;
 
-        // Detect local restaurants from skip mode for migration
-        const localCount = await getLocalRestaurantCount();
-        if (localCount > 0) {
-          setPendingMigration(true);
-        }
+          if (localCount > 0) {
+            setPendingMigration(true);
+          }
 
-        // Set all state at once AFTER async setup is complete
-        setUserId(firebaseUser.uid);
-        setListId(userListId);
-        setUser(firebaseUser);
-      } else {
-        setUser(null);
-        const wasSkip = await getSkipMode();
-        if (wasSkip) {
-          const deviceId = await getOrCreateDeviceId();
-          setUserId(deviceId);
-          setListId('local');
-          setSkipModeState(true);
-        } else {
-          setUserId('');
-          setListId('');
+          if (!alreadyConsolidated) {
+            void consolidateUserLists(firebaseUser.uid, userListId).catch((err) => {
+              console.error('[AuthContext] Consolidation failed:', err);
+            });
+          }
+
+          console.warn('[AuthContext] Auth setup OK — uid:', firebaseUser.uid, 'listId:', userListId);
+
+          // Batch all state updates so React commits them in one render
           setSkipModeState(false);
+          setUserId(firebaseUser.uid);
+          setListId(userListId);
+          setUser(firebaseUser);
+        } else {
+          setUser(null);
+
+          const wasSkip = await getSkipMode();
+          if (callIdRef.current !== thisCall) return;
+
+          if (wasSkip) {
+            const deviceId = await getOrCreateDeviceId();
+            if (callIdRef.current !== thisCall) return;
+            setUserId(deviceId);
+            setListId('local');
+            setSkipModeState(true);
+          } else {
+            setUserId('');
+            setListId('');
+            setSkipModeState(false);
+          }
+        }
+      } catch (err) {
+        console.error('[AuthContext] Auth setup failed:', err);
+        // If setup fails, reset to signed-out state so the user can retry
+        setUser(null);
+        setUserId('');
+        setListId('');
+        setSkipModeState(false);
+      } finally {
+        // Only update isLoading if this is still the latest callback
+        if (callIdRef.current === thisCall) {
+          setIsLoading(false);
         }
       }
-      setIsLoading(false);
     });
 
     return unsubscribe;
@@ -129,20 +172,26 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     const locals = await getLocalRestaurants();
     if (locals.length === 0) return 0;
 
-    for (const r of locals) {
-      await saveRestaurant({
-        name: r.name,
-        address: r.address,
-        latitude: r.latitude,
-        longitude: r.longitude,
-        rating: r.rating,
-        note: r.note,
-        visited: r.visited,
-        pricePerPerson: r.pricePerPerson,
-        photoUri: null,
-        userId: user.uid,
-        listId,
-      });
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < locals.length; i += BATCH_SIZE) {
+      const batch = locals.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map((r) =>
+          saveRestaurant({
+            name: r.name,
+            address: r.address,
+            latitude: r.latitude,
+            longitude: r.longitude,
+            rating: r.rating,
+            note: r.note,
+            visited: r.visited,
+            pricePerPerson: r.pricePerPerson,
+            photoUris: [],
+            userId: user.uid,
+            listId,
+          }),
+        ),
+      );
     }
 
     await clearLocalRestaurants();

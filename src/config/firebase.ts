@@ -1,9 +1,7 @@
 import { initializeApp } from 'firebase/app';
-// @ts-ignore - getReactNativePersistence exists at runtime but lacks type declarations in Firebase v12
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+import { initializeAuth, inMemoryPersistence } from 'firebase/auth';
+import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 const extra = Constants.expoConfig?.extra ?? {};
@@ -34,11 +32,12 @@ if (!firebaseConfig.apiKey) {
 const app = initializeApp(firebaseConfig);
 
 export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  // Force no persistence: always require login on app start.
+  persistence: inMemoryPersistence,
 });
 
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
+  localCache: memoryLocalCache(),
 });
 
 export const storage = getStorage(app);

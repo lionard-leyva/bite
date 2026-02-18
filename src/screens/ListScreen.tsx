@@ -15,7 +15,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ListScreen() {
   const navigation = useNavigation<Nav>();
-  const { restaurants, loading, error } = useRestaurants();
+  const { restaurants, loading, error, loadMore, loadingMore, hasMore } = useRestaurants({ mode: 'paged' });
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -96,6 +96,19 @@ export default function ListScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) {
+              void loadMore();
+            }
+          }}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ paddingVertical: 16 }}>
+                <ActivityIndicator size="small" color="#FF5A5F" />
+              </View>
+            ) : null
+          }
         />
       )}
     </View>

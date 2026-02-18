@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getCurrentLocation, reverseGeocode } from '../services/locationService';
+import { getCurrentLocation, reverseGeocode, reverseGeocodeCity } from '../services/locationService';
 
 interface LocationState {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
+  city: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -14,6 +15,7 @@ export function useLocation() {
     latitude: null,
     longitude: null,
     address: null,
+    city: null,
     loading: true,
     error: null,
   });
@@ -34,13 +36,17 @@ export function useLocation() {
         return;
       }
 
-      const address = await reverseGeocode(coords.latitude, coords.longitude);
+      const [address, city] = await Promise.all([
+        reverseGeocode(coords.latitude, coords.longitude),
+        reverseGeocodeCity(coords.latitude, coords.longitude),
+      ]);
       if (cancelled) return;
 
       setState({
         latitude: coords.latitude,
         longitude: coords.longitude,
         address,
+        city,
         loading: false,
         error: null,
       });

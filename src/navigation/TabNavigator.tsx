@@ -1,6 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import HomeScreen from '../screens/HomeScreen';
 import ListScreen from '../screens/ListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import type { TabParamList } from './types';
@@ -24,7 +23,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        getComponent={() => require('../screens/HomeScreen').default}
         options={{
           tabBarLabel: 'Mapa',
           tabBarIcon: ({ color, focused }) => (

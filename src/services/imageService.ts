@@ -47,3 +47,20 @@ export async function uploadPhoto(
   await uploadBytes(photoRef, blob);
   return getDownloadURL(photoRef);
 }
+
+export async function uploadPhotos(
+  uris: string[],
+  userId: string,
+  restaurantId: string,
+): Promise<string[]> {
+  return Promise.all(
+    uris.map(async (uri, i) => {
+      const compressed = await compressImage(uri);
+      const response = await fetch(compressed);
+      const blob = await response.blob();
+      const photoRef = ref(storage, `photos/${userId}/${restaurantId}_${i}.jpg`);
+      await uploadBytes(photoRef, blob);
+      return getDownloadURL(photoRef);
+    }),
+  );
+}

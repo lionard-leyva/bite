@@ -12,6 +12,7 @@ const mockRestaurant: Restaurant = {
   rating: 4,
   note: 'Pasta buenisima',
   photoURL: null,
+  photoURLs: [],
   visited: true,
   createdBy: 'user1',
   createdAt: new Date('2025-01-15'),

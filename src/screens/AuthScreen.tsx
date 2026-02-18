@@ -24,6 +24,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleEmailChange(text: string) {
     setEmail(text);
@@ -58,15 +59,26 @@ export default function AuthScreen() {
       } else {
         await register(email.trim(), password);
       }
+      // Success — keep spinner until onAuthStateChanged finishes setup
+      // and this screen unmounts. Don't call setLoading(false) here.
     } catch (e: any) {
       const msg =
-        e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password'
+        e.code === 'auth/user-not-found' ||
+        e.code === 'auth/wrong-password' ||
+        e.code === 'auth/invalid-credential'
           ? 'Email o contraseña incorrectos'
           : e.code === 'auth/email-already-in-use'
             ? 'Este email ya esta registrado'
-            : e.message ?? 'Error de autenticacion';
+            : e.code === 'auth/invalid-email'
+              ? 'Email invalido'
+              : e.code === 'auth/too-many-requests'
+                ? 'Demasiados intentos. Intenta mas tarde.'
+                : e.code === 'auth/user-disabled'
+                  ? 'Usuario deshabilitado'
+                  : e.code === 'auth/network-request-failed'
+                    ? 'Sin conexion. Revisa tu internet.'
+                    : e.message ?? 'Error de autenticacion';
       Alert.alert('Error', msg);
-    } finally {
       setLoading(false);
     }
   }
@@ -127,30 +139,52 @@ export default function AuthScreen() {
 
         {/* Form */}
         <TextInput
-          className={`rounded-input border bg-surface px-4 py-3 text-body text-text-primary ${emailError ? 'border-primary' : 'border-border'}`}
+          className={`rounded-input border bg-surface px-4 py-3 text-text-primary ${emailError ? 'border-primary' : 'border-border'}`}
           placeholder="Email"
           placeholderTextColor="#A0A0A0"
           value={email}
           onChangeText={handleEmailChange}
           autoCapitalize="none"
+          autoCorrect={false}
           keyboardType="email-address"
           textContentType="emailAddress"
-          style={{ minHeight: 48, textAlignVertical: 'center' }}
+          autoComplete="email"
+          style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
         />
         {emailError ? (
           <Text className="mt-1 text-caption text-primary">{emailError}</Text>
         ) : null}
         <View className="h-3" />
-        <TextInput
-          className={`rounded-input border bg-surface px-4 py-3 text-body text-text-primary ${passwordError ? 'border-primary' : 'border-border'}`}
-          placeholder="Contraseña"
-          placeholderTextColor="#A0A0A0"
-          value={password}
-          onChangeText={handlePasswordChange}
-          secureTextEntry
-          textContentType="password"
-          style={{ minHeight: 48, textAlignVertical: 'center' }}
-        />
+        <View
+          className={`flex-row items-center rounded-input border bg-surface ${passwordError ? 'border-primary' : 'border-border'}`}
+          style={{ minHeight: 48 }}
+        >
+          <TextInput
+            className="flex-1 px-4 py-3 text-text-primary"
+            placeholder="Contraseña"
+            placeholderTextColor="#A0A0A0"
+            value={password}
+            onChangeText={handlePasswordChange}
+            secureTextEntry={!showPassword}
+            textContentType="password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="default"
+            autoComplete="password"
+            style={{ fontSize: 16, lineHeight: 20 }}
+          />
+          <Pressable
+            onPress={() => setShowPassword((v) => !v)}
+            hitSlop={8}
+            style={{ paddingRight: 14 }}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color="#A0A0A0"
+            />
+          </Pressable>
+        </View>
         {passwordError ? (
           <Text className="mt-1 text-caption text-primary">{passwordError}</Text>
         ) : null}

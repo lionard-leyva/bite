@@ -8,7 +8,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { uploadPhoto } from './imageService';
+import { uploadPhotos } from './imageService';
 
 interface SaveRestaurantInput {
   id?: string;
@@ -19,7 +19,7 @@ interface SaveRestaurantInput {
   rating: number;
   note: string;
   visited: boolean;
-  photoUri: string | null;
+  photoUris: string[];
   pricePerPerson?: number;
   userId: string;
   listId: string;
@@ -28,6 +28,8 @@ interface SaveRestaurantInput {
 export async function saveRestaurant(
   input: SaveRestaurantInput,
 ): Promise<string> {
+  console.warn('[saveRestaurant] Saving with listId:', input.listId, 'userId:', input.userId);
+
   if (!input.listId || input.listId === 'local') {
     throw new Error(
       'No se pudo determinar tu lista. Cierra sesion y vuelve a iniciar.',
@@ -53,15 +55,23 @@ export async function saveRestaurant(
       listId: input.listId,
     }, { merge: true });
 
-    if (input.photoUri && !input.photoUri.startsWith('http')) {
-      const photoURL = await uploadPhoto(input.photoUri, input.userId, input.id!);
-      await updateDoc(ref, { photoURL });
+    if (input.photoUris.length > 0) {
+      const existingUrls = input.photoUris.filter((u) => u.startsWith('http'));
+      const localUris = input.photoUris.filter((u) => !u.startsWith('http'));
+      const newUrls = localUris.length > 0
+        ? await uploadPhotos(localUris, input.userId, input.id!)
+        : [];
+      const allUrls = [...existingUrls, ...newUrls];
+      await updateDoc(ref, {
+        photoURL: allUrls[0] ?? null,
+        photoURLs: allUrls,
+      });
     }
 
     return input.id!;
   }
 
-  // Create — POST semantics
+  // Create — POST semantics (optimistic: return immediately, upload photos in background)
   const docRef = await addDoc(collection(db, 'restaurants'), {
     name: input.name,
     address: input.address,
@@ -72,19 +82,23 @@ export async function saveRestaurant(
     visited: input.visited,
     pricePerPerson: input.pricePerPerson ?? 20,
     photoURL: null,
+    photoURLs: [],
     createdBy: input.userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     listId: input.listId,
   });
 
-  if (input.photoUri) {
-    const photoURL = await uploadPhoto(
-      input.photoUri,
-      input.userId,
-      docRef.id,
-    );
-    await updateDoc(doc(db, 'restaurants', docRef.id), { photoURL });
+  if (input.photoUris.length > 0) {
+    // Fire-and-forget: upload photos in background, update doc when done
+    uploadPhotos(input.photoUris, input.userId, docRef.id)
+      .then((urls) =>
+        updateDoc(doc(db, 'restaurants', docRef.id), {
+          photoURL: urls[0] ?? null,
+          photoURLs: urls,
+        }),
+      )
+      .catch((err) => console.error('[saveRestaurant] Background photo upload failed:', err));
   }
 
   return docRef.id;

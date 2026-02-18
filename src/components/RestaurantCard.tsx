@@ -3,6 +3,7 @@ import { View, Text, Pressable, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { timeAgo } from '../utils/timeAgo';
+import { getPrimaryPhoto } from '../types';
 import type { Restaurant } from '../types';
 
 interface RestaurantCardProps {
@@ -60,9 +61,9 @@ export default memo(function RestaurantCard({
       >
         {/* Photo hero */}
         <View className="relative">
-          {restaurant.photoURL ? (
+          {getPrimaryPhoto(restaurant) ? (
             <Image
-              source={{ uri: restaurant.photoURL }}
+              source={{ uri: getPrimaryPhoto(restaurant)! }}
               style={{ height: 176, width: '100%' }}
               contentFit="cover"
               cachePolicy="memory-disk"

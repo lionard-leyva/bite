@@ -3,6 +3,7 @@
 
 const DEFAULT_WINDOW_MS = 60_000; // 1 minute
 const DEFAULT_MAX_REQUESTS = 30;  // 30 req/min per IP
+const MAX_BUCKETS = 10_000;
 
 /** @type {Map<string, { count: number, resetAt: number }>} */
 const buckets = new Map();
@@ -17,6 +18,12 @@ function rateLimitMiddleware(
 
     let bucket = buckets.get(ip);
     if (!bucket || now > bucket.resetAt) {
+      // Evict expired entries if at capacity
+      if (buckets.size >= MAX_BUCKETS) {
+        for (const [k, v] of buckets) {
+          if (now > v.resetAt) buckets.delete(k);
+        }
+      }
       bucket = { count: 0, resetAt: now + windowMs };
       buckets.set(ip, bucket);
     }

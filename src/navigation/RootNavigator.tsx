@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
 import TabNavigator from './TabNavigator';
 import AuthScreen from '../screens/AuthScreen';
-import SaveScreen from '../screens/SaveScreen';
 import DetailScreen from '../screens/DetailScreen';
 import type { RootStackParamList } from './types';
 
@@ -62,7 +61,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Tabs" component={TabNavigator} />
           <Stack.Screen
             name="Save"
-            component={SaveScreen}
+            getComponent={() => require('../screens/SaveScreen').default}
             options={{
               presentation: 'modal',
               headerShown: false,

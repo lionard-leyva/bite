@@ -43,12 +43,31 @@ export function formatDistance(km: number): string {
   return `${km.toFixed(1)}km`;
 }
 
-// --- ETA cache (in-memory, keyed by restaurantId) ---
+// --- ETA cache (in-memory, keyed by restaurantId, TTL + size limit) ---
 
-const etaCache = new Map<string, ETAResult>();
+const ETA_CACHE_MAX = 100;
+const ETA_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry { value: ETAResult; ts: number }
+const etaCache = new Map<string, CacheEntry>();
 
 export function getCachedETA(restaurantId: string): ETAResult | undefined {
-  return etaCache.get(restaurantId);
+  const entry = etaCache.get(restaurantId);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > ETA_CACHE_TTL_MS) {
+    etaCache.delete(restaurantId);
+    return undefined;
+  }
+  return entry.value;
+}
+
+function setCachedETA(restaurantId: string, value: ETAResult): void {
+  if (etaCache.size >= ETA_CACHE_MAX) {
+    // Evict oldest entry (first key in Map insertion order)
+    const oldest = etaCache.keys().next().value;
+    if (oldest !== undefined) etaCache.delete(oldest);
+  }
+  etaCache.set(restaurantId, { value, ts: Date.now() });
 }
 
 // --- Fetch ETA via backend proxy ---
@@ -69,7 +88,7 @@ export async function fetchETA(
   restaurantId: string,
   signal?: AbortSignal,
 ): Promise<ETAResult> {
-  const cached = etaCache.get(restaurantId);
+  const cached = getCachedETA(restaurantId);
   if (cached) return cached;
 
   // Client-side timeout wrapping the caller's abort signal
@@ -106,7 +125,7 @@ export async function fetchETA(
       durationSeconds: Math.round(data.durationMinutes * 60),
     };
 
-    etaCache.set(restaurantId, result);
+    setCachedETA(restaurantId, result);
     return result;
   } finally {
     clearTimeout(timeout);

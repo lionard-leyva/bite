@@ -30,6 +30,16 @@ export async function reverseGeocode(
   if (results.length === 0) return null;
 
   const addr = results[0];
-  const parts = [addr.street, addr.city].filter(Boolean);
-  return parts.join(', ') || null;
+  const streetPart = [addr.street, addr.streetNumber].filter(Boolean).join(' ');
+  const cityPart = [addr.city, addr.postalCode].filter(Boolean).join(' ');
+  return [streetPart, cityPart].filter(Boolean).join(', ') || null;
+}
+
+export async function reverseGeocodeCity(
+  latitude: number,
+  longitude: number,
+): Promise<string | null> {
+  const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+  if (results.length === 0) return null;
+  return results[0].city || results[0].region || null;
 }

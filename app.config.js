@@ -31,6 +31,7 @@ export default ({ config }) => ({
       "ACCESS_FINE_LOCATION",
       "CAMERA",
       "READ_EXTERNAL_STORAGE",
+      "READ_MEDIA_IMAGES",
     ],
     config: {
       googleMaps: {
@@ -53,6 +54,12 @@ export default ({ config }) => ({
   },
   plugins: [
     "expo-location",
-    "expo-image-picker",
+    [
+      "expo-image-picker",
+      {
+        cameraPermission: "Bite necesita acceso a la camara para tomar fotos de restaurantes.",
+        photosPermission: "Bite necesita acceso a tus fotos para elegir imagenes de restaurantes.",
+      },
+    ],
   ],
 });
