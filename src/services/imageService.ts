@@ -64,3 +64,16 @@ export async function uploadPhotos(
     }),
   );
 }
+
+export async function uploadAvatar(
+  uri: string,
+  userId: string,
+): Promise<string> {
+  const compressed = await compressImage(uri);
+  const response = await fetch(compressed);
+  const blob = await response.blob();
+
+  const photoRef = ref(storage, `avatars/${userId}.jpg`);
+  await uploadBytes(photoRef, blob);
+  return getDownloadURL(photoRef);
+}

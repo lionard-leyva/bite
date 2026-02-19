@@ -44,78 +44,82 @@ function MapMarkerInner({ name, rating, visited, isSelected }: MapMarkerProps) {
     },
   });
 
-  // Outer (border) triangle is slightly larger than inner (fill) triangle
+  // Outer (border) triangle is slightly larger than inner (fill) triangle.
+  // Use a container with explicit height so Android marker snapshots include the tail.
   const outerHalf = (MARKER_PIN_TAIL_WIDTH / 2) + BORDER_W;
   const outerH = MARKER_PIN_TAIL_HEIGHT + BORDER_W;
   const innerHalf = MARKER_PIN_TAIL_WIDTH / 2;
   const innerH = MARKER_PIN_TAIL_HEIGHT;
+  const tailContainerH = MARKER_PIN_TAIL_HEIGHT + BORDER_W;
 
   return (
     <View style={{ alignItems: 'center', transform: [{ scale }] }}>
-      {/* Round pin head */}
-      <View
-        style={{
-          width: MARKER_PIN_SIZE,
-          height: MARKER_PIN_SIZE,
-          borderRadius: MARKER_PIN_SIZE / 2,
-          backgroundColor: bg,
-          borderWidth: BORDER_W,
-          borderColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-          ...shadow,
-        }}
-      >
-        {/* Bite logo */}
-        <Ionicons
-          name="restaurant"
-          size={MARKER_PIN_ICON_SIZE}
-          color={iconColor}
-        />
-
-        {/* Rating: "3 ★" */}
-        <Text
+      <View style={{ alignItems: 'center', paddingBottom: tailContainerH }}>
+        {/* Round pin head */}
+        <View
           style={{
-            fontSize: 9,
-            fontWeight: '800',
-            color: '#FFFFFF',
-            marginTop: 1,
+            width: MARKER_PIN_SIZE,
+            height: MARKER_PIN_SIZE,
+            borderRadius: MARKER_PIN_SIZE / 2,
+            backgroundColor: bg,
+            borderWidth: BORDER_W,
+            borderColor,
+            alignItems: 'center',
+            justifyContent: 'center',
+            ...shadow,
           }}
         >
-          {rating} {'\u2605'}
-        </Text>
-      </View>
+          {/* Bite logo */}
+          <Ionicons
+            name="restaurant"
+            size={MARKER_PIN_ICON_SIZE}
+            color={iconColor}
+          />
 
-      {/* Bordered pointy tail — outer (border color) + inner (fill) stacked */}
-      <View style={{ alignItems: 'center', marginTop: -BORDER_W }}>
-        {/* Outer triangle (border) */}
-        <View
-          style={{
-            width: 0,
-            height: 0,
-            borderLeftWidth: outerHalf,
-            borderRightWidth: outerHalf,
-            borderTopWidth: outerH,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderTopColor: borderColor,
-          }}
-        />
-        {/* Inner triangle (fill) overlaid on top */}
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            width: 0,
-            height: 0,
-            borderLeftWidth: innerHalf,
-            borderRightWidth: innerHalf,
-            borderTopWidth: innerH,
-            borderLeftColor: 'transparent',
-            borderRightColor: 'transparent',
-            borderTopColor: bg,
-          }}
-        />
+          {/* Rating: "3 ★" */}
+          <Text
+            style={{
+              fontSize: 9,
+              fontWeight: '800',
+              color: '#FFFFFF',
+              marginTop: 1,
+            }}
+          >
+            {rating} {'\u2605'}
+          </Text>
+        </View>
+
+        {/* Bordered pointy tail — outer (border color) + inner (fill) stacked */}
+        <View style={{ position: 'absolute', bottom: 0, alignItems: 'center', height: tailContainerH }}>
+          {/* Outer triangle (border) */}
+          <View
+            style={{
+              width: 0,
+              height: 0,
+              borderLeftWidth: outerHalf,
+              borderRightWidth: outerHalf,
+              borderTopWidth: outerH,
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent',
+              borderTopColor: borderColor,
+            }}
+          />
+          {/* Inner triangle (fill) overlaid on top */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              width: 0,
+              height: 0,
+              borderLeftWidth: innerHalf,
+              borderRightWidth: innerHalf,
+              borderTopWidth: innerH,
+              borderLeftColor: 'transparent',
+              borderRightColor: 'transparent',
+              borderTopColor: bg,
+            }}
+          />
+        </View>
       </View>
     </View>
   );

@@ -29,7 +29,11 @@ import PhotoPicker from '../components/PhotoPicker';
 import DragHandle from '../components/DragHandle';
 import { PRICE_DEFAULT } from '../config/constants';
 
-const MAPS_KEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ?? '';
+const MAPS_KEY =
+  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
+  '';
+console.log('[SaveScreen] MAPS_KEY length', MAPS_KEY?.length ?? 0);
 
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
@@ -112,6 +116,7 @@ export default function SaveScreen() {
   const route = useRoute<SaveRoute>();
   const { userId, listId, skipMode } = useAuth();
   const location = useUserLocation();
+  const [isSearching, setIsSearching] = useState(false);
 
   const editId = route.params?.restaurantId ?? null;
   interface SaveFormState {
@@ -158,6 +163,8 @@ export default function SaveScreen() {
   const [form, dispatchForm] = useReducer(formReducer, initialForm);
   const [saving, setSaving] = useState(false);
   const [manualMode, setManualMode] = useState(false);
+  const [placesError, setPlacesError] = useState('');
+  const [placeSelected, setPlaceSelected] = useState(false);
   const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
 
   const {
@@ -222,9 +229,33 @@ export default function SaveScreen() {
 
   const placesRef = useRef<any>(null);
 
+  function formatAddressFromComponents(components: any[] | undefined, fallback: string) {
+    if (!components || components.length === 0) return fallback;
+
+    const pick = (type: string) =>
+      components.find((c) => c.types?.includes(type))?.long_name || '';
+
+    const streetNumber = pick('street_number');
+    const route = pick('route');
+    const postal = pick('postal_code');
+    const district =
+      pick('sublocality') ||
+      pick('sublocality_level_1') ||
+      pick('neighborhood');
+    const city =
+      pick('locality') || pick('administrative_area_level_1');
+
+    const line1 = [route, streetNumber].filter(Boolean).join(' ');
+    const line2 = [district, postal].filter(Boolean).join(' ');
+    const line3 = [city].filter(Boolean).join(' ');
+
+    return [line1, line2, line3].filter(Boolean).join(', ') || fallback;
+  }
+
   function handlePlaceSelected(data: any, details: any) {
     const nextName = data.structured_formatting?.main_text ?? data.description;
-    const nextAddress = details?.formatted_address ?? data.description;
+    const fallbackAddress = details?.formatted_address ?? data.description;
+    const nextAddress = formatAddressFromComponents(details?.address_components, fallbackAddress);
     const placeLat = details?.geometry?.location?.lat;
     const placeLng = details?.geometry?.location?.lng;
     dispatchForm({
@@ -237,6 +268,8 @@ export default function SaveScreen() {
           : {}),
       },
     });
+    setPlaceSelected(true);
+    setManualMode(false);
   }
 
   async function handleGpsFill() {
@@ -363,10 +396,7 @@ export default function SaveScreen() {
         onClose={() => navigation.goBack()}
       />
 
-      <ScrollView
-        className="flex-1 px-5 pt-4"
-        keyboardShouldPersistTaps="handled"
-      >
+      <View className="px-5 pt-4">
         {/* Restaurant name */}
         <SectionLabel>Restaurante</SectionLabel>
         {!manualMode && MAPS_KEY ? (
@@ -375,14 +405,30 @@ export default function SaveScreen() {
               ref={placesRef}
               placeholder="Nombre del restaurante..."
               fetchDetails
+              listViewDisplayed={isSearching}
               onPress={(data, details) => {
                 handlePlaceSelected(data, details);
+                setIsSearching(false);
               }}
-              onFail={() => setManualMode(true)}
-              query={{ key: MAPS_KEY, language: 'es' }}
+              onFail={(err) => {
+                console.warn('[SaveScreen] Places autocomplete failed:', err);
+                setPlacesError('No se pudo cargar sugerencias. Revisa tu conexion o la API key.');
+              }}
+              query={{
+                key: MAPS_KEY,
+                language: 'es',
+                components: 'country:es',
+                location:
+                  location.latitude != null && location.longitude != null
+                    ? `${location.latitude},${location.longitude}`
+                    : '40.4168,-3.7038',
+                radius: 30000,
+                strictbounds: true,
+              }}
               nearbyPlacesAPI="GoogleReverseGeocoding"
               currentLocation={false}
               styles={{
+                container: { flex: 0 },
                 textInput: {
                   borderWidth: 1,
                   borderColor: '#F0EDED',
@@ -395,14 +441,65 @@ export default function SaveScreen() {
                   color: '#2D2D2D',
                   textAlignVertical: 'center',
                 },
-                listView: { backgroundColor: '#FFFFFF' },
+                listView: {
+                  marginTop: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#EFEFEF',
+                  overflow: 'hidden',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 12,
+                  elevation: 6,
+                },
+                row: {
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  backgroundColor: '#FFFFFF',
+                },
+                separator: {
+                  height: 1,
+                  backgroundColor: '#F2F2F2',
+                },
+                description: {
+                  color: '#1F2937',
+                  fontSize: 14,
+                },
+                poweredContainer: { display: 'none' },
               }}
               textInputProps={{
                 value: name,
-                onChangeText: (text) => dispatchForm({ type: 'patch', payload: { name: text } }),
+                onFocus: () => {
+                  setIsSearching(true);
+                  if (placesError) setPlacesError('');
+                },
+                onBlur: () => setIsSearching(false),
+                onChangeText: (text) => {
+                  dispatchForm({ type: 'patch', payload: { name: text } });
+                  if (!isSearching) setIsSearching(true);
+                  if (placeSelected) {
+                    setPlaceSelected(false);
+                    dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
+                  }
+                },
                 placeholderTextColor: '#A0A0A0',
               }}
             />
+            {!!placesError && (
+              <Text className="mt-2 text-xs text-red-600">
+                {placesError}
+              </Text>
+            )}
+            <Pressable
+              onPress={() => setManualMode(true)}
+              className="mt-2"
+            >
+              <Text className="text-xs text-text-tertiary">
+                No aparece mi restaurante. Ingresar manualmente.
+              </Text>
+            </Pressable>
           </View>
         ) : (
           <View className="mb-4">
@@ -411,57 +508,108 @@ export default function SaveScreen() {
               placeholder="Nombre del restaurante"
               placeholderTextColor="#A0A0A0"
               value={name}
-              onChangeText={(text) => dispatchForm({ type: 'patch', payload: { name: text } })}
+              onFocus={() => setIsSearching(false)}
+              onChangeText={(text) => {
+                dispatchForm({ type: 'patch', payload: { name: text } });
+                if (placeSelected) {
+                  setPlaceSelected(false);
+                  dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
+                }
+              }}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
         )}
+      </View>
+
+      {!isSearching && (
+        <ScrollView
+          className="flex-1 px-5"
+          keyboardShouldPersistTaps="handled"
+        >
 
         {/* Address with GPS button */}
         <SectionLabel>Direccion</SectionLabel>
-        <View style={{ position: 'relative', marginBottom: 16 }}>
-          <TextInput
-            className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-            placeholder="Direccion del restaurante"
-            placeholderTextColor="#A0A0A0"
-            value={address}
-            onChangeText={(text) => {
-              dispatchForm({ type: 'patch', payload: { address: text } });
-              if (gpsState === 'filled') setGpsState('idle');
-            }}
-            style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
-          />
-          <Pressable
-            onPress={handleGpsFill}
-            disabled={gpsState === 'loading' || !location.latitude}
-            hitSlop={8}
-            style={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              borderWidth: gpsState === 'filled' ? 0 : 1.5,
-              borderColor: '#D1D5DB',
-              backgroundColor: gpsState === 'filled' ? '#00A699' : 'transparent',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Rellenar direccion con GPS"
-          >
-            {gpsState === 'loading' ? (
-              <ActivityIndicator size={14} color="#6B7280" />
-            ) : (
-              <Ionicons
-                name="locate"
-                size={16}
-                color={gpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
-              />
-            )}
-          </Pressable>
-        </View>
+        {placeSelected ? (
+          <View style={{ position: 'relative', marginBottom: 16 }}>
+            <TextInput
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Direccion del restaurante"
+              placeholderTextColor="#A0A0A0"
+              value={address}
+              editable={false}
+              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
+            />
+            <Pressable
+              onPress={() => {
+                setPlaceSelected(false);
+                setManualMode(true);
+              }}
+              hitSlop={8}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                borderWidth: 1.5,
+                borderColor: '#D1D5DB',
+                backgroundColor: 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Editar direccion"
+            >
+              <Ionicons name="pencil-outline" size={16} color="#9CA3AF" />
+            </Pressable>
+          </View>
+        ) : (
+          <View style={{ position: 'relative', marginBottom: 16 }}>
+            <TextInput
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Direccion del restaurante"
+              placeholderTextColor="#A0A0A0"
+              value={address}
+              onChangeText={(text) => {
+                dispatchForm({ type: 'patch', payload: { address: text } });
+                if (gpsState === 'filled') setGpsState('idle');
+              }}
+              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
+            />
+            <Pressable
+              onPress={handleGpsFill}
+              disabled={gpsState === 'loading' || !location.latitude}
+              hitSlop={8}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                borderWidth: gpsState === 'filled' ? 0 : 1.5,
+                borderColor: '#D1D5DB',
+                backgroundColor: gpsState === 'filled' ? '#00A699' : 'transparent',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Rellenar direccion con GPS"
+            >
+              {gpsState === 'loading' ? (
+                <ActivityIndicator size={14} color="#6B7280" />
+              ) : (
+                <Ionicons
+                  name="locate"
+                  size={16}
+                  color={gpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                />
+              )}
+            </Pressable>
+          </View>
+        )}
 
         {/* Rating */}
         <SectionLabel>Rating</SectionLabel>
@@ -531,21 +679,22 @@ export default function SaveScreen() {
         />
 
         {/* Save button */}
-        <Pressable
-          className={`mb-8 items-center rounded-button py-4 ${canSave && !saving ? 'bg-primary' : 'bg-border'}`}
-          onPress={handleSave}
-          disabled={!canSave || saving}
-          style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-        >
-          {saving ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-body font-semibold text-white">
-              {isEditMode ? 'Actualizar' : 'Guardar'}
-            </Text>
-          )}
-        </Pressable>
-      </ScrollView>
+          <Pressable
+            className={`mb-8 items-center rounded-button py-4 ${canSave && !saving ? 'bg-primary' : 'bg-border'}`}
+            onPress={handleSave}
+            disabled={!canSave || saving}
+            style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+          >
+            {saving ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-body font-semibold text-white">
+                {isEditMode ? 'Actualizar' : 'Guardar'}
+              </Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      )}
     </KeyboardAvoidingView>
   );
 }

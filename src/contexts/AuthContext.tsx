@@ -4,11 +4,12 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  updateProfile,
   type User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { ensureUserList, consolidateUserLists } from '../services/listService';
+import { ensureUserList, consolidateUserLists, joinListByCode } from '../services/listService';
 import {
   getOrCreateDeviceId,
   getSkipMode,
@@ -18,6 +19,7 @@ import {
   clearLocalRestaurants,
 } from '../services/localStorageService';
 import { saveRestaurant } from '../services/restaurantService';
+import { uploadAvatar } from '../services/imageService';
 
 export interface AuthState {
   user: FirebaseUser | null;
@@ -27,7 +29,20 @@ export interface AuthState {
   skipMode: boolean;
   pendingMigration: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    profile?: {
+      name?: string;
+      bio?: string;
+      birthday?: string;
+      city?: string;
+      cityLat?: number | null;
+      cityLng?: number | null;
+      avatarUri?: string | null;
+      inviteCode?: string;
+    },
+  ) => Promise<void>;
   logout: () => Promise<void>;
   skipLogin: () => Promise<void>;
   migrateLocalData: () => Promise<number>;
@@ -72,6 +87,7 @@ function authReducer(state: AuthStateShape, action: AuthAction): AuthStateShape 
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
+  const pendingJoinCodeRef = useRef<string | null>(null);
 
   const callIdRef = useRef(0);
   useEffect(() => {
@@ -99,7 +115,20 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           const alreadyConsolidated = userDoc.exists()
             ? Boolean(userDoc.data()?.listsConsolidatedAt)
             : false;
-          const userListId = await ensureUserList(firebaseUser.uid);
+          let userListId = '';
+          if (pendingJoinCodeRef.current) {
+            const code = pendingJoinCodeRef.current;
+            pendingJoinCodeRef.current = null;
+            try {
+              const joined = await joinListByCode(firebaseUser.uid, code);
+              userListId = joined.listId;
+            } catch (err) {
+              console.error('[AuthContext] Join by code failed:', err);
+            }
+          }
+          if (!userListId) {
+            userListId = await ensureUserList(firebaseUser.uid);
+          }
           const [, localCount] = await Promise.all([
             setDoc(
               userDocRef,
@@ -181,8 +210,57 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
-  async function register(email: string, password: string) {
+  async function register(
+    email: string,
+    password: string,
+    profile?: {
+      name?: string;
+      bio?: string;
+      birthday?: string;
+      city?: string;
+      cityLat?: number | null;
+      cityLng?: number | null;
+      avatarUri?: string | null;
+      inviteCode?: string;
+    },
+  ) {
+    const invite = profile?.inviteCode?.trim().replace('-', '');
+    if (invite) {
+      pendingJoinCodeRef.current = invite;
+    }
+
     await createUserWithEmailAndPassword(auth, email, password);
+
+    const current = auth.currentUser;
+    if (!current) return;
+
+    let photoURL: string | undefined;
+    if (profile?.avatarUri) {
+      photoURL = await uploadAvatar(profile.avatarUri, current.uid);
+    }
+
+    const displayName = profile?.name?.trim() || current.displayName || '';
+    if (displayName || photoURL) {
+      await updateProfile(current, {
+        displayName: displayName || undefined,
+        photoURL: photoURL || undefined,
+      });
+    }
+
+    const profileData: Record<string, unknown> = {};
+    if (displayName) profileData.displayName = displayName;
+    if (photoURL) profileData.photoURL = photoURL;
+    if (profile?.bio?.trim()) profileData.bio = profile.bio.trim();
+    if (profile?.birthday?.trim()) profileData.birthday = profile.birthday.trim();
+    if (profile?.city?.trim()) profileData.city = profile.city.trim();
+    if (profile?.cityLat != null && profile?.cityLng != null) {
+      profileData.cityLat = profile.cityLat;
+      profileData.cityLng = profile.cityLng;
+    }
+
+    if (Object.keys(profileData).length > 0) {
+      await setDoc(doc(db, 'users', current.uid), profileData, { merge: true });
+    }
   }
 
   async function logout() {

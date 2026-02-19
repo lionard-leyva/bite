@@ -1,11 +1,24 @@
-import { useReducer, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { useReducer, useEffect, useCallback, useState } from 'react';
+import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../hooks/useAuth';
+import { useLocation as useUserLocation } from '../hooks/useLocation';
+import Constants from 'expo-constants';
 import { getListInviteCode, getListMembers, leaveSharedList } from '../services/listService';
 import { getLocalRestaurantCount } from '../services/localStorageService';
 import ShareListModal from '../components/ShareListModal';
 import ConfirmModal from '../components/ConfirmModal';
+import { auth, db } from '../config/firebase';
+import { pickImage, uploadAvatar } from '../services/imageService';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+
+const MAPS_KEY =
+  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
+  '';
 
 export default function ProfileScreen() {
   const {
@@ -26,6 +39,13 @@ export default function ProfileScreen() {
     leaveListModalVisible: boolean;
     loadingProfile: boolean;
     localCount: number;
+    displayName: string;
+    bio: string;
+    birthday: string;
+    city: string;
+    cityLat: number | null;
+    cityLng: number | null;
+    photoURL: string;
   }
 
   type ProfileAction =
@@ -41,6 +61,13 @@ export default function ProfileScreen() {
     leaveListModalVisible: false,
     loadingProfile: true,
     localCount: 0,
+    displayName: '',
+    bio: '',
+    birthday: '',
+    city: '',
+    cityLat: null,
+    cityLng: null,
+    photoURL: '',
   };
 
   function reducer(state: ProfileState, action: ProfileAction): ProfileState {
@@ -64,16 +91,31 @@ export default function ProfileScreen() {
     }
 
     try {
-      const [code, mems] = await Promise.all([
+      const [code, mems, profileDoc] = await Promise.all([
         getListInviteCode(listId),
         getListMembers(listId),
+        getDoc(doc(db, 'users', userId)),
       ]);
-      dispatch({ type: 'patch', payload: { inviteCode: code, members: mems } });
+      const data = profileDoc.exists() ? profileDoc.data() : {};
+      dispatch({
+        type: 'patch',
+        payload: {
+          inviteCode: code,
+          members: mems,
+          displayName: typeof data.displayName === 'string' ? data.displayName : '',
+          bio: typeof data.bio === 'string' ? data.bio : '',
+          birthday: typeof data.birthday === 'string' ? data.birthday : '',
+          city: typeof data.city === 'string' ? data.city : '',
+          cityLat: typeof data.cityLat === 'number' ? data.cityLat : null,
+          cityLng: typeof data.cityLng === 'number' ? data.cityLng : null,
+          photoURL: typeof data.photoURL === 'string' ? data.photoURL : '',
+        },
+      });
     } catch {
       // Ignore errors loading list info
     }
     dispatch({ type: 'patch', payload: { loadingProfile: false } });
-  }, [listId, skipMode]);
+  }, [listId, skipMode, userId]);
 
   useEffect(() => {
     loadListInfo();
@@ -81,6 +123,80 @@ export default function ProfileScreen() {
 
   const otherMembers = state.members.filter((m) => m.userId !== userId);
   const isShared = otherMembers.length > 0;
+  const location = useUserLocation();
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editBirthday, setEditBirthday] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editCityLat, setEditCityLat] = useState<number | null>(null);
+  const [editCityLng, setEditCityLng] = useState<number | null>(null);
+  const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
+  const [cityModalVisible, setCityModalVisible] = useState(false);
+
+  function openEdit() {
+    setEditName(state.displayName || user?.displayName || '');
+    setEditBio(state.bio);
+    setEditBirthday(state.birthday);
+    setEditCity(state.city);
+    setEditCityLat(state.cityLat);
+    setEditCityLng(state.cityLng);
+    setEditAvatarUri(null);
+    setEditVisible(true);
+  }
+
+  async function handlePickAvatar() {
+    const uri = await pickImage('gallery');
+    if (uri) setEditAvatarUri(uri);
+  }
+
+  async function handleSaveProfile() {
+    if (!userId || skipMode) return;
+    setSavingProfile(true);
+    try {
+      let photoURL = state.photoURL;
+      if (editAvatarUri) {
+        photoURL = await uploadAvatar(editAvatarUri, userId);
+      }
+      const payload: Record<string, unknown> = {
+        displayName: editName.trim(),
+        bio: editBio.trim(),
+        birthday: editBirthday.trim(),
+        city: editCity.trim(),
+        photoURL,
+      };
+      if (editCityLat != null && editCityLng != null) {
+        payload.cityLat = editCityLat;
+        payload.cityLng = editCityLng;
+      }
+      await setDoc(doc(db, 'users', userId), payload, { merge: true });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, {
+          displayName: editName.trim() || undefined,
+          photoURL: photoURL || undefined,
+        });
+      }
+      dispatch({
+        type: 'patch',
+        payload: {
+          displayName: editName.trim(),
+          bio: editBio.trim(),
+          birthday: editBirthday.trim(),
+          city: editCity.trim(),
+          cityLat: editCityLat,
+          cityLng: editCityLng,
+          photoURL,
+        },
+      });
+      setEditVisible(false);
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   async function handleConfirmLogout() {
     dispatch({ type: 'patch', payload: { logoutModalVisible: false } });
@@ -122,9 +238,16 @@ export default function ProfileScreen() {
     <ScrollView className="flex-1 bg-background" contentContainerStyle={{ paddingBottom: 40 }}>
       <View className="items-center pt-12 pb-6">
         {/* Avatar */}
-        <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-primary/15">
-          <Ionicons name="person" size={36} color="#FF5A5F" />
-        </View>
+        {state.photoURL ? (
+          <Image
+            source={{ uri: state.photoURL }}
+            style={{ width: 80, height: 80, borderRadius: 40, marginBottom: 12 }}
+          />
+        ) : (
+          <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-primary/15">
+            <Ionicons name="person" size={36} color="#FF5A5F" />
+          </View>
+        )}
         {skipMode ? (
           <>
             <Text className="text-subtitle font-semibold text-text-primary">
@@ -137,9 +260,28 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Text className="text-subtitle font-semibold text-text-primary">
-              {user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
+              {state.displayName || user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
             </Text>
             <Text className="text-sm text-text-tertiary">{user?.email}</Text>
+            {(state.city || state.birthday || state.bio) && (
+              <View className="mt-2 items-center">
+                {state.city ? (
+                  <Text className="text-xs text-text-tertiary">{state.city}</Text>
+                ) : null}
+                {state.birthday ? (
+                  <Text className="text-xs text-text-tertiary">Cumple: {state.birthday}</Text>
+                ) : null}
+                {state.bio ? (
+                  <Text className="mt-1 text-center text-xs text-text-secondary">{state.bio}</Text>
+                ) : null}
+              </View>
+            )}
+            <Pressable
+              className="mt-3 rounded-pill border border-border px-3 py-1.5"
+              onPress={openEdit}
+            >
+              <Text className="text-xs font-medium text-text-secondary">Editar perfil</Text>
+            </Pressable>
           </>
         )}
       </View>
@@ -174,7 +316,7 @@ export default function ProfileScreen() {
             ) : (
               <View className="gap-2">
                 <Text className="text-sm text-text-secondary">
-                  Lista personal. Comparte con tu pareja para ver restaurantes juntos.
+                  Lista personal. Comparte con tu pareja o grupo para ver restaurantes juntos.
                 </Text>
               </View>
             )}
@@ -184,9 +326,9 @@ export default function ProfileScreen() {
                 onPress={() => dispatch({ type: 'patch', payload: { shareModalVisible: true } })}
                 style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
               >
-              <Ionicons name="heart-outline" size={16} color="white" />
+              <Ionicons name="people-outline" size={16} color="white" />
               <Text className="text-sm font-semibold text-white">
-                {isShared ? 'Gestionar lista compartida' : 'Compartir con pareja'}
+                {isShared ? 'Gestionar lista compartida' : 'Compartir con pareja o grupo'}
               </Text>
             </Pressable>
 
@@ -243,12 +385,218 @@ export default function ProfileScreen() {
       </View>
 
       {/* Share modal */}
+      <Modal visible={editVisible} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          className="flex-1 bg-background"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={90}
+        >
+          <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
+            <View className="mb-6 flex-row items-center justify-between">
+              <Text className="text-title font-bold text-text-primary">Editar perfil</Text>
+              <Pressable
+                className="h-8 w-8 items-center justify-center rounded-full bg-border"
+                onPress={() => setEditVisible(false)}
+              >
+                <Ionicons name="close" size={18} color="#222222" />
+              </Pressable>
+            </View>
+
+            <View className="items-center mb-4">
+              <Pressable onPress={handlePickAvatar} className="items-center">
+                {editAvatarUri ? (
+                  <Image source={{ uri: editAvatarUri }} style={{ width: 84, height: 84, borderRadius: 42 }} />
+                ) : state.photoURL ? (
+                  <Image source={{ uri: state.photoURL }} style={{ width: 84, height: 84, borderRadius: 42 }} />
+                ) : (
+                  <View className="h-20 w-20 items-center justify-center rounded-full bg-primary/10">
+                    <Ionicons name="person" size={32} color="#FF5A5F" />
+                  </View>
+                )}
+                <Text className="mt-2 text-xs text-text-tertiary">
+                  {editAvatarUri || state.photoURL ? 'Cambiar foto' : 'Agregar foto'}
+                </Text>
+              </Pressable>
+            </View>
+
+            <TextInput
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Nombre"
+              placeholderTextColor="#A0A0A0"
+              value={editName}
+              onChangeText={setEditName}
+              autoCapitalize="words"
+              style={{ fontSize: 16, minHeight: 48 }}
+            />
+            <View className="h-3" />
+            {MAPS_KEY ? (
+              <View className="mb-2">
+                <Pressable
+                  onPress={() => setCityModalVisible(true)}
+                  className="rounded-input border border-border bg-surface px-4 py-3"
+                  style={{ minHeight: 48, justifyContent: 'center' }}
+                >
+                  <Text className={`text-base ${editCity ? 'text-text-primary' : 'text-text-tertiary'}`}>
+                    {editCity || 'Ciudad'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  className="mt-2 flex-row items-center gap-2"
+                  onPress={() => {
+                    if (location.city && location.latitude && location.longitude) {
+                      setEditCity(location.city);
+                      setEditCityLat(location.latitude);
+                      setEditCityLng(location.longitude);
+                    }
+                  }}
+                >
+                  <Ionicons name="locate" size={14} color="#9CA3AF" />
+                  <Text className="text-xs text-text-tertiary">Usar ubicacion actual</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <TextInput
+                className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+                placeholder="Ciudad"
+                placeholderTextColor="#A0A0A0"
+                value={editCity}
+                onChangeText={(text) => {
+                  setEditCity(text);
+                  setEditCityLat(null);
+                  setEditCityLng(null);
+                }}
+                autoCapitalize="words"
+                style={{ fontSize: 16, minHeight: 48 }}
+              />
+            )}
+            <View className="h-3" />
+            <TextInput
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Cumpleaños (DD/MM/AAAA)"
+              placeholderTextColor="#A0A0A0"
+              value={editBirthday}
+              onChangeText={setEditBirthday}
+              keyboardType="numbers-and-punctuation"
+              style={{ fontSize: 16, minHeight: 48 }}
+            />
+            <View className="h-3" />
+            <TextInput
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Bio (opcional)"
+              placeholderTextColor="#A0A0A0"
+              value={editBio}
+              onChangeText={setEditBio}
+              multiline
+              maxLength={180}
+              style={{ fontSize: 16, minHeight: 90, textAlignVertical: 'top' }}
+            />
+
+            <Pressable
+              className={`mt-6 items-center rounded-button py-4 ${savingProfile ? 'bg-border' : 'bg-primary'}`}
+              onPress={handleSaveProfile}
+              disabled={savingProfile}
+              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
+            >
+              {savingProfile ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-body font-semibold text-white">Guardar cambios</Text>
+              )}
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <ShareListModal
         visible={state.shareModalVisible}
         inviteCode={state.inviteCode}
         onClose={() => dispatch({ type: 'patch', payload: { shareModalVisible: false } })}
         onJoined={handleJoined}
       />
+
+      <Modal visible={cityModalVisible} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          className="flex-1 bg-background"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={90}
+        >
+          <View className="flex-1 px-6 pt-6">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-title font-bold text-text-primary">Selecciona ciudad</Text>
+              <Pressable
+                className="h-8 w-8 items-center justify-center rounded-full bg-border"
+                onPress={() => setCityModalVisible(false)}
+              >
+                <Ionicons name="close" size={18} color="#222222" />
+              </Pressable>
+            </View>
+
+            <GooglePlacesAutocomplete
+              placeholder="Ciudad"
+              fetchDetails
+              onPress={(data, details) => {
+                const cityName =
+                  details?.address_components?.find((c: any) =>
+                    c.types?.includes('locality'),
+                  )?.long_name ||
+                  details?.address_components?.find((c: any) =>
+                    c.types?.includes('administrative_area_level_1'),
+                  )?.long_name ||
+                  data?.description ||
+                  '';
+                const cityLat = details?.geometry?.location?.lat ?? null;
+                const cityLng = details?.geometry?.location?.lng ?? null;
+                setEditCity(cityName);
+                setEditCityLat(cityLat);
+                setEditCityLng(cityLng);
+                setCityModalVisible(false);
+              }}
+              query={{
+                key: MAPS_KEY,
+                language: 'es',
+                types: '(cities)',
+                components: 'country:es',
+                location:
+                  location.latitude != null && location.longitude != null
+                    ? `${location.latitude},${location.longitude}`
+                    : undefined,
+                radius: 30000,
+                strictbounds: true,
+              }}
+              nearbyPlacesAPI="GoogleReverseGeocoding"
+              currentLocation={false}
+              styles={{
+                container: { flex: 0 },
+                textInput: {
+                  borderWidth: 1,
+                  borderColor: '#F0EDED',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  minHeight: 48,
+                  fontSize: 16,
+                  lineHeight: 24,
+                  backgroundColor: '#FFFFFF',
+                  color: '#2D2D2D',
+                  textAlignVertical: 'center',
+                },
+                listView: {
+                  marginTop: 8,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#EFEFEF',
+                  overflow: 'hidden',
+                },
+                row: { paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#FFFFFF' },
+                separator: { height: 1, backgroundColor: '#F2F2F2' },
+                description: { color: '#1F2937', fontSize: 14 },
+                poweredContainer: { display: 'none' },
+              }}
+              textInputProps={{ placeholderTextColor: '#A0A0A0' }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <ConfirmModal
         visible={state.logoutModalVisible}

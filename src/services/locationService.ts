@@ -31,7 +31,9 @@ export async function reverseGeocode(
 
   const addr = results[0];
   const streetPart = [addr.street, addr.streetNumber].filter(Boolean).join(' ');
-  const cityPart = [addr.city, addr.postalCode].filter(Boolean).join(' ');
+  const cityPart = [addr.district, addr.subregion, addr.city, addr.postalCode]
+    .filter(Boolean)
+    .join(' ');
   return [streetPart, cityPart].filter(Boolean).join(', ') || null;
 }
 

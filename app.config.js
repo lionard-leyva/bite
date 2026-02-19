@@ -1,3 +1,7 @@
+const MAPS_KEY =
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY;
+
 export default ({ config }) => ({
   ...config,
   name: "Bite",
@@ -16,7 +20,7 @@ export default ({ config }) => ({
     supportsTablet: false,
     bundleIdentifier: "com.bite.app",
     config: {
-      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+      googleMapsApiKey: MAPS_KEY,
     },
   },
   android: {
@@ -35,7 +39,7 @@ export default ({ config }) => ({
     ],
     config: {
       googleMaps: {
-        apiKey: process.env.GOOGLE_MAPS_API_KEY,
+        apiKey: MAPS_KEY,
       },
     },
   },
@@ -49,7 +53,7 @@ export default ({ config }) => ({
     FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET || "bite-ba28f.firebasestorage.app",
     FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID || "161393276832",
     FIREBASE_APP_ID: process.env.FIREBASE_APP_ID || "1:161393276832:web:ba8edf81428a051079d6c5",
-    GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+    GOOGLE_MAPS_API_KEY: MAPS_KEY,
     DIRECTIONS_PROXY_URL: process.env.DIRECTIONS_PROXY_URL,
   },
   plugins: [

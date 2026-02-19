@@ -113,7 +113,7 @@ export default function ShareListModal({
             {inviteCode ? (
               <>
                 <Text className="mb-6 text-center text-sm text-text-secondary">
-                  Comparte este codigo con tu pareja para que se una a tu lista
+                  Comparte este codigo con tu pareja o grupo para que se una a tu lista
                 </Text>
                 <InviteCodeDisplay code={inviteCode} />
               </>
