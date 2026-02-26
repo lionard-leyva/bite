@@ -12,7 +12,6 @@ import { auth, db } from '../config/firebase';
 import { ensureUserList, consolidateUserLists, joinListByCode } from '../services/listService';
 import {
   getOrCreateDeviceId,
-  getSkipMode,
   setSkipMode,
   getLocalRestaurants,
   getLocalRestaurantCount,
@@ -39,6 +38,9 @@ export interface AuthState {
       city?: string;
       cityLat?: number | null;
       cityLng?: number | null;
+      address?: string;
+      addressLat?: number | null;
+      addressLng?: number | null;
       avatarUri?: string | null;
       inviteCode?: string;
     },
@@ -164,32 +166,18 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
           dispatch({ type: 'patch', payload: nextPatch });
         } else {
-          const wasSkip = await getSkipMode();
+          // Always start at login on app launch; do not auto-enter skip mode.
+          await setSkipMode(false);
           if (callIdRef.current !== thisCall) return;
-
-          if (wasSkip) {
-            const deviceId = await getOrCreateDeviceId();
-            if (callIdRef.current !== thisCall) return;
-            dispatch({
-              type: 'patch',
-              payload: {
-                user: null,
-                userId: deviceId,
-                listId: 'local',
-                skipMode: true,
-              },
-            });
-          } else {
-            dispatch({
-              type: 'patch',
-              payload: {
-                user: null,
-                userId: '',
-                listId: '',
-                skipMode: false,
-              },
-            });
-          }
+          dispatch({
+            type: 'patch',
+            payload: {
+              user: null,
+              userId: '',
+              listId: '',
+              skipMode: false,
+            },
+          });
         }
       } catch (err) {
         console.error('[AuthContext] Auth setup failed:', err);
@@ -220,6 +208,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       city?: string;
       cityLat?: number | null;
       cityLng?: number | null;
+      address?: string;
+      addressLat?: number | null;
+      addressLng?: number | null;
       avatarUri?: string | null;
       inviteCode?: string;
     },
@@ -256,6 +247,11 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     if (profile?.cityLat != null && profile?.cityLng != null) {
       profileData.cityLat = profile.cityLat;
       profileData.cityLng = profile.cityLng;
+    }
+    if (profile?.address?.trim()) profileData.address = profile.address.trim();
+    if (profile?.addressLat != null && profile?.addressLng != null) {
+      profileData.addressLat = profile.addressLat;
+      profileData.addressLng = profile.addressLng;
     }
 
     if (Object.keys(profileData).length > 0) {

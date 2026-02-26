@@ -1,4 +1,4 @@
-import { useReducer, useState } from 'react';
+import { useReducer, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,23 +6,14 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { pickImage } from '../services/imageService';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-
-const MAPS_KEY =
-  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
-  '';
+import { reverseGeocode } from '../services/locationService';
+import KeyboardForm from '../components/KeyboardForm';
 
 type Tab = 'login' | 'register';
 
@@ -40,9 +31,9 @@ export default function AuthScreen() {
     name: string;
     bio: string;
     birthday: string;
-    city: string;
-    cityLat: number | null;
-    cityLng: number | null;
+    address: string;
+    addressLat: number | null;
+    addressLng: number | null;
     inviteCode: string;
   }
 
@@ -61,9 +52,9 @@ export default function AuthScreen() {
     name: '',
     bio: '',
     birthday: '',
-    city: '',
-    cityLat: null,
-    cityLng: null,
+    address: '',
+    addressLat: null,
+    addressLng: null,
     inviteCode: '',
   };
 
@@ -80,7 +71,14 @@ export default function AuthScreen() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
   const location = useUserLocation();
-  const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [addressGpsState, setAddressGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const nameRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const birthdayRef = useRef<TextInput>(null);
+  const bioRef = useRef<TextInput>(null);
+  const inviteRef = useRef<TextInput>(null);
 
   function handleEmailChange(text: string) {
     dispatch({ type: 'patch', payload: { email: text, emailError: '' } });
@@ -95,6 +93,29 @@ export default function AuthScreen() {
   async function handlePickAvatar() {
     const uri = await pickImage('gallery');
     if (uri) setAvatarUri(uri);
+  }
+
+  async function handleAddressGpsFill() {
+    if (!location.latitude || !location.longitude) return;
+    setAddressGpsState('loading');
+    try {
+      const addr = await reverseGeocode(location.latitude, location.longitude);
+      if (addr) {
+        dispatch({
+          type: 'patch',
+          payload: {
+            address: addr,
+            addressLat: location.latitude,
+            addressLng: location.longitude,
+          },
+        });
+        setAddressGpsState('filled');
+      } else {
+        setAddressGpsState('idle');
+      }
+    } catch {
+      setAddressGpsState('idle');
+    }
   }
 
   function validate(): boolean {
@@ -122,9 +143,9 @@ export default function AuthScreen() {
           name: state.name,
           bio: state.bio,
           birthday: state.birthday,
-          city: state.city,
-          cityLat: state.cityLat,
-          cityLng: state.cityLng,
+          address: state.address,
+          addressLat: state.addressLat,
+          addressLng: state.addressLng,
           avatarUri,
           inviteCode: state.inviteCode,
         });
@@ -158,16 +179,11 @@ export default function AuthScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 20}
-    >
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 24 }}
-        className="px-6"
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+    <>
+      <KeyboardForm
+        containerClassName="flex-1 bg-background"
+        scrollClassName="px-6"
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 24, paddingBottom: 32 }}
       >
         {/* Brand icon */}
         <View className="items-center mb-3">
@@ -210,6 +226,7 @@ export default function AuthScreen() {
 
         {/* Form */}
         <TextInput
+          ref={emailRef}
           className={`rounded-input border bg-surface px-4 py-3 text-text-primary ${state.emailError ? 'border-primary' : 'border-border'}`}
           placeholder="Email"
           placeholderTextColor="#A0A0A0"
@@ -220,6 +237,8 @@ export default function AuthScreen() {
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
           style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
         />
         {state.emailError ? (
@@ -231,6 +250,7 @@ export default function AuthScreen() {
           style={{ minHeight: 48 }}
         >
           <TextInput
+            ref={passwordRef}
             className="flex-1 px-4 py-3 text-text-primary"
             placeholder="Contraseña"
             placeholderTextColor="#A0A0A0"
@@ -242,6 +262,14 @@ export default function AuthScreen() {
             autoCorrect={false}
             keyboardType="default"
             autoComplete="password"
+            returnKeyType={state.tab === 'login' ? 'done' : 'next'}
+            onSubmitEditing={() => {
+              if (state.tab === 'login') {
+                void handleSubmit();
+              } else {
+                nameRef.current?.focus();
+              }
+            }}
             style={{ fontSize: 16, lineHeight: 20 }}
           />
           <Pressable
@@ -286,70 +314,81 @@ export default function AuthScreen() {
             </View>
 
             <TextInput
+              ref={nameRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre"
               placeholderTextColor="#A0A0A0"
               value={state.name}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { name: text } })}
               autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => addressRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
             />
             <View className="h-3" />
-            {MAPS_KEY ? (
-              <View className="mb-2">
-                <Pressable
-                  onPress={() => setCityModalVisible(true)}
-                  className="rounded-input border border-border bg-surface px-4 py-3"
-                  style={{ minHeight: 48, justifyContent: 'center' }}
-                >
-                  <Text className={`text-base ${state.city ? 'text-text-primary' : 'text-text-tertiary'}`}>
-                    {state.city || 'Ciudad'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="mt-2 flex-row items-center gap-2"
-                  onPress={() => {
-                    if (location.city && location.latitude && location.longitude) {
-                      dispatch({
-                        type: 'patch',
-                        payload: {
-                          city: location.city,
-                          cityLat: location.latitude,
-                          cityLng: location.longitude,
-                        },
-                      });
-                    }
-                  }}
-                >
-                  <Ionicons name="locate" size={14} color="#9CA3AF" />
-                  <Text className="text-xs text-text-tertiary">Usar ubicacion actual</Text>
-                </Pressable>
-              </View>
-            ) : (
+            <View style={{ position: 'relative' }}>
               <TextInput
+                ref={addressRef}
                 className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-                placeholder="Ciudad"
+                placeholder="Direccion"
                 placeholderTextColor="#A0A0A0"
-                value={state.city}
-                onChangeText={(text) =>
-                  dispatch({ type: 'patch', payload: { city: text, cityLat: null, cityLng: null } })
-                }
+                value={state.address}
+                onChangeText={(text) => {
+                  dispatch({ type: 'patch', payload: { address: text, addressLat: null, addressLng: null } });
+                  if (addressGpsState === 'filled') setAddressGpsState('idle');
+                }}
                 autoCapitalize="words"
-                style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
+                returnKeyType="next"
+                onSubmitEditing={() => birthdayRef.current?.focus()}
+                style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
               />
-            )}
+              <Pressable
+                onPress={handleAddressGpsFill}
+                disabled={addressGpsState === 'loading' || !location.latitude}
+                hitSlop={8}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: 8,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  borderWidth: addressGpsState === 'filled' ? 0 : 1.5,
+                  borderColor: '#D1D5DB',
+                  backgroundColor: addressGpsState === 'filled' ? '#00A699' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Rellenar direccion con GPS"
+              >
+                {addressGpsState === 'loading' ? (
+                  <ActivityIndicator size={14} color="#6B7280" />
+                ) : (
+                  <Ionicons
+                    name="locate"
+                    size={16}
+                    color={addressGpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                  />
+                )}
+              </Pressable>
+            </View>
             <View className="h-3" />
             <TextInput
+              ref={birthdayRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Cumpleaños (DD/MM/AAAA)"
               placeholderTextColor="#A0A0A0"
               value={state.birthday}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { birthday: text } })}
               keyboardType="numbers-and-punctuation"
+              returnKeyType="next"
+              onSubmitEditing={() => bioRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
             />
             <View className="h-3" />
             <TextInput
+              ref={bioRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Bio (opcional)"
               placeholderTextColor="#A0A0A0"
@@ -357,10 +396,14 @@ export default function AuthScreen() {
               onChangeText={(text) => dispatch({ type: 'patch', payload: { bio: text } })}
               multiline
               maxLength={180}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => inviteRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 80, textAlignVertical: 'top' }}
             />
             <View className="h-3" />
             <TextInput
+              ref={inviteRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Codigo para unirme a pareja o grupo (opcional)"
               placeholderTextColor="#A0A0A0"
@@ -368,6 +411,8 @@ export default function AuthScreen() {
               onChangeText={(text) => dispatch({ type: 'patch', payload: { inviteCode: text } })}
               autoCapitalize="characters"
               maxLength={7}
+              returnKeyType="done"
+              onSubmitEditing={() => void handleSubmit()}
               style={{ fontSize: 16, minHeight: 48, lineHeight: 20 }}
             />
             <View className="h-4" />
@@ -411,92 +456,8 @@ export default function AuthScreen() {
         <Text className="mt-3 text-center text-caption text-text-tertiary">
           Podras crear cuenta despues para sincronizar y compartir
         </Text>
-      </ScrollView>
+      </KeyboardForm>
 
-      <Modal visible={cityModalVisible} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView
-          className="flex-1 bg-background"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={90}
-        >
-          <View className="flex-1 px-6 pt-6">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-title font-bold text-text-primary">Selecciona ciudad</Text>
-              <Pressable
-                className="h-8 w-8 items-center justify-center rounded-full bg-border"
-                onPress={() => setCityModalVisible(false)}
-              >
-                <Ionicons name="close" size={18} color="#222222" />
-              </Pressable>
-            </View>
-
-            <GooglePlacesAutocomplete
-              placeholder="Ciudad"
-              fetchDetails
-              onPress={(data, details) => {
-                const cityName =
-                  details?.address_components?.find((c: any) =>
-                    c.types?.includes('locality'),
-                  )?.long_name ||
-                  details?.address_components?.find((c: any) =>
-                    c.types?.includes('administrative_area_level_1'),
-                  )?.long_name ||
-                  data?.description ||
-                  '';
-                const cityLat = details?.geometry?.location?.lat ?? null;
-                const cityLng = details?.geometry?.location?.lng ?? null;
-                dispatch({
-                  type: 'patch',
-                  payload: { city: cityName, cityLat, cityLng },
-                });
-                setCityModalVisible(false);
-              }}
-              query={{
-                key: MAPS_KEY,
-                language: 'es',
-                types: '(cities)',
-                components: 'country:es',
-                location:
-                  location.latitude != null && location.longitude != null
-                    ? `${location.latitude},${location.longitude}`
-                    : undefined,
-                radius: 30000,
-                strictbounds: true,
-              }}
-              nearbyPlacesAPI="GoogleReverseGeocoding"
-              currentLocation={false}
-              styles={{
-                container: { flex: 0 },
-                textInput: {
-                  borderWidth: 1,
-                  borderColor: '#F0EDED',
-                  borderRadius: 12,
-                  paddingHorizontal: 16,
-                  minHeight: 48,
-                  fontSize: 16,
-                  lineHeight: 24,
-                  backgroundColor: '#FFFFFF',
-                  color: '#2D2D2D',
-                  textAlignVertical: 'center',
-                },
-                listView: {
-                  marginTop: 8,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#EFEFEF',
-                  overflow: 'hidden',
-                },
-                row: { paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#FFFFFF' },
-                separator: { height: 1, backgroundColor: '#F2F2F2' },
-                description: { color: '#1F2937', fontSize: 14 },
-                poweredContainer: { display: 'none' },
-              }}
-              textInputProps={{ placeholderTextColor: '#A0A0A0' }}
-            />
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </KeyboardAvoidingView>
+    </>
   );
 }

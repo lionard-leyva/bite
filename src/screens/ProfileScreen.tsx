@@ -1,5 +1,5 @@
-import { useReducer, useEffect, useCallback, useState } from 'react';
-import { View, Text, Pressable, Alert, ActivityIndicator, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useReducer, useEffect, useCallback, useState, useRef } from 'react';
+import { View, Text, Pressable, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -9,8 +9,10 @@ import { useLocation as useUserLocation } from '../hooks/useLocation';
 import Constants from 'expo-constants';
 import { getListInviteCode, getListMembers, leaveSharedList } from '../services/listService';
 import { getLocalRestaurantCount } from '../services/localStorageService';
+import { reverseGeocode } from '../services/locationService';
 import ShareListModal from '../components/ShareListModal';
 import ConfirmModal from '../components/ConfirmModal';
+import KeyboardForm from '../components/KeyboardForm';
 import { auth, db } from '../config/firebase';
 import { pickImage, uploadAvatar } from '../services/imageService';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -45,6 +47,9 @@ export default function ProfileScreen() {
     city: string;
     cityLat: number | null;
     cityLng: number | null;
+    address: string;
+    addressLat: number | null;
+    addressLng: number | null;
     photoURL: string;
   }
 
@@ -67,6 +72,9 @@ export default function ProfileScreen() {
     city: '',
     cityLat: null,
     cityLng: null,
+    address: '',
+    addressLat: null,
+    addressLng: null,
     photoURL: '',
   };
 
@@ -108,6 +116,9 @@ export default function ProfileScreen() {
           city: typeof data.city === 'string' ? data.city : '',
           cityLat: typeof data.cityLat === 'number' ? data.cityLat : null,
           cityLng: typeof data.cityLng === 'number' ? data.cityLng : null,
+          address: typeof data.address === 'string' ? data.address : '',
+          addressLat: typeof data.addressLat === 'number' ? data.addressLat : null,
+          addressLng: typeof data.addressLng === 'number' ? data.addressLng : null,
           photoURL: typeof data.photoURL === 'string' ? data.photoURL : '',
         },
       });
@@ -133,8 +144,16 @@ export default function ProfileScreen() {
   const [editCity, setEditCity] = useState('');
   const [editCityLat, setEditCityLat] = useState<number | null>(null);
   const [editCityLng, setEditCityLng] = useState<number | null>(null);
+  const [editAddress, setEditAddress] = useState('');
+  const [editAddressLat, setEditAddressLat] = useState<number | null>(null);
+  const [editAddressLng, setEditAddressLng] = useState<number | null>(null);
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
   const [cityModalVisible, setCityModalVisible] = useState(false);
+  const [addressGpsState, setAddressGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
+  const nameRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const birthdayRef = useRef<TextInput>(null);
+  const bioRef = useRef<TextInput>(null);
 
   function openEdit() {
     setEditName(state.displayName || user?.displayName || '');
@@ -143,6 +162,9 @@ export default function ProfileScreen() {
     setEditCity(state.city);
     setEditCityLat(state.cityLat);
     setEditCityLng(state.cityLng);
+    setEditAddress(state.address);
+    setEditAddressLat(state.addressLat);
+    setEditAddressLng(state.addressLng);
     setEditAvatarUri(null);
     setEditVisible(true);
   }
@@ -165,11 +187,16 @@ export default function ProfileScreen() {
         bio: editBio.trim(),
         birthday: editBirthday.trim(),
         city: editCity.trim(),
+        address: editAddress.trim(),
         photoURL,
       };
       if (editCityLat != null && editCityLng != null) {
         payload.cityLat = editCityLat;
         payload.cityLng = editCityLng;
+      }
+      if (editAddressLat != null && editAddressLng != null) {
+        payload.addressLat = editAddressLat;
+        payload.addressLng = editAddressLng;
       }
       await setDoc(doc(db, 'users', userId), payload, { merge: true });
       if (auth.currentUser) {
@@ -187,6 +214,9 @@ export default function ProfileScreen() {
           city: editCity.trim(),
           cityLat: editCityLat,
           cityLng: editCityLng,
+          address: editAddress.trim(),
+          addressLat: editAddressLat,
+          addressLng: editAddressLng,
           photoURL,
         },
       });
@@ -217,6 +247,24 @@ export default function ProfileScreen() {
       loadListInfo();
     } catch {
       Alert.alert('Error', 'No se pudo dejar la lista compartida');
+    }
+  }
+
+  async function handleAddressGpsFill() {
+    if (!location.latitude || !location.longitude) return;
+    setAddressGpsState('loading');
+    try {
+      const addr = await reverseGeocode(location.latitude, location.longitude);
+      if (addr) {
+        setEditAddress(addr);
+        setEditAddressLat(location.latitude);
+        setEditAddressLng(location.longitude);
+        setAddressGpsState('filled');
+      } else {
+        setAddressGpsState('idle');
+      }
+    } catch {
+      setAddressGpsState('idle');
     }
   }
 
@@ -352,7 +400,7 @@ export default function ProfileScreen() {
                 Modo sin cuenta
               </Text>
               <Text className="mb-3 text-caption text-text-secondary">
-                {localCount > 0
+                {state.localCount > 0
                   ? `Tienes ${state.localCount} restaurante${state.localCount > 1 ? 's' : ''} guardado${state.localCount > 1 ? 's' : ''} localmente. Crea una cuenta para sincronizar y compartir.`
                   : 'Crea una cuenta para sincronizar entre dispositivos y compartir con tu pareja.'}
               </Text>
@@ -386,12 +434,11 @@ export default function ProfileScreen() {
 
       {/* Share modal */}
       <Modal visible={editVisible} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView
-          className="flex-1 bg-background"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <KeyboardForm
+          containerClassName="flex-1 bg-background"
+          scrollClassName="flex-1 px-6 pt-6"
           keyboardVerticalOffset={90}
         >
-          <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
             <View className="mb-6 flex-row items-center justify-between">
               <Text className="text-title font-bold text-text-primary">Editar perfil</Text>
               <Pressable
@@ -420,12 +467,15 @@ export default function ProfileScreen() {
             </View>
 
             <TextInput
+              ref={nameRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre"
               placeholderTextColor="#A0A0A0"
               value={editName}
               onChangeText={setEditName}
               autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => addressRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48 }}
             />
             <View className="h-3" />
@@ -470,17 +520,71 @@ export default function ProfileScreen() {
               />
             )}
             <View className="h-3" />
+            <View style={{ position: 'relative' }}>
             <TextInput
+              ref={addressRef}
+              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Direccion"
+              placeholderTextColor="#A0A0A0"
+              value={editAddress}
+              onChangeText={(text) => {
+                setEditAddress(text);
+                setEditAddressLat(null);
+                setEditAddressLng(null);
+                if (addressGpsState === 'filled') setAddressGpsState('idle');
+              }}
+              autoCapitalize="words"
+              returnKeyType="next"
+              onSubmitEditing={() => birthdayRef.current?.focus()}
+              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
+            />
+              <Pressable
+                onPress={handleAddressGpsFill}
+                disabled={addressGpsState === 'loading' || !location.latitude}
+                hitSlop={8}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: 8,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  borderWidth: addressGpsState === 'filled' ? 0 : 1.5,
+                  borderColor: '#D1D5DB',
+                  backgroundColor: addressGpsState === 'filled' ? '#00A699' : 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Rellenar direccion con GPS"
+              >
+                {addressGpsState === 'loading' ? (
+                  <ActivityIndicator size={14} color="#6B7280" />
+                ) : (
+                  <Ionicons
+                    name="locate"
+                    size={16}
+                    color={addressGpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                  />
+                )}
+              </Pressable>
+            </View>
+            <View className="h-3" />
+            <TextInput
+              ref={birthdayRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Cumpleaños (DD/MM/AAAA)"
               placeholderTextColor="#A0A0A0"
               value={editBirthday}
               onChangeText={setEditBirthday}
               keyboardType="numbers-and-punctuation"
+              returnKeyType="next"
+              onSubmitEditing={() => bioRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48 }}
             />
             <View className="h-3" />
             <TextInput
+              ref={bioRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Bio (opcional)"
               placeholderTextColor="#A0A0A0"
@@ -488,6 +592,9 @@ export default function ProfileScreen() {
               onChangeText={setEditBio}
               multiline
               maxLength={180}
+              returnKeyType="done"
+              blurOnSubmit
+              onSubmitEditing={handleSaveProfile}
               style={{ fontSize: 16, minHeight: 90, textAlignVertical: 'top' }}
             />
 
@@ -503,8 +610,7 @@ export default function ProfileScreen() {
                 <Text className="text-body font-semibold text-white">Guardar cambios</Text>
               )}
             </Pressable>
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardForm>
       </Modal>
 
       <ShareListModal

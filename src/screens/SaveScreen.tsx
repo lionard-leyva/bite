@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  ScrollView,
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -28,6 +27,7 @@ import PriceSlider from '../components/PriceSlider';
 import PhotoPicker from '../components/PhotoPicker';
 import DragHandle from '../components/DragHandle';
 import { PRICE_DEFAULT } from '../config/constants';
+import KeyboardForm from '../components/KeyboardForm';
 
 const MAPS_KEY =
   Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
@@ -166,6 +166,9 @@ export default function SaveScreen() {
   const [placesError, setPlacesError] = useState('');
   const [placeSelected, setPlaceSelected] = useState(false);
   const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
+  const nameManualRef = useRef<TextInput>(null);
+  const addressRef = useRef<TextInput>(null);
+  const noteRef = useRef<TextInput>(null);
 
   const {
     isEditMode,
@@ -485,6 +488,8 @@ export default function SaveScreen() {
                   }
                 },
                 placeholderTextColor: '#A0A0A0',
+                returnKeyType: 'next',
+                onSubmitEditing: () => addressRef.current?.focus(),
               }}
             />
             {!!placesError && (
@@ -504,6 +509,7 @@ export default function SaveScreen() {
         ) : (
           <View className="mb-4">
             <TextInput
+              ref={nameManualRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre del restaurante"
               placeholderTextColor="#A0A0A0"
@@ -516,6 +522,8 @@ export default function SaveScreen() {
                   dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
                 }
               }}
+              returnKeyType="next"
+              onSubmitEditing={() => addressRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
           </View>
@@ -523,9 +531,10 @@ export default function SaveScreen() {
       </View>
 
       {!isSearching && (
-        <ScrollView
-          className="flex-1 px-5"
-          keyboardShouldPersistTaps="handled"
+        <KeyboardForm
+          avoid={false}
+          scrollClassName="flex-1 px-5"
+          contentContainerStyle={{ paddingBottom: 24 }}
         >
 
         {/* Address with GPS button */}
@@ -533,11 +542,14 @@ export default function SaveScreen() {
         {placeSelected ? (
           <View style={{ position: 'relative', marginBottom: 16 }}>
             <TextInput
+              ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
               placeholderTextColor="#A0A0A0"
               value={address}
               editable={false}
+              returnKeyType="next"
+              onSubmitEditing={() => noteRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
             />
             <Pressable
@@ -568,6 +580,7 @@ export default function SaveScreen() {
         ) : (
           <View style={{ position: 'relative', marginBottom: 16 }}>
             <TextInput
+              ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
               placeholderTextColor="#A0A0A0"
@@ -576,6 +589,8 @@ export default function SaveScreen() {
                 dispatchForm({ type: 'patch', payload: { address: text } });
                 if (gpsState === 'filled') setGpsState('idle');
               }}
+              returnKeyType="next"
+              onSubmitEditing={() => noteRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
             />
             <Pressable
@@ -661,6 +676,7 @@ export default function SaveScreen() {
         {/* Note */}
         <SectionLabel>Nota (opcional)</SectionLabel>
         <TextInput
+          ref={noteRef}
           className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
           placeholder="Ej: La pasta increible"
           placeholderTextColor="#A0A0A0"
@@ -668,6 +684,9 @@ export default function SaveScreen() {
           onChangeText={(text) => dispatchForm({ type: 'patch', payload: { note: text } })}
           multiline
           maxLength={200}
+          returnKeyType="done"
+          blurOnSubmit
+          onSubmitEditing={handleSave}
           style={{ minHeight: 80, textAlignVertical: 'top' }}
         />
 
@@ -693,8 +712,9 @@ export default function SaveScreen() {
               </Text>
             )}
           </Pressable>
-        </ScrollView>
+        </KeyboardForm>
       )}
+
     </KeyboardAvoidingView>
   );
 }
