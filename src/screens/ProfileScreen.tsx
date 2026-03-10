@@ -1,5 +1,5 @@
 import { useReducer, useEffect, useCallback, useState, useRef } from 'react';
-import { View, Text, Pressable, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Pressable, Alert, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';

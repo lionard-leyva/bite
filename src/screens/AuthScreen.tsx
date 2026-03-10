@@ -6,6 +6,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -133,6 +134,7 @@ export default function AuthScreen() {
   }
 
   async function handleSubmit() {
+    Keyboard.dismiss();
     if (!validate()) return;
     dispatch({ type: 'patch', payload: { loading: true } });
     try {
@@ -175,12 +177,14 @@ export default function AuthScreen() {
   }
 
   async function handleSkip() {
+    Keyboard.dismiss();
     await skipLogin();
   }
 
   return (
     <>
       <KeyboardForm
+        avoid={false}
         containerClassName="flex-1 bg-background"
         scrollClassName="px-6"
         contentContainerStyle={{ flexGrow: 1, paddingTop: 24, paddingBottom: 32 }}

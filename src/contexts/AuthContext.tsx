@@ -280,6 +280,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   async function migrateLocalData(): Promise<number> {
     if (!state.user || state.skipMode) return 0;
+    const user = state.user;
 
     const locals = await getLocalRestaurants();
     if (locals.length === 0) return 0;
@@ -299,7 +300,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
             visited: r.visited,
             pricePerPerson: r.pricePerPerson,
             photoUris: [],
-            userId: state.user.uid,
+            userId: user.uid,
             listId: state.listId,
           }),
         ),

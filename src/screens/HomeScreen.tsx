@@ -1,5 +1,5 @@
-import React, { useReducer, useMemo, useRef, useEffect, useCallback } from 'react';
-import { View, Text, ActivityIndicator, Pressable, Platform, Animated, Modal, StyleSheet } from 'react-native';
+import React, { useReducer, useMemo, useRef, useEffect, useCallback, useState } from 'react';
+import { View, Text, ActivityIndicator, Pressable, Platform, Modal, StyleSheet, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, type Region } from 'react-native-maps';
@@ -9,50 +9,34 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useLocation } from '../hooks/useLocation';
-import { useNavigationETA } from '../hooks/useNavigationETA';
-import { timeAgo } from '../utils/timeAgo';
-import { openNativeNavigation, haversineKm, formatDistance } from '../services/navigationService';
 import FAB from '../components/FAB';
 import MapMarker from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
-import HomeHeader from '../components/HomeHeader';
 import type { FilterValue } from '../components/FilterButtons';
 import type { RootStackParamList } from '../navigation/types';
-import type { Restaurant } from '../types';
+import { getPrimaryPhoto, type Restaurant } from '../types';
 import {
   CLUSTER_RADIUS,
   CLUSTER_COLOR,
   CLUSTER_FONT_SIZE,
   FAB_BOTTOM_OFFSET,
-  LOCATION_BUTTON_SIZE,
   Z_MARKER,
   Z_MARKER_SELECTED,
   Z_CLUSTER,
-  Z_FAB,
   EDGE_PADDING_TOP,
   EDGE_PADDING_RIGHT,
   EDGE_PADDING_BOTTOM,
   EDGE_PADDING_LEFT,
   PRICE_VALUES,
   PRICE_LABELS,
-  MARKER_PILL_HEIGHT,
-  SHEET_SPRING_TENSION,
-  SHEET_SPRING_FRICTION,
-  SHEET_DISMISS_TRANSLATE,
-  MAP_CARD_MARGIN_H,
-  MAP_CARD_MARGIN_TOP,
-  MAP_CARD_MARGIN_BOTTOM,
-  MAP_CARD_BORDER_RADIUS,
-  MAP_CARD_BG,
-  EXPAND_BUTTON_SIZE,
-  EXPAND_BUTTON_RADIUS,
 } from '../config/constants';
-import MapDetailCard from '../components/MapDetailCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const COORD_PRECISION = 5;
-const OFFSET_STEP = 0.00015;
+const OFFSET_STEP = 0.0009;
+const SPIDER_THRESHOLD = 0.00075;
+const SPIDER_RADIUS = 0.0012;
 
 interface OffsetCoord { latitude: number; longitude: number }
 
@@ -72,6 +56,8 @@ function applyNearbyOffsets(restaurants: Restaurant[]): Map<string, OffsetCoord>
   }
   for (const ids of groups.values()) {
     if (ids.length < 2) continue;
+    // Keep a stable order so each restaurant keeps its same offset across rerenders.
+    ids.sort((a, b) => a.localeCompare(b));
     for (let i = 0; i < ids.length; i++) {
       const angle = (2 * Math.PI * i) / ids.length;
       const radius = OFFSET_STEP * (1 + Math.floor(i / 6));
@@ -81,6 +67,25 @@ function applyNearbyOffsets(restaurants: Restaurant[]): Map<string, OffsetCoord>
         longitude: r.longitude + radius * Math.sin(angle),
       });
     }
+  }
+  return offsets;
+}
+
+function applySpiderOffsets(center: Restaurant, restaurants: Restaurant[], progress: number): Map<string, OffsetCoord> {
+  const nearby = restaurants
+    .filter((r) => Math.hypot(r.latitude - center.latitude, r.longitude - center.longitude) <= SPIDER_THRESHOLD)
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  const offsets = new Map<string, OffsetCoord>();
+  if (nearby.length < 2) return offsets;
+  const radius = SPIDER_RADIUS * Math.max(0, Math.min(1, progress));
+
+  for (let i = 0; i < nearby.length; i++) {
+    const angle = (-Math.PI / 2) + ((2 * Math.PI * i) / nearby.length);
+    offsets.set(nearby[i].id, {
+      latitude: center.latitude + (radius * Math.cos(angle)),
+      longitude: center.longitude + (radius * Math.sin(angle)),
+    });
   }
   return offsets;
 }
@@ -100,6 +105,23 @@ function dedupeById(restaurants: Restaurant[]): Restaurant[] {
   }
   return result;
 }
+
+const IG_FILTERS: { label: string; value: FilterValue; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: 'Todos', value: 'all', icon: 'grid-outline' },
+  { label: 'Visitados', value: 'visited', icon: 'checkmark-circle-outline' },
+  { label: 'Pendientes', value: 'pending', icon: 'time-outline' },
+];
+
+const DARK_MAP_STYLE = [
+  { elementType: 'geometry', stylers: [{ color: '#0f1524' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa3b2' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f1524' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1b2740' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0f1524' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a101c' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+];
 
 // =============================================================
 
@@ -126,16 +148,16 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
       coordinate={coord}
       tracksViewChanges={tracksViewChanges}
       anchor={{ x: 0.5, y: 1 }}
-      zIndex={isSelected ? Z_MARKER_SELECTED : Z_MARKER}
-      opacity={hasSelection && !isSelected ? 0.45 : 1}
+      zIndex={isSelected ? Z_MARKER_SELECTED : (Z_MARKER + 1)}
+      opacity={1}
       stopPropagation
       onPress={() => onPress(restaurant)}
     >
       <MapMarker
         name={restaurant.name}
-        rating={restaurant.rating}
         visited={restaurant.visited}
         isSelected={isSelected}
+        photoUri={getPrimaryPhoto(restaurant)}
       />
     </Marker>
   );
@@ -146,8 +168,8 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
   prev.coord.latitude === next.coord.latitude &&
   prev.coord.longitude === next.coord.longitude &&
   prev.restaurant.name === next.restaurant.name &&
-  prev.restaurant.rating === next.restaurant.rating &&
-  prev.restaurant.visited === next.restaurant.visited,
+  prev.restaurant.visited === next.restaurant.visited &&
+  getPrimaryPhoto(prev.restaurant) === getPrimaryPhoto(next.restaurant),
 );
 
 export default function HomeScreen() {
@@ -164,6 +186,8 @@ export default function HomeScreen() {
     activeFilter: FilterValue;
     mapRegion: Region | null;
     markerTracks: boolean;
+    refocusNonce: number;
+    spiderCenterId: string | null;
   }
 
   type HomeAction =
@@ -177,6 +201,8 @@ export default function HomeScreen() {
     activeFilter: 'all',
     mapRegion: null,
     markerTracks: Platform.OS === 'android',
+    refocusNonce: 0,
+    spiderCenterId: null,
   };
 
   function reducer(state: HomeState, action: HomeAction): HomeState {
@@ -191,11 +217,40 @@ export default function HomeScreen() {
   }
 
   const [state, dispatch] = useReducer(reducer, initialState);
-  const { selectedId, mapExpanded, searchQuery, activeFilter, mapRegion, markerTracks } = state;
+  const [spiderProgress, setSpiderProgress] = useState(0);
+  const { selectedId, mapExpanded, searchQuery, activeFilter, mapRegion, markerTracks, refocusNonce, spiderCenterId } = state;
   const selectedIdRef = useRef<string | null>(null);
-  const cardTranslateY = useRef(new Animated.Value(SHEET_DISMISS_TRANSLATE)).current;
   const suppressMapPressRef = useRef(false);
   const modalMapRef = useRef<MapView>(null);
+  const hasAutoFocusedRef = useRef(false);
+  const prevQueryRef = useRef('');
+  const prevFilterRef = useRef<FilterValue>('all');
+  const prevRefocusNonceRef = useRef(0);
+  const spiderProgressRef = useRef(0);
+
+  useEffect(() => {
+    const to = spiderCenterId ? 1 : 0;
+    const from = spiderProgressRef.current;
+    if (from === to) return;
+    const duration = 180;
+    const start = Date.now();
+    let frame: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = from + ((to - from) * eased);
+      spiderProgressRef.current = next;
+      setSpiderProgress(next);
+      if (t < 1) frame = setTimeout(tick, 16);
+    };
+
+    tick();
+    return () => {
+      if (frame) clearTimeout(frame);
+    };
+  }, [spiderCenterId]);
 
   const restaurants = useMemo(() => dedupeById(rawRestaurants), [rawRestaurants]);
 
@@ -219,16 +274,17 @@ export default function HomeScreen() {
     return filtered;
   }, [restaurants, activeFilter, searchQuery]);
 
-  // Android: ensure custom marker views render at least once.
+  // Android: ensure custom marker views render at least once and when map surface changes
+  // (compact card <-> fullscreen modal) to avoid stale/corrupted marker snapshots.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     dispatch({ type: 'patch', payload: { markerTracks: true } });
-  }, [visibleRestaurants.length]);
+  }, [visibleRestaurants.length, mapExpanded, selectedId]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     if (!markerTracks) return;
-    const t = setTimeout(() => dispatch({ type: 'patch', payload: { markerTracks: false } }), 400);
+    const t = setTimeout(() => dispatch({ type: 'patch', payload: { markerTracks: false } }), 700);
     return () => clearTimeout(t);
   }, [markerTracks]);
 
@@ -250,40 +306,16 @@ export default function HomeScreen() {
     [restaurantMap, selectedId],
   );
 
-  const isDismissing = useRef(false);
-
-  useEffect(() => {
-    if (selectedId && !isDismissing.current) {
-      cardTranslateY.setValue(SHEET_DISMISS_TRANSLATE);
-      Animated.spring(cardTranslateY, {
-        toValue: 0,
-        tension: SHEET_SPRING_TENSION,
-        friction: SHEET_SPRING_FRICTION,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [selectedId]);
-
   const dismissCard = useCallback(() => {
-    if (isDismissing.current) return;
-    isDismissing.current = true;
-    Animated.timing(cardTranslateY, {
-      toValue: SHEET_DISMISS_TRANSLATE,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      dispatch({ type: 'patch', payload: { selectedId: null } });
-      isDismissing.current = false;
-    });
-  }, [cardTranslateY]);
+    dispatch({ type: 'patch', payload: { selectedId: null, spiderCenterId: null } });
+  }, []);
 
-  const { infoText: etaInfoText, etaLoading } = useNavigationETA({
-    restaurantId: selectedId,
-    destLat: selectedRestaurant?.latitude ?? null,
-    destLng: selectedRestaurant?.longitude ?? null,
-    userLat: location.latitude,
-    userLng: location.longitude,
-  });
+  const spiderOffsets = useMemo(() => {
+    if (!spiderCenterId) return new Map<string, OffsetCoord>();
+    const center = restaurantMap.get(spiderCenterId);
+    if (!center) return new Map<string, OffsetCoord>();
+    return applySpiderOffsets(center, visibleRestaurants, spiderProgress);
+  }, [spiderCenterId, restaurantMap, visibleRestaurants, spiderProgress]);
 
   const initialRegion = useMemo(() => ({
     latitude: location.latitude ?? 40.4168,
@@ -308,6 +340,7 @@ export default function HomeScreen() {
     bottom: 16,
     left: 16,
   }), []);
+  const visibleIdsKey = useMemo(() => visibleRestaurants.map((r) => r.id).join('|'), [visibleRestaurants]);
 
   useEffect(() => {
     if (hasInitiallyFit.current || loading || visibleRestaurants.length === 0) return;
@@ -330,6 +363,55 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [visibleRestaurants, loading, mapPadding]);
 
+  // Re-focus map only on first load or when search/filter changes.
+  // Avoid refocusing while selecting markers to prevent "jumping" to wrong areas.
+  useEffect(() => {
+    if (loading || visibleRestaurants.length === 0) return;
+    const queryChanged = prevQueryRef.current !== searchQuery;
+    const filterChanged = prevFilterRef.current !== activeFilter;
+    const refocusTriggered = prevRefocusNonceRef.current !== refocusNonce;
+    const shouldRefocus = !hasAutoFocusedRef.current || queryChanged || filterChanged || refocusTriggered;
+    prevQueryRef.current = searchQuery;
+    prevFilterRef.current = activeFilter;
+    prevRefocusNonceRef.current = refocusNonce;
+    if (!shouldRefocus) return;
+
+    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    if (!targetMap) return;
+
+    const coords = visibleRestaurants.map((r) => ({
+      latitude: r.latitude,
+      longitude: r.longitude,
+    }));
+
+    const timer = setTimeout(() => {
+      if (coords.length === 1) {
+        targetMap.animateToRegion(
+          {
+            latitude: coords[0].latitude,
+            longitude: coords[0].longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          350,
+        );
+      } else {
+        targetMap.fitToCoordinates(coords, {
+          edgePadding: {
+            top: EDGE_PADDING_TOP,
+            right: EDGE_PADDING_RIGHT,
+            bottom: EDGE_PADDING_BOTTOM,
+            left: EDGE_PADDING_LEFT,
+          },
+          animated: true,
+        });
+      }
+    }, 120);
+    hasAutoFocusedRef.current = true;
+
+    return () => clearTimeout(timer);
+  }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
+
   const handleMyLocation = useCallback(() => {
     if (location.latitude == null || location.longitude == null) return;
     mapRef.current?.animateToRegion(
@@ -345,24 +427,38 @@ export default function HomeScreen() {
 
   const handleMarkerPress = useCallback((r: Restaurant) => {
     suppressMapPressRef.current = true;
-    if (selectedIdRef.current === r.id) {
-      dismissCard();
-    } else {
-      dispatch({ type: 'patch', payload: { selectedId: r.id } });
-    }
-    mapRef.current?.animateToRegion(
-      {
-        latitude: r.latitude,
-        longitude: r.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
+    const nearbyCount = visibleRestaurants.filter((x) =>
+      Math.hypot(x.latitude - r.latitude, x.longitude - r.longitude) <= SPIDER_THRESHOLD,
+    ).length;
+
+    dispatch({
+      type: 'patch',
+      payload: {
+        selectedId: r.id,
+        markerTracks: true,
+        spiderCenterId: nearbyCount > 1 ? r.id : null,
       },
-      350,
-    );
+    });
+
+    const selectedCoord = coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude };
+    const current = mapRegion ?? initialRegion;
+    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    if (targetMap) {
+      targetMap.animateToRegion(
+        {
+          latitude: selectedCoord.latitude - (current.latitudeDelta * 0.18),
+          longitude: selectedCoord.longitude,
+          latitudeDelta: current.latitudeDelta,
+          longitudeDelta: current.longitudeDelta,
+        },
+        260,
+      );
+    }
+
     setTimeout(() => {
       suppressMapPressRef.current = false;
-    }, 0);
-  }, [dismissCard]);
+    }, 260);
+  }, [visibleRestaurants, coordOffsets, mapRegion, initialRegion, mapExpanded]);
 
   const handleMapPress = useCallback(() => {
     if (suppressMapPressRef.current) return;
@@ -380,6 +476,7 @@ export default function HomeScreen() {
   const renderCluster = useCallback((cluster: any) => {
     const { id, geometry, properties, onPress } = cluster;
     const count = properties.point_count;
+    const displayCount = count > 99 ? '99+' : String(count);
     return (
       <Marker
         key={`cluster-${id}`}
@@ -390,60 +487,51 @@ export default function HomeScreen() {
         onPress={onPress}
         tracksViewChanges={false}
         zIndex={Z_CLUSTER}
+        anchor={{ x: 0.5, y: 0.5 }}
       >
         <View
           style={{
-            flexDirection: 'row',
+            width: 58,
+            height: 58,
             alignItems: 'center',
-            height: MARKER_PILL_HEIGHT,
-            paddingHorizontal: 14,
-            backgroundColor: '#FF3B30',
-            borderRadius: MARKER_PILL_HEIGHT / 2,
-            gap: 4,
+            justifyContent: 'center',
+            backgroundColor: 'rgba(255, 77, 103, 0.22)',
+            borderRadius: 29,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.18)',
             ...Platform.select({
               ios: {
                 shadowColor: '#000',
-                shadowOffset: { width: 0, height: 3 },
-                shadowOpacity: 0.22,
-                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 12,
               },
-              android: { elevation: 6 },
+              android: { elevation: 9 },
             }),
           }}
         >
-            <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: CLUSTER_FONT_SIZE }}>
-              {count}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' }}>
-              sitios
+          <View
+            style={{
+              width: 46,
+              height: 46,
+              borderRadius: 23,
+              backgroundColor: '#0B1324',
+              borderWidth: 2,
+              borderColor: '#FF4D67',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: CLUSTER_FONT_SIZE }}>
+              {displayCount}
             </Text>
           </View>
+        </View>
         </Marker>
       );
   }, []);
 
   const hasSelection = selectedId != null;
-
-  const distanceText = useMemo(() => {
-    if (!selectedRestaurant || location.latitude == null || location.longitude == null) return null;
-    const km = haversineKm(
-      location.latitude, location.longitude,
-      selectedRestaurant.latitude, selectedRestaurant.longitude,
-    );
-    return formatDistance(km);
-  }, [selectedRestaurant, location.latitude, location.longitude]);
-
-  const metaLine = useMemo(() => {
-    if (!selectedRestaurant) return '';
-    const parts: string[] = [];
-    const dist = etaInfoText || distanceText;
-    if (dist) parts.push(dist);
-    parts.push(timeAgo(selectedRestaurant.createdAt));
-    if (selectedRestaurant.pricePerPerson) {
-      parts.push(`${'\u20AC'}${selectedRestaurant.pricePerPerson}`);
-    }
-    return parts.join(' \u00B7 ');
-  }, [selectedRestaurant, etaInfoText, distanceText]);
 
   const mapProps = {
     initialRegion,
@@ -475,12 +563,12 @@ export default function HomeScreen() {
       )}
       {visibleRestaurants.map((r) => (
         <RestaurantMarkerMemo
-          key={`${r.id}:${selectedId === r.id ? 'sel' : 'base'}`}
+          key={r.id}
           restaurant={r}
-          coord={coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude }}
+          coord={spiderOffsets.get(r.id) ?? coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude }}
           isSelected={selectedId === r.id}
           hasSelection={hasSelection}
-          tracksViewChanges={Platform.OS === 'android' ? markerTracks : false}
+          tracksViewChanges={Platform.OS === 'android' ? (markerTracks || selectedId === r.id) : false}
           onPress={handleMarkerPress}
         />
       ))}
@@ -490,113 +578,118 @@ export default function HomeScreen() {
     location.longitude,
     visibleRestaurants,
     coordOffsets,
+    spiderOffsets,
     selectedId,
+    mapExpanded,
     hasSelection,
     markerTracks,
     handleMarkerPress,
   ]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      {/* HEADER */}
-      <HomeHeader
-        city={location.city ?? 'Tu zona'}
-        searchQuery={searchQuery}
-        onSearchChange={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
-        activeFilter={activeFilter}
-        onFilterChange={(value) => dispatch({ type: 'patch', payload: { activeFilter: value } })}
-        onProfilePress={() => navigation.navigate('Tabs', { screen: 'Profile' })}
-      />
-
-      {/* MAP CARD */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#070B14' }}>
       {!mapExpanded && (
-        loading ? (
-          <View style={[layoutStyles.mapCard, { alignItems: 'center', justifyContent: 'center' }]}>
-            <ActivityIndicator size="large" color="#FF5A5F" />
-          </View>
-        ) : (
-          <View style={layoutStyles.mapCard}>
+        <View style={layoutStyles.mapFull}>
           <ClusteredMapView
             ref={mapRef}
             style={{ flex: 1 }}
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
+            customMapStyle={DARK_MAP_STYLE}
           >
             {markers}
           </ClusteredMapView>
 
-            {/* Expand button */}
-            <Pressable
-              style={layoutStyles.expandButton}
-            onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: true } })}
-              accessibilityRole="button"
-              accessibilityLabel="Expandir mapa"
-            >
-              <Ionicons name="expand-outline" size={18} color="#222222" />
-            </Pressable>
+          <View style={layoutStyles.topOverlay}>
+            <View style={layoutStyles.topRow}>
+              <Pressable
+                style={layoutStyles.circleControl}
+                onPress={() => navigation.navigate('Tabs', { screen: 'Profile' })}
+                accessibilityRole="button"
+                accessibilityLabel="Perfil"
+              >
+                <Ionicons name="person-outline" size={18} color="#E5E7EB" />
+              </Pressable>
 
-            {/* Location button inside map card */}
-            <Pressable
-              onPress={handleMyLocation}
-              style={layoutStyles.locationButton}
-              accessibilityRole="button"
-              accessibilityLabel="Ir a mi ubicacion"
-            >
-              <Ionicons name="navigate" size={20} color="#484848" />
-            </Pressable>
-
-            {/* Empty state inside map card */}
-            {visibleRestaurants.length === 0 && !error && (
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-                <View style={{ width: '100%', alignItems: 'center', borderRadius: 16, backgroundColor: '#fff', paddingHorizontal: 24, paddingVertical: 24, borderWidth: 1, borderColor: '#E5E7EB' }}>
-                  <View style={{ marginBottom: 12, height: 80, width: 80, alignItems: 'center', justifyContent: 'center', borderRadius: 40, backgroundColor: 'rgba(255,90,95,0.1)' }}>
-                    <Ionicons name="restaurant-outline" size={32} color="#FF5A5F" />
-                  </View>
-                  <Text style={{ marginBottom: 4, fontSize: 17, fontWeight: '600', color: '#1F2937' }}>
-                    Tu mapa esta vacio
-                  </Text>
-                  <Text style={{ textAlign: 'center', fontSize: 14, color: '#6B7280' }}>
-                    Toca + para guardar tu primer restaurante y verlo aqui
-                  </Text>
-                </View>
+              <View style={layoutStyles.searchPill}>
+                <Ionicons name="search" size={16} color="#9CA3AF" />
+                <TextInput
+                  value={searchQuery}
+                  onChangeText={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
+                  placeholder="Buscar en esta zona"
+                  placeholderTextColor="#9CA3AF"
+                  style={layoutStyles.searchInput}
+                />
               </View>
-            )}
-          </View>
-        )
-      )}
 
-      {/* Error banner */}
-      {error && (
-        <View style={{ marginHorizontal: 16, marginTop: 8, borderRadius: 12, backgroundColor: '#FEE2E2', paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: '#FECACA' }}>
-          <Text style={{ fontSize: 14, color: '#991B1B' }}>
-            Error cargando restaurantes: {error}
-          </Text>
+              <Pressable
+                style={layoutStyles.circleControl}
+                onPress={handleMyLocation}
+                accessibilityRole="button"
+                accessibilityLabel="Ir a mi ubicacion"
+              >
+                <Ionicons name="navigate" size={18} color="#E5E7EB" />
+              </Pressable>
+            </View>
+
+            <View style={layoutStyles.filterRow}>
+              {IG_FILTERS.map((f) => {
+                const active = activeFilter === f.value;
+                return (
+                  <Pressable
+                    key={f.value}
+                    style={[layoutStyles.filterPill, active && layoutStyles.filterPillActive]}
+                    onPress={() =>
+                      dispatch({
+                        type: 'patch',
+                        payload: {
+                          activeFilter: f.value,
+                          selectedId: null,
+                          spiderCenterId: null,
+                          refocusNonce: refocusNonce + 1,
+                        },
+                      })
+                    }
+                  >
+                    <Ionicons name={f.icon} size={14} color={active ? '#FFFFFF' : '#D1D5DB'} />
+                    <Text style={[layoutStyles.filterText, active && layoutStyles.filterTextActive]}>{f.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <Pressable
+            style={layoutStyles.expandButton}
+            onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: true } })}
+            accessibilityRole="button"
+            accessibilityLabel="Expandir mapa"
+          >
+            <Ionicons name="expand-outline" size={18} color="#E5E7EB" />
+          </Pressable>
+
+          {loading && (
+            <View style={layoutStyles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#FF5A5F" />
+            </View>
+          )}
+
+          {visibleRestaurants.length === 0 && !error && !loading && (
+            <View style={layoutStyles.emptyOverlay}>
+              <Text style={layoutStyles.emptyTitle}>Tu mapa esta vacio</Text>
+              <Text style={layoutStyles.emptySubtitle}>Guarda tu primer restaurante para empezar</Text>
+            </View>
+          )}
+
+          {error && (
+            <View style={layoutStyles.errorBanner}>
+              <Text style={layoutStyles.errorText}>Error cargando restaurantes: {error}</Text>
+            </View>
+          )}
         </View>
       )}
 
-      {/* ====== Bottom card — compact detail ====== */}
-      {selectedRestaurant && (
-        <MapDetailCard
-          restaurant={selectedRestaurant}
-          translateY={cardTranslateY}
-          metaLine={metaLine}
-          etaLoading={etaLoading}
-          onClose={dismissCard}
-          onDetail={() => {
-            navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
-            dispatch({ type: 'patch', payload: { selectedId: null } });
-          }}
-          onNavigate={() =>
-            openNativeNavigation(
-              selectedRestaurant.latitude,
-              selectedRestaurant.longitude,
-              selectedRestaurant.name,
-            )
-          }
-        />
-      )}
-
-      <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET} />
+      <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET + 8} />
 
       {/* ====== Fullscreen Map Modal ====== */}
       <Modal
@@ -605,12 +698,12 @@ export default function HomeScreen() {
         statusBarTranslucent
         onRequestClose={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#070B14' }}>
           <View style={layoutStyles.modalHeader}>
             <Pressable style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
-              <Ionicons name="close" size={18} color="#222222" />
+              <Ionicons name="close" size={18} color="#E5E7EB" />
             </Pressable>
-            <Text style={layoutStyles.modalTitle}>Mapa</Text>
+            <Text style={layoutStyles.modalTitle}>Explorar mapa</Text>
             <View style={{ width: 36 }} />
           </View>
           <ClusteredMapView
@@ -618,6 +711,7 @@ export default function HomeScreen() {
             style={{ flex: 1 }}
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
+            customMapStyle={DARK_MAP_STYLE}
           >
             {markers}
           </ClusteredMapView>
@@ -628,51 +722,132 @@ export default function HomeScreen() {
 }
 
 const layoutStyles = StyleSheet.create({
-  mapCard: {
-    marginHorizontal: MAP_CARD_MARGIN_H,
-    marginTop: MAP_CARD_MARGIN_TOP,
-    marginBottom: MAP_CARD_MARGIN_BOTTOM,
-    borderRadius: MAP_CARD_BORDER_RADIUS,
-    overflow: 'hidden',
+  mapFull: {
     flex: 1,
-    backgroundColor: MAP_CARD_BG,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#070B14',
+  },
+  topOverlay: {
+    position: 'absolute',
+    top: 8,
+    left: 12,
+    right: 12,
+    gap: 10,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    height: 44,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  searchInput: {
+    flex: 1,
+    color: '#F3F4F6',
+    fontSize: 15,
+    paddingVertical: 0,
+  },
+  circleControl: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  filterPillActive: {
+    backgroundColor: '#ef4444',
+    borderColor: '#ef4444',
+  },
+  filterText: {
+    color: '#D1D5DB',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expandButton: {
     position: 'absolute',
-    top: 12,
+    top: 118,
     right: 12,
-    width: EXPAND_BUTTON_SIZE,
-    height: EXPAND_BUTTON_SIZE,
-    borderRadius: EXPAND_BUTTON_RADIUS,
-    backgroundColor: '#FFFFFF',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  locationButton: {
+  emptyOverlay: {
     position: 'absolute',
-    bottom: 12,
-    left: 12,
-    width: LOCATION_BUTTON_SIZE,
-    height: LOCATION_BUTTON_SIZE,
-    borderRadius: LOCATION_BUTTON_SIZE / 2,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    left: 16,
+    right: 16,
+    bottom: 110,
+    borderRadius: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  emptyTitle: {
+    color: '#F9FAFB',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    color: '#CBD5E1',
+    fontSize: 13,
+  },
+  errorBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 110,
+    borderRadius: 14,
+    backgroundColor: 'rgba(127, 29, 29, 0.92)',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  errorText: {
+    color: '#FEE2E2',
+    fontSize: 13,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -680,21 +855,21 @@ const layoutStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#070B14',
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#222222',
+    color: '#F9FAFB',
   },
 });
