@@ -10,7 +10,7 @@ export type RootStackParamList = {
   Loading: undefined;
   Auth: undefined;
   Tabs: NavigatorScreenParams<TabParamList>;
-  Save: { restaurantId?: string } | undefined;
+  Save: { restaurantId?: string; sharedText?: string } | undefined;
   Detail: { restaurantId: string };
   Match: undefined;
 };

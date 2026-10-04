@@ -2,6 +2,13 @@
 
 ## Sin publicar
 
+### Guardar desde Compartir (Android)
+- Bite aparece en el menu Compartir (texto/URL) de Google Maps, Instagram, TikTok y cualquier app
+- Enlaces de Google Maps (incluido `maps.app.goo.gl`, resuelto en el proxy con `POST /api/resolve-link`) rellenan nombre, coordenadas y direccion
+- Instagram/TikTok: nombre desde el caption si es corto y nota "Visto en X" con el enlace; se confirma en el buscador de Places
+- Se guarda como Pendiente reutilizando SaveScreen
+- Tests: `shareParser` (37) y `resolveLink` (6)
+
 ### ¿Dónde cenamos hoy? (Match)
 - Tarjeta "¿Dónde cenamos hoy?" en el Mapa que abre `MatchScreen` a pantalla completa
 - Swipe a ciegas (Paso / Iría) sobre los pendientes de la lista compartida, ordenados por distancia (maximo 10)

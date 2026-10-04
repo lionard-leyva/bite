@@ -31,6 +31,14 @@ export default ({ config }) => ({
     edgeToEdgeEnabled: true,
     package: "com.lionardleyva.bite",
     versionCode: 1,
+    // "Compartir > Bite" desde Google Maps, Instagram, TikTok... (modules/share-intent)
+    intentFilters: [
+      {
+        action: "SEND",
+        category: ["DEFAULT"],
+        data: [{ mimeType: "text/plain" }],
+      },
+    ],
     permissions: [
       "ACCESS_FINE_LOCATION",
       "CAMERA",

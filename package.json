@@ -24,7 +24,8 @@
         "testMatch": [
           "**/searchFilter.test.ts",
           "**/timeAgo.test.ts",
-          "**/matchLogic.test.ts"
+          "**/matchLogic.test.ts",
+          "**/shareParser.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

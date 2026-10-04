@@ -19,6 +19,8 @@ import { db } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { reverseGeocode } from '../services/locationService';
+import { resolveSharedText } from '../services/shareService';
+import { parseSharedText, sourceLabel, cleanUrl, type ShareSource } from '../utils/shareParser';
 import { saveRestaurant } from '../services/restaurantService';
 import { saveLocalRestaurant, updateLocalRestaurant, getLocalRestaurants } from '../services/localStorageService';
 import type { RootStackParamList } from '../navigation/types';
@@ -88,6 +90,42 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
   );
 }
 
+type ShareBanner = { loading: boolean; source: ShareSource; located: boolean; hasName: boolean };
+
+function SharedFromBanner({ banner }: { banner: ShareBanner }) {
+  const from = sourceLabel(banner.source);
+  const message = banner.loading
+    ? `Leyendo enlace de ${from}...`
+    : banner.located
+      ? `Desde ${from}. Revisa los datos y guarda.`
+      : banner.hasName
+        ? `Desde ${from}. Comprueba el nombre y eligelo en el buscador.`
+        : `Desde ${from}. Busca el restaurante para guardarlo.`;
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginHorizontal: 20,
+        marginTop: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 12,
+        backgroundColor: '#FFF1F1',
+      }}
+      accessibilityLiveRegion="polite"
+    >
+      {banner.loading ? (
+        <ActivityIndicator size={14} color="#FF5A5F" />
+      ) : (
+        <Ionicons name="share-social" size={16} color="#FF5A5F" />
+      )}
+      <Text style={{ flex: 1, fontSize: 13, color: '#4B5563' }}>{message}</Text>
+    </View>
+  );
+}
+
 function PhotoSection({
   photoUris,
   onPhotoAdded,
@@ -119,6 +157,8 @@ export default function SaveScreen() {
   const [isSearching, setIsSearching] = useState(false);
 
   const editId = route.params?.restaurantId ?? null;
+  const sharedText = route.params?.sharedText ?? null;
+  const [shareBanner, setShareBanner] = useState<ShareBanner | null>(null);
   interface SaveFormState {
     isEditMode: boolean;
     name: string;
@@ -229,6 +269,58 @@ export default function SaveScreen() {
       }
     })();
   }, [editId, skipMode]);
+
+  // Shared from another app: prefill as a pending restaurant for the user to confirm
+  useEffect(() => {
+    if (!sharedText || editId) return;
+    let cancelled = false;
+    const source = parseSharedText(sharedText)?.source ?? 'other';
+    setShareBanner({ loading: true, source, located: false, hasName: false });
+
+    (async () => {
+      const parsed = await resolveSharedText(sharedText);
+      if (cancelled) return;
+      if (!parsed) {
+        setShareBanner(null);
+        return;
+      }
+      const { latitude: lat, longitude: lng } = parsed;
+      const located = lat != null && lng != null;
+      let addr = '';
+      if (located) {
+        try {
+          addr = (await reverseGeocode(lat, lng)) ?? '';
+        } catch {
+          // address stays empty, coords are enough to save
+        }
+        if (cancelled) return;
+      }
+      const fromSocial = parsed.source === 'instagram' || parsed.source === 'tiktok';
+      dispatchForm({ type: 'reset' });
+      dispatchForm({
+        type: 'patch',
+        payload: {
+          name: parsed.name ?? '',
+          address: addr,
+          latitude: lat,
+          longitude: lng,
+          visited: false,
+          note:
+            fromSocial && parsed.url
+              ? `Visto en ${sourceLabel(parsed.source)}: ${cleanUrl(parsed.url)}`.slice(0, 200)
+              : '',
+        },
+      });
+      // With the Maps pin we already have the place; otherwise confirm it in the Places search
+      setPlaceSelected(false);
+      setManualMode(located);
+      setShareBanner({ loading: false, source: parsed.source, located, hasName: !!parsed.name });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sharedText, editId]);
 
   const placesRef = useRef<any>(null);
 
@@ -398,6 +490,8 @@ export default function SaveScreen() {
         title={isEditMode ? 'Editar restaurante' : 'Guardar restaurante'}
         onClose={() => navigation.goBack()}
       />
+
+      {shareBanner && <SharedFromBanner banner={shareBanner} />}
 
       <View className="px-5 pt-4">
         {/* Restaurant name */}
