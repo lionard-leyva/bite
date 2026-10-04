@@ -1,5 +1,15 @@
 # Changelog
 
+## Sin publicar
+
+### ¿Dónde cenamos hoy? (Match)
+- Tarjeta "¿Dónde cenamos hoy?" en el Mapa que abre `MatchScreen` a pantalla completa
+- Swipe a ciegas (Paso / Iría) sobre los pendientes de la lista compartida, ordenados por distancia (maximo 10)
+- ETA real del proxy solo para la tarjeta visible; distancia y minutos andando estimados con Haversine
+- Rondas en `decisionSessions/{listId}` y votos en `decisionVotes/{roundId}_{userId}`; match detectado en tiempo real y marcado en transaccion
+- Pantalla de match con "Ver en mapa" (enfoca el pin en el Mapa) e "Ir ahora" (abre la app de mapas)
+- Tests: `matchLogic` (12) y `MatchEntryCard` (3)
+
 ## v1.0.0 — MVP
 
 ### Milestone 1: Fundacion

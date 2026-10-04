@@ -37,15 +37,15 @@ restaurants.filter(r =>
 ```
 server/             # Express proxy (directions API, rate limit, cache)
 src/
-├── __tests__/      # Jest tests (timeAgo, searchFilter, StarRating, RestaurantCard)
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay
-├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen
+├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
+├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
+├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService
-├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA
-├── types/          # User, Restaurant, RestaurantList (interfaces TypeScript)
-├── utils/          # timeAgo
+├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService
+├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
+├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
+├── utils/          # timeAgo, geo (haversine), matchLogic
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -78,6 +78,13 @@ src/
 3. UI se re-renderiza automaticamente con datos nuevos
 4. Si pareja agrega restaurante → aparece en tu lista/mapa sin refresh
 5. Listener se desuscribe al cerrar app o hacer logout
+
+### ¿Dónde cenamos hoy? (Match)
+1. En el Mapa, la tarjeta "¿Dónde cenamos hoy?" abre `MatchScreen` (solo con cuenta y lista compartida)
+2. `decisionSessions/{listId}`: una ronda activa por lista (`roundId`, `participants`, `restaurantIds`, `status: ACTIVE | MATCHED | CLOSED`, `matchedRestaurantId`). Se crea en transaccion para que ambos caigan en la misma ronda; caduca a las 12 h
+3. Candidatos: pendientes ordenados por Haversine, maximo 10. ETA real del proxy solo para la tarjeta visible
+4. Votos en `decisionVotes/{roundId}_{userId}` (`votes: { restaurantId: LIKE | PASS }`). La UI nunca muestra los votos del otro, solo el match
+5. Cuando todos los participantes dan LIKE al mismo sitio, el primer cliente que lo detecta marca `MATCHED` en transaccion y ambos ven la pantalla de match
 
 ### Offline (Firestore persistence)
 1. `enablePersistentCacheIndexAutoCreation` activado en init de Firebase
@@ -114,7 +121,7 @@ npx expo start
 cd server && npm install && npm run dev
 
 # Testing
-npm test                # Client (32 tests, 4 suites)
+npm test                # Client (47 tests, 6 suites)
 npm run server:test     # Server (13 tests, 2 suites)
 
 # Build
@@ -172,6 +179,7 @@ Marcar con [x] cuando se completen.
 - **Migracion de fotos locales**: `migrateLocalData()` migra restaurantes pero no re-sube fotos locales a Storage (pasa `photoUri: null`). Las fotos guardadas en modo skip se pierden al migrar. Post-MVP.
 - **Toggle visitado en skip mode**: `DetailScreen` deshabilita el toggle en modo sin cuenta. Solo funciona con Firestore.
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
+- **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. Las security rules deben permitir read/write en `decisionSessions` y `decisionVotes` a miembros de la lista (minimo: `request.auth != null`).
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
 ## 11. Testing
@@ -179,7 +187,7 @@ Marcar con [x] cuando se completen.
 ### Ejecutar tests
 
 ```bash
-npm test              # Client (32 tests, 4 suites)
+npm test              # Client (47 tests, 6 suites)
 npm run test:watch    # Watch mode
 npx jest --no-cache   # Sin cache
 npm run server:test   # Server (13 tests, 2 suites)
@@ -188,8 +196,8 @@ npm run server:test   # Server (13 tests, 2 suites)
 ### Configuracion
 
 Jest usa multi-project config en `package.json`:
-- **unit** (node env): tests de logica pura (`timeAgo`, `searchFilter`)
-- **components** (jest-expo/ios): tests de componentes React Native (`StarRating`, `RestaurantCard`)
+- **unit** (node env): tests de logica pura (`timeAgo`, `searchFilter`, `matchLogic`)
+- **components** (jest-expo/ios): tests de componentes React Native (`StarRating`, `RestaurantCard`, `MatchEntryCard`)
 
 Requiere `react-native-worklets` como dev dependency (peer dep de RN 0.81 para babel transform).
 
@@ -201,6 +209,8 @@ Requiere `react-native-worklets` como dev dependency (peer dep de RN 0.81 para b
 | searchFilter | `src/__tests__/searchFilter.test.ts` | 8 | Filtros visitado/pendiente, busqueda por nombre/direccion, combinaciones, trim |
 | StarRating | `src/__tests__/StarRating.test.tsx` | 4 | Render 5 estrellas, onRate callback, estrellas llenas, accessibility labels |
 | RestaurantCard | `src/__tests__/RestaurantCard.test.tsx` | 8 | Nombre, direccion, estrellas, onPress, indicador visitado/pendiente, placeholder foto, accessibility |
+| matchLogic | `src/__tests__/matchLogic.test.ts` | 12 | Ranking por distancia, deteccion de match, ronda agotada, TTL, minutos andando |
+| MatchEntryCard | `src/__tests__/MatchEntryCard.test.tsx` | 3 | Render del CTA, onPress, accessibility label |
 | validateDirections | `server/__tests__/directions.test.js` | 8 | Validacion de inputs (lat/lng rangos, tipos, missing fields) |
 | cache | `server/__tests__/directions.test.js` | 5 | TTL expiry, key rounding, dedup inflight, get/set |
 

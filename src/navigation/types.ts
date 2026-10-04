@@ -1,7 +1,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type TabParamList = {
-  Home: undefined;
+  Home: { focusRestaurantId?: string } | undefined;
   List: undefined;
   Profile: undefined;
 };
@@ -12,4 +12,5 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList>;
   Save: { restaurantId?: string } | undefined;
   Detail: { restaurantId: string };
+  Match: undefined;
 };
