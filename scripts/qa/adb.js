@@ -23,15 +23,33 @@ function parseArgs(argv = process.argv.slice(2)) {
   return out;
 }
 
+// Mobile MCP deja un DeviceServer en el emulador que ocupa UiAutomation: uiautomator falla con
+// "UiAutomationService already registered" (exit 137). Se relanza solo la proxima vez que se usa Mobile MCP.
+let uiAutomationFreed = false;
+function freeUiAutomation() {
+  if (uiAutomationFreed) return;
+  uiAutomationFreed = true;
+  try {
+    adb(['shell', 'pkill', '-f', 'com.mobilenext.mobilecli.DeviceServer']);
+  } catch {
+    /* no estaba corriendo */
+  }
+}
+
 // uiautomator falla con "could not get idle state" mientras hay animaciones: reintentar.
 async function dumpUi(retries = 4) {
+  freeUiAutomation();
   for (let i = 0; i < retries; i++) {
     try {
+      // "null root node" (durante transiciones) sale con exit 0 sin escribir el archivo: borrarlo antes y validar el XML.
+      adb(['shell', 'rm', '-f', '/sdcard/bite-ui.xml']);
       adb(['shell', 'uiautomator', 'dump', '/sdcard/bite-ui.xml']);
-      return adb(['exec-out', 'cat', '/sdcard/bite-ui.xml']);
+      const xml = adb(['exec-out', 'cat', '/sdcard/bite-ui.xml']);
+      if (xml.includes('<hierarchy')) return xml;
     } catch {
-      await sleep(700);
+      /* reintentar */
     }
+    await sleep(700);
   }
   throw new Error('uiautomator dump fallo tras reintentos');
 }
@@ -86,9 +104,16 @@ function screenshot(name) {
   return path.relative(process.cwd(), file);
 }
 
+// En una development build, el icono solo abre el launcher de dev-client: hay que abrir el deep link de Metro.
+// 10.0.2.2 es el host visto desde el emulador. Cambiar con BITE_METRO_URL (p. ej. si Metro usa otro puerto).
+const METRO_URL = process.env.BITE_METRO_URL || 'http://10.0.2.2:8081';
+
 function launchApp() {
   adb(['shell', 'am', 'force-stop', PKG]);
-  adb(['shell', 'monkey', '-p', PKG, '-c', 'android.intent.category.LAUNCHER', '1']);
+  adb([
+    'shell', 'am', 'start', '-a', 'android.intent.action.VIEW',
+    '-d', `exp+bite://expo-development-client/?url=${encodeURIComponent(METRO_URL)}`, PKG,
+  ]);
 }
 
 // Deja la app en la pestana Mapa, pasando por "Continuar sin cuenta" si hace falta.

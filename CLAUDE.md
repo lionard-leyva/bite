@@ -178,6 +178,10 @@ Notas:
 - `qa:map` necesita al menos un restaurante guardado en modo sin cuenta (AsyncStorage persiste entre lanzamientos).
 - `qa:location` no puede leer las coords del estado JS; la verificacion de que el mapa se centra es el screenshot.
 - `adb emu geo fix` recibe longitud primero.
+- `qa:location` da PASS aunque el mapa no se centre: solo comprueba `dumpsys` y logcat. Mira siempre `qa-out/location.png`. En el emulador la posicion solo llega con `Accuracy.High` (o con una posicion ya en cache); con `Balanced` (el valor de `locationService`) la peticion no se resuelve, no es un bug de Bite. Para forzarla usa un movil real.
+- Metro con `npx expo start --dev-client --lan` sin `CI=1` (en modo CI no recarga los cambios). Emulador con `-gpu swiftshader_indirect` (con la GPU del host las capturas salen negras).
+- Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
+- `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
 
 ### Manual (solo flujos no automatizados)
 
