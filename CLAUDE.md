@@ -103,23 +103,16 @@ src/
 }
 ```
 
-## 6. Comandos de Desarrollo
+## 6. Comandos
 
 ```bash
-# Iniciar app
-npm install
-npx expo start
-
-# Iniciar proxy (en otra terminal)
-cd server && npm install && npm run dev
-
-# Testing
-npm test                # Client (32 tests, 4 suites)
-npm run server:test     # Server (13 tests, 2 suites)
-
-# Build
-eas build --platform ios
-eas build --platform android
+npm install && npx expo start          # app (dev build en Android Emulator)
+cd server && npm install && npm run dev # proxy directions (otra terminal)
+npm test                                # client (jest, 4 suites)
+npm run server:test                     # server (2 suites)
+npm run typecheck                       # tsc --noEmit
+npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
+eas build --platform android            # build (ios igual)
 ```
 
 ## 7. Variables de Entorno Necesarias
@@ -153,17 +146,7 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - Comentarios: Solo cuando la logica no es obvia
 - TODO: Usar `// TODO:` con descripcion clara
 
-## 9. Milestones y Estado Actual
-
-- [x] Milestone 1: Fundacion
-- [x] Milestone 2: Core - Guardar
-- [x] Milestone 3: Core - Ver
-- [x] Milestone 4: Compartir
-- [x] Milestone 5: Polish
-
-Marcar con [x] cuando se completen.
-
-## 10. Problemas Conocidos
+## 9. Problemas Conocidos
 
 - **Firebase `getReactNativePersistence` type warning**: La funcion existe en runtime pero carece de declaracion de tipos en Firebase v12. Resuelto con `@ts-ignore` en `src/config/firebase.ts`. No afecta funcionalidad.
 - Si Firebase falla en emulador → usar dispositivo real
@@ -174,71 +157,35 @@ Marcar con [x] cuando se completen.
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
-## 11. Testing
+## 10. Testing y QA
 
-### Ejecutar tests
+Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-```bash
-npm test              # Client (32 tests, 4 suites)
-npm run test:watch    # Watch mode
-npx jest --no-cache   # Sin cache
-npm run server:test   # Server (13 tests, 2 suites)
-```
+Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/directions.test.js` (validacion inputs + cache).
 
-### Configuracion
+### QA automatizado (adb, sin dependencias)
 
-Jest usa multi-project config en `package.json`:
-- **unit** (node env): tests de logica pura (`timeAgo`, `searchFilter`)
-- **components** (jest-expo/ios): tests de componentes React Native (`StarRating`, `RestaurantCard`)
+Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y dev build instalado (`com.lionardleyva.bite`). Scripts en `scripts/qa/` (helpers en `adb.js`: dump UI por uiautomator, tap por texto/accessibilityLabel, screenshot, logcat). Salida compacta `OK/FAIL` por check, exit code 1 si falla, screenshots en `qa-out/` (ignorado). Usar estos scripts en vez de navegar paso a paso con Mobile MCP; Mobile MCP solo para mirar el screenshot o flujos nuevos.
 
-Requiere `react-native-worklets` como dev dependency (peer dep de RN 0.81 para babel transform).
+| Comando | Flujo | Verifica |
+|---|---|---|
+| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS en logcat |
+| `npm run qa:location -- [--lat 40.4168 --lng -3.7038]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
+| `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
 
-### Tests existentes
+Notas:
+- Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
+- `qa:map` necesita al menos un restaurante guardado en modo sin cuenta (AsyncStorage persiste entre lanzamientos).
+- `qa:location` no puede leer las coords del estado JS; la verificacion de que el mapa se centra es el screenshot.
+- `adb emu geo fix` recibe longitud primero.
 
-| Suite | Archivo | Tests | Que cubre |
-|-------|---------|-------|-----------|
-| timeAgo | `src/__tests__/timeAgo.test.ts` | 8 | Todos los rangos de tiempo (segundos a anos), singular/plural |
-| searchFilter | `src/__tests__/searchFilter.test.ts` | 8 | Filtros visitado/pendiente, busqueda por nombre/direccion, combinaciones, trim |
-| StarRating | `src/__tests__/StarRating.test.tsx` | 4 | Render 5 estrellas, onRate callback, estrellas llenas, accessibility labels |
-| RestaurantCard | `src/__tests__/RestaurantCard.test.tsx` | 8 | Nombre, direccion, estrellas, onPress, indicador visitado/pendiente, placeholder foto, accessibility |
-| validateDirections | `server/__tests__/directions.test.js` | 8 | Validacion de inputs (lat/lng rangos, tipos, missing fields) |
-| cache | `server/__tests__/directions.test.js` | 5 | TTL expiry, key rounding, dedup inflight, get/set |
+### Manual (solo flujos no automatizados)
 
-### Escenarios de prueba manual
+- **Compartir**: cuenta A > Perfil > "Compartir con pareja" (codigo) > cuenta B > Perfil > "Unirme" > codigo > ambos ven restaurantes en tiempo real.
+- **Migracion**: modo sin cuenta con restaurantes > Perfil > "Crear cuenta" > registrarse > aceptar "Migrar restaurantes?".
+- **Offline**: guardar con conexion > modo avion > mapa/lista siguen > reconectar > sync.
 
-**Flujo basico (guardar + ver):**
-1. Abrir app → AuthScreen aparece
-2. "Continuar sin cuenta" → mapa vacio con hint
-3. Tap "+" → SaveScreen modal
-4. Buscar restaurante (o input manual si no hay API key)
-5. Seleccionar rating, toggle visitado, nota opcional, foto opcional
-6. Guardar → vuelve al mapa con pin nuevo
-7. Tab "Lista" → card del restaurante aparece
-8. Tap card → DetailScreen con toda la info
-9. "Como llegar" → abre app de mapas nativa
-10. Toggle visitado → pin cambia de color
-
-**Flujo compartir:**
-1. Crear cuenta desde Perfil
-2. Perfil → "Compartir con pareja" → modal muestra codigo (ej: ABC-123)
-3. En otro dispositivo: crear cuenta → Perfil → modal → tab "Unirme" → ingresar codigo
-4. Alert "Conectado con [nombre]"
-5. Restaurantes de ambos aparecen en ambos dispositivos en tiempo real
-
-**Flujo migracion skip → cuenta:**
-1. Usar app en modo skip, guardar restaurantes
-2. Perfil → "Crear cuenta" → confirmar
-3. Registrarse en AuthScreen
-4. Alert "Migrar restaurantes?" → aceptar
-5. Restaurantes migrados a Firestore, visibles en lista
-
-**Offline:**
-1. Guardar restaurantes con conexion
-2. Activar modo avion
-3. App muestra datos cacheados (mapa + lista funcionan)
-4. Desactivar modo avion → datos se sincronizan
-
-## 12. Referencias Rapidas
+## 11. Referencias Rapidas
 
 - `SPEC.md`: Especificacion completa del producto
 - `CHANGELOG.md`: Historial de versiones
