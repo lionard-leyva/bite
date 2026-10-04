@@ -19,7 +19,8 @@
         "testEnvironment": "node",
         "testMatch": [
           "**/searchFilter.test.ts",
-          "**/timeAgo.test.ts"
+          "**/timeAgo.test.ts",
+          "**/matchLogic.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

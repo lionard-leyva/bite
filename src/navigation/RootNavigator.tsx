@@ -68,6 +68,14 @@ export default function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="Match"
+            getComponent={() => require('../screens/MatchScreen').default}
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="Detail"
             component={DetailScreen}
             options={{
