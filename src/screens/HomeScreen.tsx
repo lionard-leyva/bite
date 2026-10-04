@@ -818,7 +818,7 @@ const layoutStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -57,6 +57,8 @@ export default ({ config }) => ({
     DIRECTIONS_PROXY_URL: process.env.DIRECTIONS_PROXY_URL,
   },
   plugins: [
+    "expo-image",
+    "expo-status-bar",
     "expo-location",
     [
       "expo-image-picker",
