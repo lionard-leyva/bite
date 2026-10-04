@@ -37,15 +37,15 @@ restaurants.filter(r =>
 ```
 server/             # Express proxy (directions API, rate limit, cache)
 src/
-├── __tests__/      # Jest tests (timeAgo, searchFilter, StarRating, RestaurantCard)
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay
-├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen
+├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
+├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
+├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService
-├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA
-├── types/          # User, Restaurant, RestaurantList (interfaces TypeScript)
-├── utils/          # timeAgo
+├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService
+├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
+├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
+├── utils/          # timeAgo, geo (haversine), matchLogic
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -79,6 +79,13 @@ src/
 4. Si pareja agrega restaurante → aparece en tu lista/mapa sin refresh
 5. Listener se desuscribe al cerrar app o hacer logout
 
+### ¿Dónde cenamos hoy? (Match)
+1. En el Mapa, la tarjeta "¿Dónde cenamos hoy?" abre `MatchScreen` (solo con cuenta y lista compartida)
+2. `decisionSessions/{listId}`: una ronda activa por lista (`roundId`, `participants`, `restaurantIds`, `status: ACTIVE | MATCHED | CLOSED`, `matchedRestaurantId`). Se crea en transaccion para que ambos caigan en la misma ronda; caduca a las 12 h
+3. Candidatos: pendientes ordenados por Haversine, maximo 10. ETA real del proxy solo para la tarjeta visible
+4. Votos en `decisionVotes/{roundId}_{userId}` (`votes: { restaurantId: LIKE | PASS }`). La UI nunca muestra los votos del otro, solo el match
+5. Cuando todos los participantes dan LIKE al mismo sitio, el primer cliente que lo detecta marca `MATCHED` en transaccion y ambos ven la pantalla de match
+
 ### Offline (Firestore persistence)
 1. `enablePersistentCacheIndexAutoCreation` activado en init de Firebase
 2. Datos se cachean automaticamente en dispositivo
@@ -108,7 +115,7 @@ src/
 ```bash
 npm install && npx expo start          # app (dev build en Android Emulator)
 cd server && npm install && npm run dev # proxy directions (otra terminal)
-npm test                                # client (jest, 4 suites)
+npm test                                # client (jest)
 npm run server:test                     # server (2 suites)
 npm run typecheck                       # tsc --noEmit
 npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
@@ -155,13 +162,14 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - **Migracion de fotos locales**: `migrateLocalData()` migra restaurantes pero no re-sube fotos locales a Storage (pasa `photoUri: null`). Las fotos guardadas en modo skip se pierden al migrar. Post-MVP.
 - **Toggle visitado en skip mode**: `DetailScreen` deshabilita el toggle en modo sin cuenta. Solo funciona con Firestore.
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
+- **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. Las security rules deben permitir read/write en `decisionSessions` y `decisionVotes` a miembros de la lista (minimo: `request.auth != null`).
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
 ## 10. Testing y QA
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/directions.test.js` (validacion inputs + cache).
+Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/directions.test.js` (validacion inputs + cache).
 
 ### QA automatizado (adb, sin dependencias)
 

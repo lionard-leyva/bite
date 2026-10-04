@@ -5,15 +5,16 @@ import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, type Region } from 'react-native-maps';
 import MapView from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useLocation } from '../hooks/useLocation';
 import FAB from '../components/FAB';
+import MatchEntryCard from '../components/MatchEntryCard';
 import MapMarker from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
 import type { FilterValue } from '../components/FilterButtons';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootStackParamList, TabParamList } from '../navigation/types';
 import { getPrimaryPhoto, type Restaurant } from '../types';
 import {
   CLUSTER_RADIUS,
@@ -32,6 +33,7 @@ import {
 } from '../config/constants';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type HomeRoute = RouteProp<TabParamList, 'Home'>;
 
 const COORD_PRECISION = 5;
 const OFFSET_STEP = 0.0009;
@@ -174,6 +176,8 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
 
 export default function HomeScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<HomeRoute>();
+  const focusRestaurantId = route.params?.focusRestaurantId;
   const { restaurants: rawRestaurants, loading, error } = useRestaurants({ mode: 'all' });
   const location = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -412,18 +416,25 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
 
-  const handleMyLocation = useCallback(() => {
-    if (location.latitude == null || location.longitude == null) return;
+  const handleMyLocation = useCallback(async () => {
+    // Ask again so a failed first attempt at mount does not disable the button; fall back to the last known fix.
+    const fresh = await location.refresh();
+    const coords =
+      fresh ??
+      (location.latitude != null && location.longitude != null
+        ? { latitude: location.latitude, longitude: location.longitude }
+        : null);
+    if (!coords) return;
     mapRef.current?.animateToRegion(
       {
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       },
       500,
     );
-  }, [location.latitude, location.longitude]);
+  }, [location.refresh, location.latitude, location.longitude]);
 
   const handleMarkerPress = useCallback((r: Restaurant) => {
     suppressMapPressRef.current = true;
@@ -459,6 +470,18 @@ export default function HomeScreen() {
       suppressMapPressRef.current = false;
     }, 260);
   }, [visibleRestaurants, coordOffsets, mapRegion, initialRegion, mapExpanded]);
+
+  // "Ver en mapa" from MatchScreen: select the matched restaurant once it is visible.
+  const handledFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusRestaurantId || handledFocusRef.current === focusRestaurantId) return;
+    const target = restaurantMap.get(focusRestaurantId);
+    if (!target) return;
+    handledFocusRef.current = focusRestaurantId;
+    handleMarkerPress(target);
+  }, [focusRestaurantId, restaurantMap, handleMarkerPress]);
+
+  const pendingCount = useMemo(() => restaurants.filter((r) => !r.visited).length, [restaurants]);
 
   const handleMapPress = useCallback(() => {
     if (suppressMapPressRef.current) return;
@@ -689,6 +712,14 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {!mapExpanded && !loading && pendingCount > 0 && (
+        <MatchEntryCard
+          pendingCount={pendingCount}
+          onPress={() => navigation.navigate('Match')}
+          bottomOffset={FAB_BOTTOM_OFFSET + 8}
+        />
+      )}
+
       <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET + 8} />
 
       {/* ====== Fullscreen Map Modal ====== */}
@@ -794,7 +825,7 @@ const layoutStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
