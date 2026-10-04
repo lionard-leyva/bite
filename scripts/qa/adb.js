@@ -37,7 +37,7 @@ function freeUiAutomation() {
 }
 
 // uiautomator falla con "could not get idle state" mientras hay animaciones: reintentar.
-async function dumpUi(retries = 4) {
+async function dumpUi(retries = 10) {
   freeUiAutomation();
   for (let i = 0; i < retries; i++) {
     try {
@@ -110,6 +110,11 @@ const METRO_URL = process.env.BITE_METRO_URL || 'http://10.0.2.2:8081';
 
 function launchApp() {
   adb(['shell', 'am', 'force-stop', PKG]);
+  // BITE_RELEASE=1: build release/standalone (sin dev-client ni Metro), se abre con el icono.
+  if (process.env.BITE_RELEASE) {
+    adb(['shell', 'monkey', '-p', PKG, '-c', 'android.intent.category.LAUNCHER', '1']);
+    return;
+  }
   adb([
     'shell', 'am', 'start', '-a', 'android.intent.action.VIEW',
     '-d', `exp+bite://expo-development-client/?url=${encodeURIComponent(METRO_URL)}`, PKG,
@@ -141,6 +146,6 @@ function report(name, checks, extra = []) {
 }
 
 module.exports = {
-  PKG, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, waitFor, tap, tapLabel,
+  PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, waitFor, tap, tapLabel,
   screenshot, launchApp, goToMap, clearLogcat, logcatErrors, report,
 };

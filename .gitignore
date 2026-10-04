@@ -55,3 +55,4 @@ coverage/
 
 # QA (screenshots de scripts/qa)
 qa-out/
+modules/**/android/build/
