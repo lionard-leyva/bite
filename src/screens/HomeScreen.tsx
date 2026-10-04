@@ -416,18 +416,25 @@ export default function HomeScreen() {
     return () => clearTimeout(timer);
   }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
 
-  const handleMyLocation = useCallback(() => {
-    if (location.latitude == null || location.longitude == null) return;
+  const handleMyLocation = useCallback(async () => {
+    // Ask again so a failed first attempt at mount does not disable the button; fall back to the last known fix.
+    const fresh = await location.refresh();
+    const coords =
+      fresh ??
+      (location.latitude != null && location.longitude != null
+        ? { latitude: location.latitude, longitude: location.longitude }
+        : null);
+    if (!coords) return;
     mapRef.current?.animateToRegion(
       {
-        latitude: location.latitude,
-        longitude: location.longitude,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       },
       500,
     );
-  }, [location.latitude, location.longitude]);
+  }, [location.refresh, location.latitude, location.longitude]);
 
   const handleMarkerPress = useCallback((r: Restaurant) => {
     suppressMapPressRef.current = true;

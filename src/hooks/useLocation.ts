@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getCurrentLocation, reverseGeocode, reverseGeocodeCity } from '../services/locationService';
 
 interface LocationState {
@@ -10,6 +10,13 @@ interface LocationState {
   error: string | null;
 }
 
+export interface Coords {
+  latitude: number;
+  longitude: number;
+}
+
+const LOCATION_ERROR = 'No se pudo obtener la ubicacion';
+
 export function useLocation() {
   const [state, setState] = useState<LocationState>({
     latitude: null,
@@ -19,28 +26,30 @@ export function useLocation() {
     loading: true,
     error: null,
   });
+  const mountedRef = useRef(true);
+  const requestRef = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Only the latest request may touch state; a failed refresh keeps the last known position.
+  const refresh = useCallback(async (): Promise<Coords | null> => {
+    const requestId = ++requestRef.current;
+    const isCurrent = () => mountedRef.current && requestId === requestRef.current;
+    setState((s) => ({ ...s, loading: true, error: null }));
 
-    async function fetch() {
+    try {
       const coords = await getCurrentLocation();
-      if (cancelled) return;
+      if (!isCurrent()) return coords;
 
       if (!coords) {
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: 'No se pudo obtener la ubicacion',
-        }));
-        return;
+        setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR }));
+        return null;
       }
 
+      // Geocoding is cosmetic: its failure must not discard a valid position.
       const [address, city] = await Promise.all([
-        reverseGeocode(coords.latitude, coords.longitude),
-        reverseGeocodeCity(coords.latitude, coords.longitude),
+        reverseGeocode(coords.latitude, coords.longitude).catch(() => null),
+        reverseGeocodeCity(coords.latitude, coords.longitude).catch(() => null),
       ]);
-      if (cancelled) return;
+      if (!isCurrent()) return coords;
 
       setState({
         latitude: coords.latitude,
@@ -50,13 +59,22 @@ export function useLocation() {
         loading: false,
         error: null,
       });
+      return coords;
+    } catch {
+      if (isCurrent()) {
+        setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR }));
+      }
+      return null;
     }
-
-    fetch();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  return state;
+  useEffect(() => {
+    mountedRef.current = true;
+    refresh();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [refresh]);
+
+  return { ...state, refresh };
 }
