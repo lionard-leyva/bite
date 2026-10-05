@@ -56,3 +56,6 @@ coverage/
 # QA (screenshots de scripts/qa)
 qa-out/
 modules/**/android/build/
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
