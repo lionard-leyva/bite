@@ -15,7 +15,9 @@ async function fill(hint, value) {
 async function inList(name, filter) {
   await q.tapLabel(filter, 8000);
   await q.sleep(1000);
-  return !!q.findNode(await q.dumpUi(), name);
+  // Una tarjeta bajo el pliegue solo expone su content-desc ("Nombre, 4 estrellas, visitado"), no el titulo.
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return !!q.findNode(await q.dumpUi(), new RegExp(`^${esc}(,|$)`, 'i'));
 }
 
 (async () => {

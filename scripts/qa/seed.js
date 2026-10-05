@@ -15,10 +15,18 @@ const run = (script, args, attempts = 2) => {
   return false;
 };
 
-const args = q.parseArgs();
-const checks = SEED.map((r) => ({
-  name: `semilla "${r.name}"`,
-  ok: run('share.js', ['--text', r.text, '--name', r.name, '--save']),
-}));
-if (args.visited) checks.push({ name: 'semilla "QA Visitado"', ok: run('save.js', ['--name', 'QA Visitado', '--state', 'visitado']) });
-q.report('qa:seed', checks);
+(async () => {
+  // Tras `pm clear` el primer arranque de la dev build tarda ~35 s en el emulador y Android lo mata por ANR
+  // ("failed to complete startup"), a veces ya en el Mapa: lo compartido se pierde. Calentar antes de la semilla.
+  q.launchApp();
+  await q.goToMap().catch(() => {});
+  await q.sleep(5000);
+
+  const args = q.parseArgs();
+  const checks = SEED.map((r) => ({
+    name: `semilla "${r.name}"`,
+    ok: run('share.js', ['--text', r.text, '--name', r.name, '--save']),
+  }));
+  if (args.visited) checks.push({ name: 'semilla "QA Visitado"', ok: run('save.js', ['--name', 'QA Visitado', '--state', 'visitado']) });
+  q.report('qa:seed', checks);
+})();

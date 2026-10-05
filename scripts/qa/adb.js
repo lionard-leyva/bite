@@ -89,7 +89,8 @@ async function waitFor(labels, timeoutMs = 15000) {
   const list = [].concat(labels);
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
-    const xml = await dumpUi();
+    // Tras `pm clear` la primera carga del bundle da "null root node" durante mas de 10 dumps: seguir hasta el timeout.
+    const xml = await dumpUi().catch(() => '');
     for (const l of list) {
       const node = findNode(xml, l);
       if (node) return { label: l, node, xml };
