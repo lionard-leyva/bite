@@ -16,7 +16,8 @@ async function checkField(checks, screen, hint) {
   const ime = q.systemInsets().ime;
   const tag = `${screen}-${hint.split(' ')[0]}`.toLowerCase().replace(/[^a-z0-9-]/g, ''); // sin ':' (en Windows crea un ADS vacio)
   q.screenshot(`keyboard-${tag}`);
-  checks.push({ name: `${screen}/${hint}: texto escrito`, ok: !!field && field.text === SAMPLE, info: field ? field.text : 'sin campo enfocado' });
+  // La Nota usa autoCapitalize: "Gjpqy" tambien vale.
+  checks.push({ name: `${screen}/${hint}: texto escrito`, ok: !!field && field.text.toLowerCase() === SAMPLE.toLowerCase(), info: field ? field.text : 'sin campo enfocado' });
   checks.push({
     name: `${screen}/${hint}: campo por encima del teclado`,
     ok: !!field && (!ime || field.y2 <= ime.y1),
