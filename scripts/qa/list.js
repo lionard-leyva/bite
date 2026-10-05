@@ -22,9 +22,8 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
     q.hideKeyboard();
   }
 
-  const xml = await q.dumpUi();
-  for (const n of names(args.expect)) checks.push({ name: `muestra "${n}"`, ok: !!q.findNode(xml, n) });
-  for (const n of names(args.absent)) checks.push({ name: `oculta "${n}"`, ok: !q.findNode(xml, n) });
+  for (const n of names(args.expect)) checks.push({ name: `muestra "${n}"`, ok: await q.inList(n) });
+  for (const n of names(args.absent)) checks.push({ name: `oculta "${n}"`, ok: !(await q.inList(n)) });
   const shot = q.screenshot(`list-${filter}${args.search ? '-search' : ''}`);
 
   if (typeof args.search === 'string') {
@@ -32,7 +31,7 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
     await q.sleep(800);
     const after = await q.dumpUi();
     checks.push({ name: 'busqueda vacia tras limpiar', ok: !q.findNode(after, 'Limpiar busqueda') });
-    for (const n of names(args.restore)) checks.push({ name: `vuelve "${n}" tras limpiar`, ok: !!q.findNode(after, n) });
+    for (const n of names(args.restore)) checks.push({ name: `vuelve "${n}" tras limpiar`, ok: await q.inList(n) });
   }
 
   const errors = q.logcatErrors();

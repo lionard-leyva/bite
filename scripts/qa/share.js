@@ -53,13 +53,13 @@ const shQuote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
     await q.tapLabel('Lista', 15000);
     await q.sleep(1500);
     const name = args.name || '';
-    const inAll = !!q.findNode(await q.dumpUi(), name);
+    const inAll = await q.inList(name);
     await q.tapLabel(/pendientes/i, 8000);
     await q.sleep(1000);
-    const inPending = !!q.findNode(await q.dumpUi(), name);
+    const inPending = await q.inList(name);
     await q.tapLabel(/visitados/i, 8000);
     await q.sleep(1000);
-    const inVisited = !!q.findNode(await q.dumpUi(), name);
+    const inVisited = await q.inList(name);
     checks.push({ name: 'guardado: aparece en Lista', ok: inAll });
     checks.push({ name: 'queda Pendiente (esta en Pendientes y no en Visitados)', ok: inPending && !inVisited });
   }

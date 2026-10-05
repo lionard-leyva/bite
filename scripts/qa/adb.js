@@ -120,6 +120,35 @@ const hideKeyboard = () => adb(['shell', 'input', 'keyevent', '111']);
 
 // Desliza hacia arriba (contenido baja) en la mitad de la pantalla.
 const swipeUp = () => adb(['shell', 'input', 'swipe', '540', '1800', '540', '700', '300']);
+const swipeDown = () => adb(['shell', 'input', 'swipe', '540', '700', '540', '1800', '300']);
+
+// La Lista sin cuenta va de mas antiguo a mas nuevo: con 3+ tarjetas las ultimas quedan bajo el pliegue, y una
+// tarjeta a medias solo expone su content-desc ("Nombre, 4 estrellas, visitado"). Baja hasta encontrarla.
+async function scanList(name, maxSwipes = 5) {
+  const label = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(,|$)`, 'i');
+  let swipes = 0;
+  for (;;) {
+    const node = findNode(await dumpUi(), label);
+    if (node || swipes >= maxSwipes) return { node, swipes };
+    swipeUp();
+    swipes++;
+    await sleep(700);
+  }
+}
+
+// Comprueba si la tarjeta esta en la Lista y deja el scroll arriba (los filtros no lo resetean).
+async function inList(name) {
+  const { node, swipes } = await scanList(name);
+  for (let i = 0; i < swipes; i++) swipeDown();
+  if (swipes) await sleep(700);
+  return !!node;
+}
+
+async function tapInList(name) {
+  const { node } = await scanList(name);
+  if (!node) throw new Error(`No aparece "${name}" en la Lista`);
+  tap(node.x, node.y);
+}
 
 function screenSize() {
   const m = adb(['shell', 'wm', 'size']).match(/(\d+)x(\d+)\s*$/m);
@@ -248,6 +277,6 @@ function report(name, checks, extra = []) {
 
 module.exports = {
   PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, findNodes, waitFor, tap, tapLabel,
-  typeText, hideKeyboard, swipeUp, screenSize, systemInsets, openTab,
+  typeText, hideKeyboard, swipeUp, swipeDown, inList, tapInList, screenSize, systemInsets, openTab,
   screenshot, launchApp, goToMap, clearLogcat, logcatErrors, report,
 };
