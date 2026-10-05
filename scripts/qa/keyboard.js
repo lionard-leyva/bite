@@ -14,7 +14,7 @@ async function checkField(checks, screen, hint) {
   const xml = await q.dumpUi();
   const field = q.parseNodes(xml).find((n) => n.focused && /EditText/.test(n.cls)) || q.findNode(xml, SAMPLE);
   const ime = q.systemInsets().ime;
-  const tag = `${screen}-${hint.split(' ')[0].toLowerCase()}`;
+  const tag = `${screen}-${hint.split(' ')[0]}`.toLowerCase().replace(/[^a-z0-9-]/g, ''); // sin ':' (en Windows crea un ADS vacio)
   q.screenshot(`keyboard-${tag}`);
   checks.push({ name: `${screen}/${hint}: texto escrito`, ok: !!field && field.text === SAMPLE, info: field ? field.text : 'sin campo enfocado' });
   checks.push({

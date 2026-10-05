@@ -209,6 +209,7 @@ Notas:
 - `qa:location` da PASS aunque el mapa no se centre: solo comprueba `dumpsys` y logcat. Mira siempre `qa-out/location.png`. En el emulador la posicion solo llega con `Accuracy.High` (o con una posicion ya en cache); con `Balanced` (el valor de `locationService`) la peticion no se resuelve, no es un bug de Bite. Para forzarla usa un movil real.
 - Metro con `npx expo start --dev-client --lan` sin `CI=1` (en modo CI no recarga los cambios). Emulador con `-gpu swiftshader_indirect` (con la GPU del host las capturas salen negras).
 - Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
+- Tras `pm clear` el dev-client muestra su bienvenida/menu y Gboard el aviso "Try out your stylus": `adb.js` cierra el menu y desactiva `stylus_handwriting_enabled`. El boton flotante de engranaje (arriba a la derecha) es del dev-client, no de Bite.
 - Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
 - `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
 
