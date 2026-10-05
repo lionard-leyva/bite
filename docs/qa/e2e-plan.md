@@ -57,8 +57,8 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| ADD-01 | P0 | FAB > nombre, direccion, rating, precio, Estado Visitado, nota > Guardar | Aparece en Lista y Mapa con estado Visitado | nuevo `qa:save` (input por `adb shell input text`) | ❌ |
-| ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `qa:save --empty` | ❌ |
+| ADD-01 | P0 | FAB > nombre, direccion, rating, precio, Estado Visitado, nota > Guardar | Aparece en Lista y Mapa con estado Visitado | `npm run qa:save -- --name "QA Visitado" --state visitado` | ✅ |
+| ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `npm run qa:save -- --empty` (Guardar con formulario vacio no sale de la pantalla) | ✅ |
 | ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado | ❌ |
 | ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria | ❌ |
 
@@ -79,9 +79,9 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | MCH-01 | P0 | Candidatos: pendientes ordenados por Haversine, max 10 | Orden y limite correctos | `matchLogic.test.ts` | ✅ |
-| MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | Jest `decisionService` con Firestore mockeado | ❌ |
-| MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | Jest `decisionService` (transaccion simulada) | ❌ |
-| MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | Jest con reloj falso | ❌ |
+| MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | `decisionService.test.ts` (markMatched concurrente, Firestore en memoria) | ✅ |
+| MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) | ✅ |
+| MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | `decisionService.test.ts` (ronda de 13 h) | ✅ |
 | MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen | 🟡 |
 | MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen | ❌ |
 
@@ -89,9 +89,9 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | Jest `listService` (mock Firestore) | ❌ |
-| SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | Jest `listService` | ❌ |
-| SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | Jest `listService` | ❌ |
+| SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | `listService.test.ts` | ✅ |
+| SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | `listService.test.ts` | ✅ |
+| SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | `listService.test.ts` | ✅ |
 | SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado | ❌ |
 | SHL-05 | P2 | Dos dispositivos reales | Ambos ven cambios | Manual (CLAUDE.md §10) o Firebase Emulator (§5) | ❌ |
 
@@ -99,16 +99,16 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| VIS-01 | P0 | Lista > filtro Pendientes / Visitados con semilla | Solo los del estado | nuevo `qa:list` (waitFor nombres) | ❌ |
-| VIS-02 | P1 | Detalle en modo sin cuenta | Toggle deshabilitado ("Pendiente de ir" visible) | `qa:detail` | ❌ |
+| VIS-01 | P0 | Lista > filtro Pendientes / Visitados con semilla | Solo los del estado | `npm run qa:list -- --filter visitados --expect "QA Visitado" --absent "Casa Lucio"` | ✅ |
+| VIS-02 | P1 | Detalle en modo sin cuenta > tocar estado | Alterna "Pendiente de ir" / "Visitado" (se guarda en AsyncStorage) | `npm run qa:detail -- --restaurant X --toggle` (cambia y vuelve) | ✅ |
 | VIS-03 | P1 | Toggle con cuenta | Persiste en Firestore | Jest `restaurantService` | ❌ |
 
 ### 2.8 Detalle
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| DET-01 | P0 | Lista > tocar restaurante | Nombre, direccion, estado, rating, nota | `qa:detail --restaurant X` | ❌ |
-| DET-02 | P0 | "Eliminar" > confirmar | Desaparece de Lista y Mapa | `qa:detail --delete` | ❌ |
+| DET-01 | P0 | Lista > tocar restaurante | Nombre, direccion, estado, rating, nota | `npm run qa:detail -- --restaurant X --state pendiente` | ✅ |
+| DET-02 | P0 | "Eliminar" > confirmar | Desaparece de Lista y Mapa | `npm run qa:detail -- --restaurant X --delete` | ✅ |
 | DET-03 | P2 | Id inexistente | "Restaurante no encontrado" | Jest de DetailScreen | ❌ |
 
 ### 2.9 Busqueda (Lista)
@@ -116,7 +116,7 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | SRC-01 | P0 | Filtro por nombre/direccion, mayusculas | Coincidencias correctas | `searchFilter.test.ts` | ✅ |
-| SRC-02 | P1 | "Buscar restaurantes" > escribir > "Limpiar busqueda" | Filtra y restaura | `qa:list --search "lucio"` | ❌ |
+| SRC-02 | P1 | "Buscar restaurantes" > escribir > "Limpiar busqueda" | Filtra y restaura | `npm run qa:list -- --search "lucio" --expect "Casa Lucio" --absent "Sobrino de Botin" --restore "Sobrino de Botin"` | ✅ |
 
 ### 2.10 Perfil
 
@@ -130,16 +130,16 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `qa:keyboard`: `input text` en cada campo + screenshot recortado por `bounds`; revision visual del PNG (Mobile MCP solo para mirar) | ❌ |
-| KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `qa:keyboard`: bounds del campo enfocado < top del teclado (`dumpsys input_method` `mInputShown`, altura via `dumpsys window`) | ❌ |
+| KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `npm run qa:keyboard` (texto llega al campo + screenshot por campo; recorte de descendentes lo juzga `qa-visual-triage`) | 🟡 (visual) |
+| KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `npm run qa:keyboard` (bounds del campo enfocado <= top del `ime` en `dumpsys window`) | ✅ |
 | KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest/grep sobre estilos (test de estilos) | ❌ |
 
 ### 2.12 Safe areas
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `qa:safearea`: insets de `dumpsys window` vs `bounds` de nodos clicables del dump | ❌ |
-| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton` + `qa:safearea` | ❌ |
+| SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
+| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `cmd overlay enable ...threebutton` + `qa:safearea` | 🟡 (manual el cambio de navegacion) |
 
 ### 2.13 Transversales
 
@@ -151,25 +151,26 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | X-04 errores JS tras la suite | P0 | `npm run qa:logs` | ✅ |
 | X-05 offline (modo avion) | P2 | `adb shell cmd connectivity airplane-mode enable` + `qa:list`; con cuenta solo manual | ❌ |
 
-## 3. Que falta (backlog para implementar, en este orden)
+## 3. Que falta
 
-1. `scripts/qa/all.js` + `npm run qa:all` (runner, §6).
-2. `qa:seed` (envuelve `qa:share --save` con la tabla de semilla).
-3. `qa:save`, `qa:list`, `qa:detail` (P0 del dispositivo).
-4. Jest con Firestore mockeado: `listService`, `decisionService`, `restaurantService` (P0 de Match y listas).
-5. `qa:safearea`, `qa:keyboard`, `qa:profile`, flags `--deny` y `--open-detail`.
-6. Pequeno cambio de app para testabilidad: `title`/`accessibilityLabel` en `MapMarker` (quita la dependencia de `--marker X,Y`). Es tocar `src/`, va en su propio PR.
+Implementado: `qa:all`, `qa:seed` (+ `seed-data.js`, validado por `qaSeed.test.ts`), `qa:save`, `qa:list`, `qa:detail`, `qa:keyboard`, `qa:safearea`, `listService.test.ts`, `decisionService.test.ts` (Firestore en memoria: `jest/fakeFirestore.js`), `npm run sync` y el subagente `qa-visual-triage`.
 
-Todos los scripts nuevos reutilizan `adb.js` (`launchApp`, `goToMap`, `waitFor`, `tapLabel`, `screenshot`, `report`). Para escribir texto: `adb shell input text` con espacios como `%s`.
+Pendiente:
+1. **Primera pasada en el emulador** de los scripts nuevos: estan escritos contra los textos/labels del codigo pero aun no se han ejecutado en el Pixel 9 (labels de uiautomator, `hint` de los campos, insets de `dumpsys window`). Ajustar lo que falle en esa pasada.
+2. `qa:profile` (PRF-01/02), flags `--deny` en `location.js` (LOC-02) y `--open-detail` en `map-callout.js` (MAP-02), MAP-03..06.
+3. Jest de `restaurantService` (VIS-03), `useRestaurants` con `onSnapshot` (SHL-04), MatchScreen (MCH-05/06), migracion (PRF-03).
+4. Cambio de app para testabilidad: `title`/`accessibilityLabel` en `MapMarker` (quita `--marker X,Y`). Toca `src/`, va en su propio PR.
+
+Todos los scripts reutilizan `adb.js` (`openTab`, `waitFor`, `tapLabel`, `typeText`, `systemInsets`, `screenshot`, `report`).
 
 ## 4. Firestore sin Firebase real
 
-Por defecto: **Jest con mocks de `firebase/firestore`** (`runTransaction`, `onSnapshot`, `getDocs`) en el proyecto `unit`. Barato, sin red, sin dependencias nuevas.
+**Jest con `jest/fakeFirestore.js`**: Firestore en memoria (doc/collection/query/where, set/update/add con merge, arrayUnion/arrayRemove, serverTimestamp, writeBatch, onSnapshot y `runTransaction` con concurrencia optimista que reintenta si lo leido cambio, como el real). Se activa con `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`. Sin red ni dependencias nuevas.
 
 ## 5. Propuestas (no creadas, requieren OK)
 
 - **Firebase Emulator Suite** (`firebase-tools` como devDependency, necesita Java 11+): permitiria E2E real de listas compartidas y Match con dos sesiones (emulador Android + segundo cliente Node). Coste: dependencia grande y config de `connectFirestoreEmulator` en `src/config/firebase.ts`. Recomendado solo si los mocks de §4 dejan pasar bugs.
-- **Subagente "qa-triage"**: solo para revisar los PNG de `qa-out/` cuando un caso visual (KBD, SAF, LOC-01) falla. No hace falta para ejecutar la suite.
+- **Subagente `qa-visual-triage`** (creado, `.claude/agents/qa-visual-triage.md`, modelo haiku, solo Read/Glob): recibe `caso: ruta.png` y devuelve `PASS|FAIL|UNSURE` por linea. Usarlo solo para los casos visuales (LOC-01, KBD-01, SAF) o para ver un `*-error.png`; la suite no lo necesita para ejecutarse.
 - Maestro/Detox: descartados; `adb.js` cubre lo necesario sin dependencias.
 
 ## 6. Orden de ejecucion y criterio de pase
@@ -195,33 +196,22 @@ Informe: una linea por caso `OK|FAIL|SKIP ID nombre (info)` + resumen y rutas de
 ## 7. Runbook: arranque del QA autonomo
 
 ```bash
-# Terminal 1: emulador + Metro + proxy (ya documentado en CLAUDE.md §6/§10)
+# PC: traer cambios (pull + npm install si cambio el lock + aviso de rebuild nativo)
+npm run sync
+
+# Terminal 1: emulador + Metro + proxy
 emulator -avd Pixel_9 -gpu swiftshader_indirect
 npx expo start --dev-client --lan
 cd server && npm run dev
 
 # Terminal 2: suite
-npm run qa:all              # estatico + reset + semilla + P0 + P1 + logs
-npm run qa:all -- --p0      # solo bloqueantes
-npm run qa:all -- --only MAP-01,SHR-02
+npm run qa:all                       # estatico + reset + semilla + P0 + P1 + logs
+npm run qa:all -- --p0               # solo bloqueantes
+npm run qa:all -- --static           # sin emulador: typecheck + Jest + server
+npm run qa:all -- --only MAP-01,DET-01
+BITE_RELEASE=1 npm run qa:all -- --release   # incluye SHR-03 (build release instalada)
 ```
 
-Esbozo de `scripts/qa/all.js` (no implementado):
+`qa:all` (`scripts/qa/all.js`) ejecuta los bloques de §6 en orden, salta los de dispositivo si `adb get-state` no da `device`, detiene los bloques siguientes tras un P0 en FAIL e imprime `OK|FAIL|SKIP ID P# titulo`. Exit code 1 si falla algun P0. Despues, para los casos visuales: pasar `qa-out/location.png`, `qa-out/keyboard-*.png` y `qa-out/safearea-*.png` al subagente `qa-visual-triage`.
 
-```js
-// Ejecuta pasos en orden, para en el primer P0 en FAIL, imprime resumen.
-const { execSync } = require('child_process');
-const steps = [
-  { id: 'X-01', p: 0, cmd: 'npm run typecheck' },
-  { id: 'X-02', p: 0, cmd: 'npm test --silent' },
-  { id: 'X-03', p: 0, cmd: 'npm run server:test --silent' },
-  { id: 'RESET', p: 0, cmd: 'adb shell pm clear com.lionardleyva.bite && adb shell pm grant com.lionardleyva.bite android.permission.ACCESS_FINE_LOCATION && adb emu geo fix -3.7038 40.4168' },
-  { id: 'SEED', p: 0, cmd: 'npm run qa:seed' },
-  { id: 'MAP-01', p: 0, cmd: 'npm run qa:map -- --restaurant "Casa Lucio"' },
-  { id: 'LOC-01', p: 0, cmd: 'npm run qa:location' },
-  // ... resto de la tabla de §2
-  { id: 'X-04', p: 0, cmd: 'npm run qa:logs' },
-];
-```
-
-`package.json` (a anadir cuando se implemente): `"qa:all": "node scripts/qa/all.js"`, `"qa:seed": "node scripts/qa/seed.js"`.
+El emulador es compartido: no lanzar `qa:all` si otro hilo lo esta usando (`pm clear` borra sus datos).
