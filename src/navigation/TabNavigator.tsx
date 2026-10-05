@@ -3,10 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import ListScreen from '../screens/ListScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import type { TabParamList } from './types';
+import { useShareIntent } from '../hooks/useShareIntent';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function TabNavigator() {
+  useShareIntent();
+
   return (
     <Tab.Navigator
       screenOptions={{

@@ -35,7 +35,8 @@ restaurants.filter(r =>
 ## 3. Estructura del Proyecto
 
 ```
-server/             # Express proxy (directions API, rate limit, cache)
+server/             # Express proxy (directions API, resolve-link de Maps, rate limit, cache)
+modules/share-intent/ # Modulo Expo local (Android): texto compartido a Bite (ACTION_SEND)
 src/
 ├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
 ├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
@@ -45,7 +46,7 @@ src/
 ├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService
 ├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
-├── utils/          # timeAgo, geo (haversine), matchLogic
+├── utils/          # timeAgo, geo (haversine), matchLogic, shareParser
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -86,6 +87,12 @@ src/
 4. Votos en `decisionVotes/{roundId}_{userId}` (`votes: { restaurantId: LIKE | PASS }`). La UI nunca muestra los votos del otro, solo el match
 5. Cuando todos los participantes dan LIKE al mismo sitio, el primer cliente que lo detecta marca `MATCHED` en transaccion y ambos ven la pantalla de match
 
+### Guardar desde Compartir (Android)
+1. `intentFilters` SEND text/plain en `app.config.js` + `modules/share-intent` (lee EXTRA_SUBJECT/EXTRA_TEXT; arranque en frio `getInitialShare`, en caliente evento `onShare`)
+2. `useShareIntent` (montado en TabNavigator) abre `Save` con `{ sharedText }`
+3. `shareParser`: Google Maps largo → nombre (`/place/`) + coords (`!3d!4d` > `?q=` > `@`); `maps.app.goo.gl` → `POST /api/resolve-link` (sigue redirects solo a hosts de Maps, desenvuelve consent.google.com; fallback: fetch en el dispositivo). Instagram/TikTok → nombre del texto si es corto, nota "Visto en X: url"
+4. SaveScreen prellena como Pendiente: con coords en modo manual; sin coords en el buscador de Places para confirmar
+
 ### Offline (Firestore persistence)
 1. `enablePersistentCacheIndexAutoCreation` activado en init de Firebase
 2. Datos se cachean automaticamente en dispositivo
@@ -116,7 +123,7 @@ src/
 npm install && npx expo start          # app (dev build en Android Emulator)
 cd server && npm install && npm run dev # proxy directions (otra terminal)
 npm test                                # client (jest)
-npm run server:test                     # server (2 suites)
+npm run server:test                     # server (directions + resolveLink)
 npm run typecheck                       # tsc --noEmit
 npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
 eas build --platform android            # build (ios igual)
@@ -163,13 +170,14 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - **Toggle visitado en skip mode**: `DetailScreen` deshabilita el toggle en modo sin cuenta. Solo funciona con Firestore.
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
 - **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. Las security rules deben permitir read/write en `decisionSessions` y `decisionVotes` a miembros de la lista (minimo: `request.auth != null`).
+- **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
 ## 10. Testing y QA
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/directions.test.js` (validacion inputs + cache).
+Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`, `shareParser`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/` (directions: validacion + cache; resolveLink: allowlist, consent, loops).
 
 ### QA automatizado (adb, sin dependencias)
 
@@ -180,12 +188,14 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:map -- --restaurant "Nombre" [--marker X,Y]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS en logcat |
 | `npm run qa:location -- [--lat 40.4168 --lng -3.7038]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
 | `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
+| `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
 
 Notas:
 - Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
 - `qa:map` necesita al menos un restaurante guardado en modo sin cuenta (AsyncStorage persiste entre lanzamientos).
 - `qa:location` no puede leer las coords del estado JS; la verificacion de que el mapa se centra es el screenshot.
 - `adb emu geo fix` recibe longitud primero.
+- `qa:share --state closed` no vale en una development build: el icono pasa por el launcher de dev-client y el texto compartido se pierde. Para el arranque en frio compila una release (`cd android && ./gradlew.bat assembleRelease -PreactNativeArchitectures=x86_64`, instalar con `adb install -r`) y ejecuta con `BITE_RELEASE=1`.
 - `qa:location` da PASS aunque el mapa no se centre: solo comprueba `dumpsys` y logcat. Mira siempre `qa-out/location.png`. En el emulador la posicion solo llega con `Accuracy.High` (o con una posicion ya en cache); con `Balanced` (el valor de `locationService`) la peticion no se resuelve, no es un bug de Bite. Para forzarla usa un movil real.
 - Metro con `npx expo start --dev-client --lan` sin `CI=1` (en modo CI no recarga los cambios). Emulador con `-gpu swiftshader_indirect` (con la GPU del host las capturas salen negras).
 - Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").

@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "qa:map": "node scripts/qa/map-callout.js",
     "qa:location": "node scripts/qa/location.js",
-    "qa:logs": "node scripts/qa/logs.js"
+    "qa:logs": "node scripts/qa/logs.js",
+    "qa:share": "node scripts/qa/share.js"
   },
   "jest": {
     "projects": [
@@ -24,7 +25,8 @@
         "testMatch": [
           "**/searchFilter.test.ts",
           "**/timeAgo.test.ts",
-          "**/matchLogic.test.ts"
+          "**/matchLogic.test.ts",
+          "**/shareParser.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

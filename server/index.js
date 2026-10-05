@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { rateLimitMiddleware } = require('./rateLimit');
 const { directionsHandler } = require('./directions');
+const { createResolveLinkHandler } = require('./resolveLink');
 
 const app = express();
 
@@ -35,6 +36,7 @@ app.use('/api', rateLimitMiddleware());
 
 // --- Routes ---
 app.post('/api/directions', directionsHandler);
+app.post('/api/resolve-link', createResolveLinkHandler());
 
 // --- Health check ---
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
