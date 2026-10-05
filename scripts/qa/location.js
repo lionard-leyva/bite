@@ -1,5 +1,6 @@
 // QA: inyectar ubicacion (Madrid por defecto) > abrir Bite > "Ir a mi ubicacion" > verificar coords + logcat.
-// Uso: npm run qa:location -- [--lat 40.4168] [--lng -3.7038]
+// Uso: npm run qa:location -- [--lat 40.4168] [--lng -3.7038] [--keep]
+// --keep: reutiliza la app ya abierta (p. ej. justo tras qa:map) en vez de un arranque en frio.
 const q = require('./adb');
 
 (async () => {
@@ -21,8 +22,11 @@ const q = require('./adb');
   checks.push({ name: 'sistema reporta la ubicacion inyectada', ok: !!fix, info: fix ? `${fix[1]},${fix[2]}` : 'geo fix no aplicado' });
 
   q.clearLogcat();
-  q.launchApp();
-  await q.goToMap();
+  if (args.keep) await q.tapLabel('Mapa', 15000);
+  else {
+    q.launchApp();
+    await q.goToMap();
+  }
   await q.sleep(1500);
   await q.tapLabel('Ir a mi ubicacion', 10000);
   await q.sleep(3000); // animacion de camara
