@@ -6,8 +6,14 @@ const path = require('path');
 const q = require('./adb');
 const { SEED } = require('./seed-data');
 
-const run = (script, args) =>
-  spawnSync(process.execPath, [path.join(__dirname, script), ...args], { stdio: 'inherit' }).status === 0;
+// uiautomator devuelve "null root node" durante transiciones y algun paso puede perderse: un reintento por semilla.
+const run = (script, args, attempts = 2) => {
+  for (let i = 0; i < attempts; i++) {
+    if (spawnSync(process.execPath, [path.join(__dirname, script), ...args], { stdio: 'inherit' }).status === 0) return true;
+    console.log(`reintento ${i + 1}/${attempts - 1}: ${script}`);
+  }
+  return false;
+};
 
 const args = q.parseArgs();
 const checks = SEED.map((r) => ({
