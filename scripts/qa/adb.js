@@ -63,15 +63,23 @@ function parseNodes(xml) {
     const b = attr('bounds').match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
     if (!b) continue;
     const [x1, y1, x2, y2] = b.slice(1).map(Number);
-    nodes.push({ text: attr('text'), desc: attr('content-desc'), x: (x1 + x2) >> 1, y: (y1 + y2) >> 1 });
+    nodes.push({
+      text: attr('text'), desc: attr('content-desc'), hint: attr('hint'), cls: attr('class'), pkg: attr('package'),
+      clickable: attr('clickable') === 'true', focused: attr('focused') === 'true',
+      x: (x1 + x2) >> 1, y: (y1 + y2) >> 1, x1, y1, x2, y2,
+    });
   }
   return nodes;
 }
 
-// label: string (coincidencia exacta, sin mayusculas) o RegExp, contra text o content-desc.
+// label: string (coincidencia exacta, sin mayusculas) o RegExp, contra text, content-desc o hint (placeholder).
 function findNode(xml, label) {
+  return findNodes(xml, label)[0];
+}
+
+function findNodes(xml, label) {
   const test = (s) => (label instanceof RegExp ? label.test(s) : s.trim().toLowerCase() === label.toLowerCase());
-  return parseNodes(xml).find((n) => test(n.text) || test(n.desc));
+  return parseNodes(xml).filter((n) => test(n.text) || test(n.desc) || test(n.hint));
 }
 
 async function waitFor(labels, timeoutMs = 15000) {
@@ -95,6 +103,53 @@ async function tapLabel(label, timeoutMs) {
   if (!hit) throw new Error(`No aparece "${label}"`);
   tap(hit.node.x, hit.node.y);
   return hit;
+}
+
+// `input text` no admite espacios ni metacaracteres de shell sin escapar. Solo ASCII.
+function typeText(text) {
+  const escaped = text.replace(/ /g, '%s').replace(/([\\'"`$&|;<>()*?!#~])/g, '\\$1');
+  adb(['shell', 'input', 'text', escaped]);
+}
+
+// Cierra el teclado sin salir de la pantalla (KEYCODE_ESCAPE).
+const hideKeyboard = () => adb(['shell', 'input', 'keyevent', '111']);
+
+// Desliza hacia arriba (contenido baja) en la mitad de la pantalla.
+const swipeUp = () => adb(['shell', 'input', 'swipe', '540', '1800', '540', '700', '300']);
+
+function screenSize() {
+  const m = adb(['shell', 'wm', 'size']).match(/(\d+)x(\d+)\s*$/m);
+  return m ? { w: Number(m[1]), h: Number(m[2]) } : { w: 1080, h: 2424 };
+}
+
+// Insets del sistema desde dumpsys window (Android 12+: "type=statusBars"/"ITYPE_STATUS_BAR", "navigationBars", "ime").
+function systemInsets() {
+  const dump = adb(['shell', 'dumpsys', 'window']);
+  const frame = (types, needVisible) => {
+    for (const line of dump.split('\n')) {
+      if (!types.some((t) => new RegExp(`type=${t}\\b`).test(line))) continue;
+      if (needVisible && !/visible=true/.test(line)) continue;
+      const m = line.match(/frame=\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]/);
+      if (m) {
+        const [x1, y1, x2, y2] = m.slice(1).map(Number);
+        if (y2 > y1) return { x1, y1, x2, y2 };
+      }
+    }
+    return null;
+  };
+  return {
+    status: frame(['statusBars', 'ITYPE_STATUS_BAR']),
+    nav: frame(['navigationBars', 'ITYPE_NAVIGATION_BAR']),
+    ime: frame(['ime', 'ITYPE_IME'], true),
+  };
+}
+
+// Abre la pestana indicada con un arranque limpio en modo sin cuenta.
+async function openTab(label) {
+  launchApp();
+  await goToMap();
+  if (label !== 'Mapa') await tapLabel(label, 15000);
+  await sleep(1500);
 }
 
 function screenshot(name) {
@@ -146,6 +201,7 @@ function report(name, checks, extra = []) {
 }
 
 module.exports = {
-  PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, waitFor, tap, tapLabel,
+  PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, findNodes, waitFor, tap, tapLabel,
+  typeText, hideKeyboard, swipeUp, screenSize, systemInsets, openTab,
   screenshot, launchApp, goToMap, clearLogcat, logcatErrors, report,
 };

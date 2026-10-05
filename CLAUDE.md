@@ -122,6 +122,7 @@ src/
 ```bash
 npm install && npx expo start          # app (dev build en Android Emulator)
 cd server && npm install && npm run dev # proxy directions (otra terminal)
+npm run sync                            # PC: git pull + npm install si cambio el lock + aviso de rebuild nativo
 npm test                                # client (jest)
 npm run server:test                     # server (directions + resolveLink)
 npm run typecheck                       # tsc --noEmit
@@ -167,7 +168,7 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - Si Google Places excede cuota → fallback automatico a input manual (detectado en `SaveScreen` via `onFail`)
 - Si fotos saturan Storage → reducir compresion a quality 0.6 en `src/config/constants.ts`
 - **Migracion de fotos locales**: `migrateLocalData()` migra restaurantes pero no re-sube fotos locales a Storage (pasa `photoUri: null`). Las fotos guardadas en modo skip se pierden al migrar. Post-MVP.
-- **Toggle visitado en skip mode**: `DetailScreen` deshabilita el toggle en modo sin cuenta. Solo funciona con Firestore.
+- **Toggle visitado en skip mode**: en modo sin cuenta `DetailScreen` lo guarda en AsyncStorage (`updateLocalRestaurantVisited`).
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
 - **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. Las security rules deben permitir read/write en `decisionSessions` y `decisionVotes` a miembros de la lista (minimo: `request.auth != null`).
 - **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
@@ -177,7 +178,9 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`, `shareParser`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/` (directions: validacion + cache; resolveLink: allowlist, consent, loops).
+Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
+
+Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`, `shareParser`, `qaSeed`, `listService` y `decisionService` contra Firestore en memoria `jest/fakeFirestore.js`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/` (directions: validacion + cache; resolveLink: allowlist, consent, loops).
 
 ### QA automatizado (adb, sin dependencias)
 
@@ -189,6 +192,13 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:location -- [--lat 40.4168 --lng -3.7038]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
 | `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
 | `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
+| `npm run qa:all [-- --p0 \| --static \| --only IDs \| --release]` | suite E2E por bloques (estatico > reset+semilla > P0 > P1 > logs) | resumen `OK/FAIL/SKIP` por caso; exit 1 si falla un P0 |
+| `npm run qa:seed [-- --visited]` | 3 restaurantes por Compartir (URLs de `seed-data.js`) + "QA Visitado" manual | quedan guardados |
+| `npm run qa:save -- --name X [--state visitado] [--note T] \| --empty` | FAB > Ingresar manualmente > rellenar > Guardar | aparece en Lista con su estado; vacio no guarda |
+| `npm run qa:list -- [--filter F] [--search T] --expect A,B [--absent C] [--restore C]` | Lista > filtro/busqueda > limpiar | nombres visibles/ocultos |
+| `npm run qa:detail -- --restaurant X [--state S] [--toggle] [--delete]` | Lista > detalle | nombre, estado, toggle, eliminar |
+| `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
+| `npm run qa:safearea -- [--restaurant X]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos |
 
 Notas:
 - Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
@@ -199,6 +209,7 @@ Notas:
 - `qa:location` da PASS aunque el mapa no se centre: solo comprueba `dumpsys` y logcat. Mira siempre `qa-out/location.png`. En el emulador la posicion solo llega con `Accuracy.High` (o con una posicion ya en cache); con `Balanced` (el valor de `locationService`) la peticion no se resuelve, no es un bug de Bite. Para forzarla usa un movil real.
 - Metro con `npx expo start --dev-client --lan` sin `CI=1` (en modo CI no recarga los cambios). Emulador con `-gpu swiftshader_indirect` (con la GPU del host las capturas salen negras).
 - Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
+- Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
 - `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
 
 ### Manual (solo flujos no automatizados)

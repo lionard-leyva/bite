@@ -15,7 +15,15 @@
     "qa:map": "node scripts/qa/map-callout.js",
     "qa:location": "node scripts/qa/location.js",
     "qa:logs": "node scripts/qa/logs.js",
-    "qa:share": "node scripts/qa/share.js"
+    "qa:share": "node scripts/qa/share.js",
+    "qa:all": "node scripts/qa/all.js",
+    "qa:seed": "node scripts/qa/seed.js",
+    "qa:save": "node scripts/qa/save.js",
+    "qa:list": "node scripts/qa/list.js",
+    "qa:detail": "node scripts/qa/detail.js",
+    "qa:keyboard": "node scripts/qa/keyboard.js",
+    "qa:safearea": "node scripts/qa/safearea.js",
+    "sync": "node scripts/sync.js"
   },
   "jest": {
     "projects": [
@@ -26,7 +34,10 @@
           "**/searchFilter.test.ts",
           "**/timeAgo.test.ts",
           "**/matchLogic.test.ts",
-          "**/shareParser.test.ts"
+          "**/shareParser.test.ts",
+          "**/listService.test.ts",
+          "**/decisionService.test.ts",
+          "**/qaSeed.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"
