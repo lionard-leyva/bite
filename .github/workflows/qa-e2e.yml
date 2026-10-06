@@ -1,0 +1,75 @@
+name: QA E2E (Android emulator)
+
+# No bloquea PRs: tarda ~30 min, necesita secretos y depende de un emulador.
+# Corre de noche sobre master y a demanda (Actions > QA E2E > Run workflow).
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: qa-e2e
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
+      BITE_RELEASE: '1'
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      # El QA corre en modo "Continuar sin cuenta": Firebase solo necesita inicializar.
+      FIREBASE_API_KEY: ci-placeholder
+      FIREBASE_AUTH_DOMAIN: demo-bite.firebaseapp.com
+      FIREBASE_PROJECT_ID: demo-bite
+      FIREBASE_STORAGE_BUCKET: demo-bite.appspot.com
+      FIREBASE_MESSAGING_SENDER_ID: '0'
+      FIREBASE_APP_ID: 1:0:android:0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+      - run: npm ci
+        working-directory: server
+
+      - name: Generar proyecto nativo y compilar release x86_64
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+
+      - name: Activar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: qa:all en emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_7
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            npm run qa:all -- --release
+
+      - name: Capturas y logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-out
+          path: qa-out/
+          if-no-files-found: ignore

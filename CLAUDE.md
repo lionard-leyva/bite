@@ -179,6 +179,8 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
+CI (`.github/workflows`): `ci.yml` en cada PR (typecheck, Jest, server, bundle Android, reglas con Firebase Emulator). `qa-e2e.yml` de noche y a demanda: build release x86_64 + `qa:all -- --release` en emulador, sube `qa-out/`; no bloquea PRs y los casos visuales se revisan en las capturas.
+
 Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
 
 Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`, `shareParser`, `qaSeed`, `listService` y `decisionService` contra Firestore en memoria `jest/fakeFirestore.js`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/` (directions: validacion + cache; resolveLink: allowlist, consent, loops).
