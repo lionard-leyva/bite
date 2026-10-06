@@ -22,9 +22,8 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
   for (let i = 0; i < filters.length - 1; i++) {
     await q.tapLabel(new RegExp(`^${filters[i]}$`, 'i'), 8000);
     await q.sleep(800);
-    const xml = await q.dumpUi();
-    for (const n of names(expects[i])) checks.push({ name: `[${filters[i]}] muestra "${n}"`, ok: !!q.findNode(xml, n) });
-    for (const n of names(absents[i])) checks.push({ name: `[${filters[i]}] oculta "${n}"`, ok: !q.findNode(xml, n) });
+    for (const n of names(expects[i])) checks.push({ name: `[${filters[i]}] muestra "${n}"`, ok: await q.inList(n) });
+    for (const n of names(absents[i])) checks.push({ name: `[${filters[i]}] oculta "${n}"`, ok: !(await q.inList(n)) });
     shot = q.screenshot(`list-${filters[i]}`);
   }
   const last = filters.length - 1;
@@ -38,9 +37,9 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
     q.hideKeyboard();
   }
 
-  const xml = await q.dumpUi();
-  for (const n of names(expects[last])) checks.push({ name: `muestra "${n}"`, ok: !!q.findNode(xml, n) });
-  for (const n of names(absents[last])) checks.push({ name: `oculta "${n}"`, ok: !q.findNode(xml, n) });
+  // inList baja la lista hasta encontrar la tarjeta: en pantallas mas bajas las ultimas quedan bajo el pliegue.
+  for (const n of names(expects[last])) checks.push({ name: `muestra "${n}"`, ok: await q.inList(n) });
+  for (const n of names(absents[last])) checks.push({ name: `oculta "${n}"`, ok: !(await q.inList(n)) });
   shot = q.screenshot(`list-${filter}${args.search ? '-search' : ''}`);
 
   if (typeof args.search === 'string') {
@@ -48,7 +47,7 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
     await q.sleep(800);
     const after = await q.dumpUi();
     checks.push({ name: 'busqueda vacia tras limpiar', ok: !q.findNode(after, 'Limpiar busqueda') });
-    for (const n of names(args.restore)) checks.push({ name: `vuelve "${n}" tras limpiar`, ok: !!q.findNode(after, n) });
+    for (const n of names(args.restore)) checks.push({ name: `vuelve "${n}" tras limpiar`, ok: await q.inList(n) });
   }
 
   const errors = q.logcatErrors();
