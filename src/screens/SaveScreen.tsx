@@ -7,6 +7,7 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -209,6 +210,7 @@ export default function SaveScreen() {
   const nameManualRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
   const noteRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   const {
     isEditMode,
@@ -627,6 +629,7 @@ export default function SaveScreen() {
       {!isSearching && (
         <KeyboardForm
           avoid={false}
+          scrollRef={scrollRef}
           scrollClassName="flex-1 px-5"
           contentContainerStyle={{ paddingBottom: 24 }}
         >
@@ -777,6 +780,7 @@ export default function SaveScreen() {
           value={note}
           onChangeText={(text) => dispatchForm({ type: 'patch', payload: { note: text } })}
           multiline
+          onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
           maxLength={200}
           returnKeyType="done"
           blurOnSubmit
