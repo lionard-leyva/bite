@@ -1,9 +1,10 @@
 import { KeyboardAvoidingView, ScrollView, Platform, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 
 interface KeyboardFormProps extends ScrollViewProps {
   children: ReactNode;
   avoid?: boolean;
+  scrollRef?: Ref<ScrollView>;
   keyboardVerticalOffset?: number;
   containerClassName?: string;
   scrollClassName?: string;
@@ -13,6 +14,7 @@ interface KeyboardFormProps extends ScrollViewProps {
 export default function KeyboardForm({
   children,
   avoid = true,
+  scrollRef,
   keyboardVerticalOffset = Platform.OS === 'ios' ? 80 : 20,
   containerClassName,
   scrollClassName,
@@ -26,6 +28,7 @@ export default function KeyboardForm({
 
   const scrollView = (
     <ScrollView
+      ref={scrollRef}
       className={scrollClassName}
       contentContainerStyle={contentStyle}
       keyboardShouldPersistTaps="handled"
