@@ -11,7 +11,7 @@ import { useRestaurants } from '../hooks/useRestaurants';
 import { useLocation } from '../hooks/useLocation';
 import FAB from '../components/FAB';
 import MatchEntryCard from '../components/MatchEntryCard';
-import MapMarker from '../components/MapMarker';
+import MapMarker, { markerAnchorY } from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
 import type { FilterValue } from '../components/FilterButtons';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
@@ -149,7 +149,7 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
       identifier={restaurant.id}
       coordinate={coord}
       tracksViewChanges={tracksViewChanges}
-      anchor={{ x: 0.5, y: 1 }}
+      anchor={{ x: 0.5, y: markerAnchorY(isSelected) }}
       zIndex={isSelected ? Z_MARKER_SELECTED : (Z_MARKER + 1)}
       opacity={1}
       stopPropagation
