@@ -96,12 +96,17 @@ export function subscribeSession(
  * session doc never carries anyone's choices. The UI only ever reveals a match.
  */
 export function subscribeVotes(
+  listId: string,
   roundId: string,
   onChange: (votes: VotesByUser) => void,
   onError: (err: Error) => void,
 ): () => void {
   return onSnapshot(
-    query(collection(db, 'decisionVotes'), where('roundId', '==', roundId)),
+    query(
+      collection(db, 'decisionVotes'),
+      where('listId', '==', listId),
+      where('roundId', '==', roundId),
+    ),
     (snap) => {
       const votes: VotesByUser = {};
       for (const d of snap.docs) {

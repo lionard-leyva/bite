@@ -88,8 +88,8 @@ export function useDecisionSession({
     setVotes({});
     setPendingVotes({});
     if (!roundId) return;
-    return subscribeVotes(roundId, setVotes, (err) => setError(err.message));
-  }, [roundId]);
+    return subscribeVotes(listId, roundId, setVotes, (err) => setError(err.message));
+  }, [listId, roundId]);
 
   const mergedVotes = useMemo<VotesByUser>(
     () => ({ ...votes, [userId]: { ...(votes[userId] ?? {}), ...pendingVotes } }),
