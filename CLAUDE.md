@@ -125,6 +125,7 @@ cd server && npm install && npm run dev # proxy directions (otra terminal)
 npm run sync                            # PC: git pull + npm install si cambio el lock + aviso de rebuild nativo
 npm test                                # client (jest)
 npm run server:test                     # server (directions + resolveLink)
+npm run test:emulator                   # 2 usuarios + firestore.rules contra Firebase Emulator (necesita Java 21+; no toca bite-ba28f)
 npm run typecheck                       # tsc --noEmit
 npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
 eas build --platform android            # build (ios igual)
