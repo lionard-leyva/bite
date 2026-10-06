@@ -227,10 +227,11 @@ function launchApp() {
 // Tras `pm clear` el dev-client abre su menu (bienvenida "Continue" y luego el menu con "Go home") y, con el
 // emulador recien arrancado, puede salir el ANR "System UI isn't responding" ("Wait"): se cierran todos.
 // Los overlays van primero: AuthScreen sigue en el arbol debajo y el tap caeria en el sheet.
-const OVERLAYS = ['Continue', 'Wait', 'Go home'];
+// Tras `pm clear` Android vuelve a pedir permisos (ubicacion, notificaciones...) y el dialogo tapa la app.
+const OVERLAYS = ['Continue', 'Wait', 'Go home', 'While using the app', 'Allow'];
 async function goToMap() {
   let first = null;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     first = await waitFor([...OVERLAYS, 'Continuar sin cuenta', 'Mapa'], 30000);
     if (!first || !OVERLAYS.includes(first.label)) break;
     if (first.label === 'Go home') adb(['shell', 'input', 'keyevent', '4']);
