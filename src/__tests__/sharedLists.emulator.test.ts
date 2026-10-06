@@ -209,7 +209,11 @@ describe('Match: decisionSessions y decisionVotes', () => {
     as('bea');
     await castVote({ roundId: s.roundId, listId, userId: 'bea', restaurantId: 'r1', vote: 'LIKE' });
     const votes = await getDocs(
-      query(collection(mockActiveDb, 'decisionVotes'), where('roundId', '==', s.roundId)),
+      query(
+        collection(mockActiveDb, 'decisionVotes'),
+        where('listId', '==', listId),
+        where('roundId', '==', s.roundId),
+      ),
     );
     expect(votes.size).toBe(2);
     await Promise.all([
@@ -229,8 +233,16 @@ describe('Match: decisionSessions y decisionVotes', () => {
     const eve = as('eve');
     await assertFails(getDoc(doc(eve, 'decisionSessions', listId)));
     await assertFails(setDoc(doc(eve, 'decisionSessions', listId), { status: 'MATCHED' }));
-    // Limitacion conocida (CLAUDE.md): los votos son legibles por cualquier autenticado.
-    await assertSucceeds(getDoc(doc(eve, 'decisionVotes', `${s.roundId}_ana`)));
+    await assertFails(getDoc(doc(eve, 'decisionVotes', `${s.roundId}_ana`)));
+    await assertFails(
+      getDocs(
+        query(
+          collection(eve, 'decisionVotes'),
+          where('listId', '==', listId),
+          where('roundId', '==', s.roundId),
+        ),
+      ),
+    );
     await assertFails(
       castVote({ roundId: s.roundId, listId, userId: 'eve', restaurantId: 'r1', vote: 'LIKE' }),
     );

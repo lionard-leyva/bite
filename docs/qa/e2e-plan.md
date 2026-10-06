@@ -112,7 +112,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | RUL-02 | P0 | Usuario sin sesion lee/escribe | Denegado | Auto | ✅ |
 | RUL-03 | P1 | Tercero se anade con otro uid, cambia ownerId o borra lista | Denegado; solo anadirse a si mismo pasa | Auto | ✅ |
 | RUL-04 | P1 | Firmar restaurante como otro / moverlo a lista ajena | Denegado | Auto | ✅ |
-| RUL-05 | P2 | Tercero lee votos de la ronda | Permitido (limitacion: secreto solo de UI) | Auto | ✅ (documentado) |
+| RUL-05 | P1 | Tercero lee votos de la ronda (get y query por lista) | Denegado; miembros leen con query `listId`+`roundId` | Auto | ✅ |
 | EMU-08 | P2 | Dos dispositivos reales con cuentas distintas | Ambos ven cambios y match en pantalla | Manual (CLAUDE.md §10) | ❌ |
 | EMU-09 | P2 | Desplegar `firestore.rules` en la consola y repetir el flujo de pareja | La app sigue funcionando | Manual (lio) | ❌ |
 

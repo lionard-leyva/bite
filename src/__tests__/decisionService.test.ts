@@ -56,7 +56,7 @@ describe('decisionService', () => {
     await castVote({ roundId: s.roundId, listId: 'L1', userId: 'bea', restaurantId: 'r1', vote: 'LIKE' });
 
     const seen: any[] = [];
-    const unsub = subscribeVotes(s.roundId, (v) => seen.push(v), () => {});
+    const unsub = subscribeVotes('L1', s.roundId, (v) => seen.push(v), () => {});
     unsub();
     expect(seen.at(-1)).toEqual({ ana: { r1: 'LIKE', r2: 'PASS' }, bea: { r1: 'LIKE' } });
   });
