@@ -14,8 +14,19 @@ interface MapMarkerProps {
   photoUri?: string | null;
 }
 
-const MARKER_SIZE_BASE = 40;
-const MARKER_SIZE_SELECTED = 54;
+const MARKER_SIZE_BASE = 30;
+const MARKER_SIZE_SELECTED = 42;
+const LABEL_HEIGHT = 40;
+const LABEL_GAP = 4;
+const LABEL_WIDTH = 150;
+const PAD = 4;
+
+// Fraccion vertical del circulo dentro del contenedor, para anclar el marker en su base.
+export function markerAnchorY(isSelected: boolean) {
+  const size = isSelected ? MARKER_SIZE_SELECTED : MARKER_SIZE_BASE;
+  const total = size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0);
+  return (size + PAD) / total;
+}
 const RING_COLOR_ACTIVE = '#FF4D67';
 const RING_COLOR_PENDING = '#D1D5DB';
 const LABEL_BG = 'rgba(8, 12, 20, 0.95)';
@@ -45,10 +56,13 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
       collapsable={false}
       style={[
         styles.container,
-        { width: size + 16, height: size + 14, transform: [{ translateY: isSelected ? -8 : 0 }] },
+        {
+          width: isSelected ? LABEL_WIDTH + PAD * 2 : size + PAD * 2,
+          height: size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0),
+        },
       ]}
     >
-      <View collapsable={false} style={styles.inner}>
+      <View collapsable={false} style={[styles.inner, { marginTop: PAD }]}>
         <View
           style={{
             width: size,
@@ -99,7 +113,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
                       resizeMode="cover"
                     />
                   ) : (
-                    <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: 16 }}>
+                    <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: 14 }}>
                       {initial}
                     </Text>
                   )}
@@ -126,7 +140,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
                   resizeMode="cover"
                 />
               ) : (
-                <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: 13 }}>
+                <Text style={{ color: '#F9FAFB', fontWeight: '800', fontSize: 11 }}>
                   {initial}
                 </Text>
               )}
@@ -135,8 +149,8 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
           <View
             style={{
               position: 'absolute',
-              right: 2,
-              bottom: 2,
+              right: 0,
+              bottom: 0,
               width: 11,
               height: 11,
               borderRadius: 5.5,
@@ -148,7 +162,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
         </View>
 
         {isSelected && (
-          <View pointerEvents="none" style={[styles.selectedLabel, { top: size + 7 }]}>
+          <View pointerEvents="none" style={[styles.selectedLabel, { top: size + LABEL_GAP }]}>
             <Text
               numberOfLines={1}
               style={{ color: '#F3F4F6', fontSize: 12, fontWeight: '700', lineHeight: 15 }}
@@ -186,11 +200,13 @@ const styles = StyleSheet.create({
   selectedLabel: {
     position: 'absolute',
     minWidth: 90,
-    maxWidth: 148,
+    maxWidth: LABEL_WIDTH,
+    height: LABEL_HEIGHT,
+    justifyContent: 'center',
     borderRadius: 14,
     backgroundColor: LABEL_BG,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
