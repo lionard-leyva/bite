@@ -18,7 +18,8 @@ jobs:
     env:
       # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
       BITE_RELEASE: '1'
-      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      # Sin clave real el mapa no carga tiles, pero react-native-maps no debe crashear por falta de meta-data.
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || 'ci-placeholder-maps-key' }}
       # El QA corre en modo "Continuar sin cuenta": Firebase solo necesita inicializar.
       FIREBASE_API_KEY: ci-placeholder
       FIREBASE_AUTH_DOMAIN: demo-bite.firebaseapp.com
@@ -71,7 +72,7 @@ jobs:
           disable-animations: true
           script: |
             adb install -r "$RUNNER_TEMP/bite.apk"
-            npm run qa:all -- --release
+            mkdir -p qa-out && (npm run qa:all -- --release; rc=$?; adb logcat -d > qa-out/logcat.txt; exit $rc)
 
       - name: Capturas y logs
         if: always()
