@@ -15,7 +15,7 @@ async function fill(hint, value) {
 async function inList(name, filter) {
   await q.tapLabel(filter, 8000);
   await q.sleep(1000);
-  return !!q.findNode(await q.dumpUi(), name);
+  return q.inList(name);
 }
 
 (async () => {

@@ -21,7 +21,8 @@ async function toggle(expected) {
   q.clearLogcat();
   await q.openTab('Lista');
 
-  await q.tapLabel(name, 10000);
+  await q.waitFor('Todos', 10000);
+  await q.tapInList(name);
   const detail = await q.waitFor('Eliminar', 10000);
   checks.push({ name: 'abre el detalle', ok: !!detail });
   if (!detail) return q.report('qa:detail', checks, [`screenshot: ${q.screenshot('detail-error')}`]);
@@ -50,7 +51,7 @@ async function toggle(expected) {
     await q.sleep(1500);
     await q.tapLabel(/^todos$/i, 8000);
     await q.sleep(800);
-    checks.push({ name: 'eliminado: ya no esta en Lista', ok: !q.findNode(await q.dumpUi(), name) });
+    checks.push({ name: 'eliminado: ya no esta en Lista', ok: !(await q.inList(name)) });
   }
 
   const errors = q.logcatErrors();

@@ -33,7 +33,7 @@ function offenders(xml, top, bottom, screenH) {
     { name: 'Guardar', open: async () => { await q.openTab('Mapa'); await q.tapLabel('Guardar restaurante', 10000); await q.sleep(1500); } },
   ];
   if (typeof args.restaurant === 'string') {
-    screens.push({ name: 'Detalle', open: async () => { await q.openTab('Lista'); await q.tapLabel(args.restaurant, 10000); await q.waitFor('Eliminar', 10000); } });
+    screens.push({ name: 'Detalle', open: async () => { await q.openTab('Lista'); await q.tapInList(args.restaurant); await q.waitFor('Eliminar', 10000); } });
   }
 
   q.clearLogcat();

@@ -5,6 +5,8 @@
 //   --release incluye SHR-03 (arranque en frio; requiere build release instalada y BITE_RELEASE=1)
 // Un bloque con un P0 en FAIL detiene los bloques siguientes. Exit code 1 si algun P0 falla.
 const { spawnSync, execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const q = require('./adb');
 const { SEED } = require('./seed-data');
 
@@ -56,7 +58,22 @@ function deviceReady() {
   }
 }
 
+// Dos qa:all a la vez sobre el mismo emulador se pisan (uiautomator: "null root node") y fallan los dos.
+const LOCK = path.join(__dirname, '..', '..', 'qa-out', '.qa-all.lock');
+function acquireLock() {
+  fs.mkdirSync(path.dirname(LOCK), { recursive: true });
+  try {
+    const pid = Number(fs.readFileSync(LOCK, 'utf8'));
+    process.kill(pid, 0);
+    console.error(`FAIL qa:all: ya hay otra ejecucion en curso (pid ${pid}). Espera a que termine o borra ${LOCK}`);
+    process.exit(1);
+  } catch { /* sin lock o proceso muerto */ }
+  fs.writeFileSync(LOCK, String(process.pid));
+  process.on('exit', () => { try { fs.unlinkSync(LOCK); } catch {} });
+}
+
 const args = q.parseArgs();
+if (!args.static) acquireLock();
 const only = typeof args.only === 'string' ? new Set(args.only.split(',').map((s) => s.trim())) : null;
 const hasDevice = !args.static && deviceReady();
 const results = [];
