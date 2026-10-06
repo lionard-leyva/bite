@@ -3,12 +3,17 @@
 // Uso: npm run qa:safearea -- [--restaurant "Casa Lucio"] [--top PX --bottom PX]   (--top/--bottom fuerzan los insets)
 const q = require('./adb');
 
+// Tolerancia en px: bordes/sombras de 1-5 px bajo el inset no son contenido tapado (falso positivo).
+const TOL = 6;
+
 function offenders(xml, top, bottom, screenH) {
   return q.parseNodes(xml).filter((n) => {
     if (n.pkg !== q.PKG || n.y2 <= n.y1) return false;
     if (!(n.clickable || n.text || n.desc)) return false;
     if ((n.y2 - n.y1) > screenH * 0.6) return false; // contenedores y el mapa a pantalla completa
-    return n.y1 < top || n.y2 > screenH - bottom;
+    // Contenedor clicable sin texto ni descripcion (fondo de pantalla/scroll): no es contenido visible.
+    if (!n.text && !n.desc && (n.y2 - n.y1) > screenH * 0.3) return false;
+    return n.y1 < top - TOL || n.y2 > screenH - bottom + TOL;
   });
 }
 

@@ -16,4 +16,7 @@ const checks = SEED.map((r, i) => ({
   ok: run('share.js', ['--text', r.text, '--name', r.name, '--save', ...(i === 0 ? ['--banner', 'Desde Google Maps'] : [])]),
 }));
 if (args.visited) checks.push({ name: 'semilla "QA Visitado"', ok: run('save.js', ['--name', 'QA Visitado', '--state', 'visitado']) });
+// Verificacion final: todos deben estar en Lista (detecta semilla parcial; no reintentar a mano: duplicaria).
+const expected = [...SEED.map((r) => r.name), ...(args.visited ? ['QA Visitado'] : [])];
+checks.push({ name: 'semilla completa en Lista', ok: run('list.js', ['--expect', expected.join(',')]) });
 q.report('qa:seed', checks);
