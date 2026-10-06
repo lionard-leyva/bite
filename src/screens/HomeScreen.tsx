@@ -1,5 +1,5 @@
 import React, { useReducer, useMemo, useRef, useEffect, useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, Pressable, Platform, Modal, StyleSheet, TextInput } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable, Platform, Modal, StyleSheet, TextInput, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, type Region } from 'react-native-maps';
@@ -9,13 +9,17 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useLocation } from '../hooks/useLocation';
+import { useNavigationETA } from '../hooks/useNavigationETA';
 import FAB from '../components/FAB';
+import MapDetailCard from '../components/MapDetailCard';
 import MatchEntryCard from '../components/MatchEntryCard';
 import MapMarker, { markerAnchorY } from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
 import type { FilterValue } from '../components/FilterButtons';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 import { getPrimaryPhoto, type Restaurant } from '../types';
+import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
+import { timeAgo } from '../utils/timeAgo';
 import {
   CLUSTER_RADIUS,
   CLUSTER_COLOR,
@@ -30,6 +34,9 @@ import {
   EDGE_PADDING_LEFT,
   PRICE_VALUES,
   PRICE_LABELS,
+  SHEET_SPRING_TENSION,
+  SHEET_SPRING_FRICTION,
+  SHEET_DISMISS_TRANSLATE,
 } from '../config/constants';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -224,6 +231,7 @@ export default function HomeScreen() {
   const [spiderProgress, setSpiderProgress] = useState(0);
   const { selectedId, mapExpanded, searchQuery, activeFilter, mapRegion, markerTracks, refocusNonce, spiderCenterId } = state;
   const selectedIdRef = useRef<string | null>(null);
+  const cardTranslateY = useRef(new Animated.Value(SHEET_DISMISS_TRANSLATE)).current;
   const suppressMapPressRef = useRef(false);
   const modalMapRef = useRef<MapView>(null);
   const hasAutoFocusedRef = useRef(false);
@@ -309,6 +317,39 @@ export default function HomeScreen() {
     () => (selectedId ? restaurantMap.get(selectedId) ?? null : null),
     [restaurantMap, selectedId],
   );
+
+  useEffect(() => {
+    if (!selectedId) return;
+    cardTranslateY.setValue(SHEET_DISMISS_TRANSLATE);
+    Animated.spring(cardTranslateY, {
+      toValue: 0,
+      tension: SHEET_SPRING_TENSION,
+      friction: SHEET_SPRING_FRICTION,
+      useNativeDriver: true,
+    }).start();
+  }, [selectedId, cardTranslateY]);
+
+  const { infoText: etaInfoText, etaLoading } = useNavigationETA({
+    restaurantId: selectedId,
+    destLat: selectedRestaurant?.latitude ?? null,
+    destLng: selectedRestaurant?.longitude ?? null,
+    userLat: location.latitude,
+    userLng: location.longitude,
+  });
+
+  const metaLine = useMemo(() => {
+    if (!selectedRestaurant) return '';
+    const parts: string[] = [];
+    const dist =
+      etaInfoText ||
+      (location.latitude != null && location.longitude != null
+        ? formatDistance(haversineKm(location.latitude, location.longitude, selectedRestaurant.latitude, selectedRestaurant.longitude))
+        : null);
+    if (dist) parts.push(dist);
+    parts.push(timeAgo(selectedRestaurant.createdAt));
+    if (selectedRestaurant.pricePerPerson) parts.push(`\u20AC${selectedRestaurant.pricePerPerson}`);
+    return parts.join(' \u00B7 ');
+  }, [selectedRestaurant, etaInfoText, location.latitude, location.longitude]);
 
   const dismissCard = useCallback(() => {
     dispatch({ type: 'patch', payload: { selectedId: null, spiderCenterId: null } });
@@ -451,18 +492,14 @@ export default function HomeScreen() {
       },
     });
 
+    // Keep the current zoom: only recenter, shifted so the marker sits above the bottom card.
     const selectedCoord = coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude };
-    const current = mapRegion ?? initialRegion;
     const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
     if (targetMap) {
-      targetMap.animateToRegion(
-        {
-          latitude: selectedCoord.latitude - (current.latitudeDelta * 0.18),
-          longitude: selectedCoord.longitude,
-          latitudeDelta: current.latitudeDelta,
-          longitudeDelta: current.longitudeDelta,
-        },
-        260,
+      const latitudeDelta = (mapRegion ?? initialRegion).latitudeDelta;
+      targetMap.animateCamera(
+        { center: { latitude: selectedCoord.latitude - (latitudeDelta * 0.18), longitude: selectedCoord.longitude } },
+        { duration: 260 },
       );
     }
 
@@ -717,6 +754,23 @@ export default function HomeScreen() {
           pendingCount={pendingCount}
           onPress={() => navigation.navigate('Match')}
           bottomOffset={FAB_BOTTOM_OFFSET + 8}
+        />
+      )}
+
+      {selectedRestaurant && !mapExpanded && (
+        <MapDetailCard
+          restaurant={selectedRestaurant}
+          translateY={cardTranslateY}
+          metaLine={metaLine}
+          etaLoading={etaLoading}
+          onClose={dismissCard}
+          onDetail={() => {
+            navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
+            dismissCard();
+          }}
+          onNavigate={() =>
+            openNativeNavigation(selectedRestaurant.latitude, selectedRestaurant.longitude, selectedRestaurant.name)
+          }
         />
       )}
 
