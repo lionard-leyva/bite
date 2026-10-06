@@ -125,6 +125,7 @@ cd server && npm install && npm run dev # proxy directions (otra terminal)
 npm run sync                            # PC: git pull + npm install si cambio el lock + aviso de rebuild nativo
 npm test                                # client (jest)
 npm run server:test                     # server (directions + resolveLink)
+npm run test:emulator                   # 2 usuarios + firestore.rules contra Firebase Emulator (necesita Java 21+; no toca bite-ba28f)
 npm run typecheck                       # tsc --noEmit
 npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
 eas build --platform android            # build (ios igual)
@@ -170,7 +171,7 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - **Migracion de fotos locales**: `migrateLocalData()` migra restaurantes pero no re-sube fotos locales a Storage (pasa `photoUri: null`). Las fotos guardadas en modo skip se pierden al migrar. Post-MVP.
 - **Toggle visitado en skip mode**: en modo sin cuenta `DetailScreen` lo guarda en AsyncStorage (`updateLocalRestaurantVisited`).
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Crear en Firebase Console: coleccion `restaurants`, campos `listId` (Ascending) + `createdAt` (Descending). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
-- **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. Las security rules deben permitir read/write en `decisionSessions` y `decisionVotes` a miembros de la lista (minimo: `request.auth != null`).
+- **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. `firestore.rules` (propuesta, no desplegada) limita `decisionSessions` y `decisionVotes` a miembros de la lista; `subscribeVotes` filtra por `listId` + `roundId` para que la regla acepte la query. Minimo si no se despliegan: `request.auth != null`.
 - **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 

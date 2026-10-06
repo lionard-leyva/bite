@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "jest",
+    "test": "jest --selectProjects unit components",
     "test:watch": "jest --watch --selectProjects unit components",
     "server:dev": "cd server && node --watch index.js",
     "server:test": "cd server && npm test",
@@ -23,7 +23,8 @@
     "qa:detail": "node scripts/qa/detail.js",
     "qa:keyboard": "node scripts/qa/keyboard.js",
     "qa:safearea": "node scripts/qa/safearea.js",
-    "sync": "node scripts/sync.js"
+    "sync": "node scripts/sync.js",
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-bite \"jest --selectProjects emulator\""
   },
   "jest": {
     "projects": [
@@ -55,6 +56,16 @@
         "transformIgnorePatterns": [
           "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|nativewind|react-native-map-clustering)"
         ]
+      },
+      {
+        "displayName": "emulator",
+        "testEnvironment": "node",
+        "testMatch": [
+          "**/*.emulator.test.ts"
+        ],
+        "transform": {
+          "\\.[jt]sx?$": "babel-jest"
+        }
       }
     ]
   },
@@ -89,10 +100,12 @@
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.4",
     "babel-preset-expo": "~57.0.0",
+    "firebase-tools": "^15.32.1",
     "jest": "^29.7.0",
     "jest-expo": "~57.0.5",
     "react-native-worklets": "0.10.1",
