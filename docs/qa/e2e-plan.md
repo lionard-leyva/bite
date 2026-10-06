@@ -95,6 +95,27 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado | ❌ |
 | SHL-05 | P2 | Dos dispositivos reales | Ambos ven cambios | Manual (CLAUDE.md §10) o Firebase Emulator (§5) | ❌ |
 
+### 2.6b Compartido (2 usuarios, Emulator Suite)
+
+Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, servicios reales + `firestore.rules` propuestas, sin tocar bite-ba28f). Las reglas no estan desplegadas: los casos RUL pasan contra el archivo, no contra la consola.
+
+| ID | P | Pasos | Esperado | Mecanismo | Estado |
+|---|---|---|---|---|---|
+| EMU-01 | P0 | Ana crea lista, Bea se une con codigo | Ambas en `members[]`, `sharedListId` de Bea | Auto | ✅ |
+| EMU-02 | P0 | Ana y Bea anaden restaurantes con listener | Ambas ven los dos (sync en ambos sentidos) | Auto | ✅ |
+| EMU-03 | P1 | Dos joins simultaneos / dos escrituras al mismo restaurante | Todos miembros; campos distintos no se pierden | Auto | ✅ |
+| EMU-04 | P1 | Bea sale de la lista | Fuera de `members[]`, lista propia nueva | Auto | ✅ |
+| EMU-05 | P0 | Ambos abren Match a la vez | Misma ronda (transaccion) | Auto | ✅ |
+| EMU-06 | P0 | Ambos dan LIKE al mismo sitio, ambos llaman `markMatched` | Un solo MATCHED con el restaurante; ronda distinta se ignora | Auto | ✅ |
+| EMU-07 | P0 | Bea vota con id/usuario de Ana | Denegado | Auto | ✅ |
+| RUL-01 | P0 | Tercero logueado lee/escribe restaurantes, sesion, lista ajena | Denegado (no es miembro) | Auto | ✅ |
+| RUL-02 | P0 | Usuario sin sesion lee/escribe | Denegado | Auto | ✅ |
+| RUL-03 | P1 | Tercero se anade con otro uid, cambia ownerId o borra lista | Denegado; solo anadirse a si mismo pasa | Auto | ✅ |
+| RUL-04 | P1 | Firmar restaurante como otro / moverlo a lista ajena | Denegado | Auto | ✅ |
+| RUL-05 | P2 | Tercero lee votos de la ronda | Permitido (limitacion: secreto solo de UI) | Auto | ✅ (documentado) |
+| EMU-08 | P2 | Dos dispositivos reales con cuentas distintas | Ambos ven cambios y match en pantalla | Manual (CLAUDE.md §10) | ❌ |
+| EMU-09 | P2 | Desplegar `firestore.rules` en la consola y repetir el flujo de pareja | La app sigue funcionando | Manual (lio) | ❌ |
+
 ### 2.7 Visitado / Pendiente
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
