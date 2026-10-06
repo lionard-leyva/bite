@@ -27,6 +27,10 @@ jobs:
       FIREBASE_MESSAGING_SENDER_ID: '0'
       FIREBASE_APP_ID: 1:0:android:0
     steps:
+      - name: Liberar disco (build + imagen del emulador no caben)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules
+          df -h /
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -46,6 +50,9 @@ jobs:
         run: |
           npx expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/bite.apk"
+          rm -rf app/build app/.cxx .gradle "$HOME/.gradle/caches" "$HOME/.gradle/wrapper"
+          df -h /
 
       - name: Activar KVM
         run: |
@@ -63,7 +70,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            adb install -r "$RUNNER_TEMP/bite.apk"
             npm run qa:all -- --release
 
       - name: Capturas y logs
