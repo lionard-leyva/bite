@@ -1,5 +1,7 @@
 // QA: Lista con filtros y busqueda (VIS-01, SRC-02).
 // Uso: npm run qa:list -- [--filter todos|pendientes|visitados] [--search "texto"] --expect "A,B" [--absent "C,D"] [--restore "C"]
+// Varios filtros en un mismo arranque: --filter visitados,pendientes --expect "A;B,C" --absent "B;A" (grupos separados por ';', uno por filtro).
+// Con --search tras varios filtros, --expect/--absent se aplican al ultimo grupo (la busqueda parte del ultimo filtro).
 // --restore: nombres que deben volver tras "Limpiar busqueda".
 const q = require('./adb');
 
@@ -11,7 +13,21 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
   q.clearLogcat();
   await q.openTab('Lista');
 
-  const filter = typeof args.filter === 'string' ? args.filter.toLowerCase() : 'todos';
+  const filters = (typeof args.filter === 'string' ? args.filter.toLowerCase() : 'todos').split(',').map((s) => s.trim());
+  const groups = (v) => (typeof v === 'string' ? v.split(';') : []);
+  const expects = groups(args.expect);
+  const absents = groups(args.absent);
+  const filter = filters[filters.length - 1];
+  let shot = '';
+  for (let i = 0; i < filters.length - 1; i++) {
+    await q.tapLabel(new RegExp(`^${filters[i]}$`, 'i'), 8000);
+    await q.sleep(800);
+    const xml = await q.dumpUi();
+    for (const n of names(expects[i])) checks.push({ name: `[${filters[i]}] muestra "${n}"`, ok: !!q.findNode(xml, n) });
+    for (const n of names(absents[i])) checks.push({ name: `[${filters[i]}] oculta "${n}"`, ok: !q.findNode(xml, n) });
+    shot = q.screenshot(`list-${filters[i]}`);
+  }
+  const last = filters.length - 1;
   await q.tapLabel(new RegExp(`^${filter}$`, 'i'), 8000);
   await q.sleep(800);
 
@@ -23,9 +39,9 @@ const names = (v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()).
   }
 
   const xml = await q.dumpUi();
-  for (const n of names(args.expect)) checks.push({ name: `muestra "${n}"`, ok: !!q.findNode(xml, n) });
-  for (const n of names(args.absent)) checks.push({ name: `oculta "${n}"`, ok: !q.findNode(xml, n) });
-  const shot = q.screenshot(`list-${filter}${args.search ? '-search' : ''}`);
+  for (const n of names(expects[last])) checks.push({ name: `muestra "${n}"`, ok: !!q.findNode(xml, n) });
+  for (const n of names(absents[last])) checks.push({ name: `oculta "${n}"`, ok: !q.findNode(xml, n) });
+  shot = q.screenshot(`list-${filter}${args.search ? '-search' : ''}`);
 
   if (typeof args.search === 'string') {
     await q.tapLabel('Limpiar busqueda', 8000);

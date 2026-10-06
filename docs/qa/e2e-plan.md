@@ -236,3 +236,6 @@ BITE_RELEASE=1 npm run qa:all -- --release   # incluye SHR-03 (build release ins
 `qa:all` (`scripts/qa/all.js`) ejecuta los bloques de §6 en orden, salta los de dispositivo si `adb get-state` no da `device`, detiene los bloques siguientes tras un P0 en FAIL e imprime `OK|FAIL|SKIP ID P# titulo`. Exit code 1 si falla algun P0. Despues, para los casos visuales: pasar `qa-out/location.png`, `qa-out/keyboard-*.png` y `qa-out/safearea-*.png` al subagente `qa-visual-triage`.
 
 El emulador es compartido: no lanzar `qa:all` si otro hilo lo esta usando (`pm clear` borra sus datos).
+
+### Fusiones en `qa:all` (menos arranques en frio)
+SHR-01 lo cubre la semilla (primer compartir con `--banner`); VIS-01/01b en una sola `qa:list` (`--filter visitados,pendientes`, grupos `;`); VIS-02 va dentro de DET-01 (`--toggle`); LOC-01 reutiliza la app tras MAP-01 (`qa:location --keep`). Pendiente de validar en emulador.

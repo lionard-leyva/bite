@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --selectProjects unit components",
-    "test:watch": "jest --watch",
+    "test:watch": "jest --watch --selectProjects unit components",
     "server:dev": "cd server && node --watch index.js",
     "server:test": "cd server && npm test",
     "typecheck": "tsc --noEmit",

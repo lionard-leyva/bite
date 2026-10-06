@@ -5,6 +5,8 @@
 const q = require('./adb');
 
 const SAMPLE = 'gjpqy Gyoza';
+// Margen en px: el nodo del campo incluye padding/sombra y el frame del IME puede ir unos px por delante.
+const TOL = 24;
 
 async function checkField(checks, screen, hint) {
   await q.tapLabel(hint, 8000);
@@ -13,13 +15,16 @@ async function checkField(checks, screen, hint) {
   await q.sleep(1200);
   const xml = await q.dumpUi();
   const field = q.parseNodes(xml).find((n) => n.focused && /EditText/.test(n.cls)) || q.findNode(xml, SAMPLE);
-  const ime = q.systemInsets().ime;
+  const { h } = q.screenSize();
+  const raw = q.systemInsets().ime;
+  // Un frame de IME que no es una franja inferior (p. ej. de otra ventana) se ignora: solo valdria el screenshot.
+  const ime = raw && raw.y1 > h * 0.4 ? raw : null;
   const tag = `${screen}-${hint.split(' ')[0].toLowerCase()}`;
   q.screenshot(`keyboard-${tag}`);
   checks.push({ name: `${screen}/${hint}: texto escrito`, ok: !!field && field.text === SAMPLE, info: field ? field.text : 'sin campo enfocado' });
   checks.push({
     name: `${screen}/${hint}: campo por encima del teclado`,
-    ok: !!field && (!ime || field.y2 <= ime.y1),
+    ok: !!field && (!ime || field.y2 <= ime.y1 + TOL),
     info: ime ? `campo y2=${field ? field.y2 : '?'} teclado y1=${ime.y1}` : 'teclado no detectado en dumpsys (solo screenshot)',
   });
   q.hideKeyboard();
