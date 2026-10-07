@@ -39,7 +39,8 @@
           "**/listService.test.ts",
           "**/decisionService.test.ts",
           "**/qaSeed.test.ts",
-          "**/keyboardOverlap.test.ts"
+          "**/keyboardOverlap.test.ts",
+          "**/safeAreaOffenders.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

@@ -1,29 +1,17 @@
 // QA: safe areas (SAF-01/02). En cada pantalla, ningun elemento de Bite con texto, descripcion o clicable
 // puede solaparse con la status bar ni con la barra de navegacion/gestos (insets de `dumpsys window`).
-// Uso: npm run qa:safearea -- [--restaurant "Casa Lucio"] [--top PX --bottom PX]   (--top/--bottom fuerzan los insets)
+// Uso: npm run qa:safearea -- [--restaurant "Casa Lucio"] [--top PX --bottom PX]   (--top/--bottom o BITE_INSET_TOP/BOTTOM fuerzan los insets)
 const q = require('./adb');
-
-// Tolerancia en px: bordes/sombras de 1-5 px bajo el inset no son contenido tapado (falso positivo).
-const TOL = 6;
-
-function offenders(xml, top, bottom, screenH) {
-  return q.parseNodes(xml).filter((n) => {
-    if (n.pkg !== q.PKG || n.y2 <= n.y1) return false;
-    if (!(n.clickable || n.text || n.desc)) return false;
-    if ((n.y2 - n.y1) > screenH * 0.6) return false; // contenedores y el mapa a pantalla completa
-    // Contenedor clicable sin texto ni descripcion (fondo de pantalla/scroll): no es contenido visible.
-    if (!n.text && !n.desc && (n.y2 - n.y1) > screenH * 0.3) return false;
-    return n.y1 < top - TOL || n.y2 > screenH - bottom + TOL;
-  });
-}
+const { offenders } = require('./safearea-offenders');
 
 (async () => {
   const args = q.parseArgs();
   const checks = [];
   const { h } = q.screenSize();
   const ins = q.systemInsets();
-  const top = Number(args.top) || (ins.status ? ins.status.y2 : 0);
-  const bottom = Number(args.bottom) || (ins.nav ? ins.nav.y2 - ins.nav.y1 : 0);
+  // dumpsys lista varias fuentes de insets y la primera cambia entre ejecuciones: en CI se fijan los del AVD.
+  const top = Number(args.top) || Number(process.env.BITE_INSET_TOP) || (ins.status ? ins.status.y2 : 0);
+  const bottom = Number(args.bottom) || Number(process.env.BITE_INSET_BOTTOM) || (ins.nav ? ins.nav.y2 - ins.nav.y1 : 0);
   checks.push({ name: 'insets detectados', ok: top > 0 && bottom > 0, info: `top=${top}px bottom=${bottom}px pantalla=${h}px` });
 
   const screens = [
