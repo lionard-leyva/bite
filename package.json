@@ -42,7 +42,9 @@
           "**/keyboardOverlap.test.ts",
           "**/safeAreaOffenders.test.ts",
           "**/*.feature.test.ts",
-          "**/featureLinks.test.ts"
+          "**/featureLinks.test.ts",
+          "**/screenSummary.test.ts",
+          "**/qaReveal.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

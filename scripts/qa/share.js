@@ -49,6 +49,7 @@ const shQuote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
 
   if (args.save && xml) {
     await q.tapLabel('3 estrellas', 8000);
+    await q.revealLabel('Guardar'); // bajo el pliegue en el formulario prellenado
     await q.tapLabel('Guardar', 8000);
     await q.tapLabel('Lista', 15000);
     await q.sleep(1500);

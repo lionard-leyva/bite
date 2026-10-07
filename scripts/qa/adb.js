@@ -2,6 +2,7 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { missingMessage } = require('./screen-summary');
 
 const PKG = 'com.lionardleyva.bite';
 const OUT_DIR = path.join(__dirname, '..', '..', 'qa-out');
@@ -85,12 +86,16 @@ function findNodes(xml, label) {
   return parseNodes(xml).filter((n) => test(n.text) || test(n.desc) || test(n.hint));
 }
 
+// Ultimo volcado de UI de waitFor: si el paso falla, el error dice que habia en pantalla.
+let lastXml = '';
+
 async function waitFor(labels, timeoutMs = 15000) {
   const list = [].concat(labels);
   const end = Date.now() + timeoutMs;
   while (Date.now() < end) {
     // Tras `pm clear` la primera carga del bundle da "null root node" durante mas de 10 dumps: seguir hasta el timeout.
     const xml = await dumpUi().catch(() => '');
+    lastXml = xml;
     for (const l of list) {
       const node = findNode(xml, l);
       if (node) return { label: l, node, xml };
@@ -104,7 +109,7 @@ const tap = (x, y) => adb(['shell', 'input', 'tap', String(x), String(y)]);
 
 async function tapLabel(label, timeoutMs) {
   const hit = await waitFor(label, timeoutMs);
-  if (!hit) throw new Error(`No aparece "${label}"`);
+  if (!hit) throw new Error(missingMessage(label, parseNodes(lastXml), PKG));
   tap(hit.node.x, hit.node.y);
   return hit;
 }
@@ -260,6 +265,17 @@ async function dismissDevMenu() {
   }
 }
 
+// Los nodos fuera de pantalla no salen en el volcado de uiautomator: desliza hasta que `label` entre en el arbol.
+async function revealLabel(label, maxSwipes = 4) {
+  for (let i = 0; i < maxSwipes; i++) {
+    const hit = findNode(await dumpUi(), label);
+    if (hit) return hit;
+    swipeUp();
+    await sleep(600);
+  }
+  return findNode(await dumpUi(), label);
+}
+
 const clearLogcat = () => adb(['logcat', '-c']);
 
 // Errores JS/nativos desde el ultimo clearLogcat: rechazos sin capturar, crashes, redbox.
@@ -283,5 +299,5 @@ function report(name, checks, extra = []) {
 module.exports = {
   PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, findNodes, waitFor, tap, tapLabel,
   typeText, hideKeyboard, swipeUp, swipeDown, inList, tapInList, screenSize, systemInsets, openTab,
-  screenshot, launchApp, goToMap, clearLogcat, logcatErrors, report,
+  screenshot, launchApp, goToMap, revealLabel, clearLogcat, logcatErrors, report,
 };
