@@ -38,7 +38,8 @@
           "**/shareParser.test.ts",
           "**/listService.test.ts",
           "**/decisionService.test.ts",
-          "**/qaSeed.test.ts"
+          "**/qaSeed.test.ts",
+          "**/keyboardOverlap.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"
