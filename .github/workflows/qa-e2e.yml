@@ -85,6 +85,11 @@ jobs:
       # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
       BITE_RELEASE: '1'
     steps:
+      # El AVD pixel_7 pide 7,3 GB de userdata y un runner limpio solo trae ~6,9 GB libres.
+      - name: Liberar disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -116,6 +121,7 @@ jobs:
           profile: pixel_7
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
+          disk-size: 4096M
           script: |
             adb install -r bite.apk
             adb shell settings put global hide_error_dialogs 1
