@@ -231,7 +231,9 @@ function launchApp() {
 const OVERLAYS = ['Continue', 'Wait', 'Go home', 'While using the app', 'Allow'];
 async function goToMap() {
   let first = null;
-  for (let i = 0; i < 8; i++) {
+  // Por tiempo y no por numero de intentos: un emulador lento reabre el ANR del launcher varias veces seguidas.
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
     first = await waitFor([...OVERLAYS, 'Continuar sin cuenta', 'Mapa'], 30000);
     if (!first || !OVERLAYS.includes(first.label)) break;
     if (first.label === 'Go home') adb(['shell', 'input', 'keyevent', '4']);

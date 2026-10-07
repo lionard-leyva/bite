@@ -3,7 +3,8 @@
 //   --p0      solo casos bloqueantes      --static  solo typecheck + Jest + server (sin emulador)
 //   --only    ids concretos (los bloques estaticos/reset no se saltan salvo que se pida --static)
 //   --release incluye SHR-03 (arranque en frio; requiere build release instalada y BITE_RELEASE=1)
-// Un bloque con un P0 en FAIL detiene los bloques siguientes. Exit code 1 si algun P0 falla.
+// Un bloque con un P0 en FAIL detiene los bloques siguientes, salvo con --keep-going (CI: un solo run muestra todos
+// los fallos). Exit code 1 si algun P0 falla.
 const { spawnSync, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -96,7 +97,7 @@ for (const block of BLOCKS) {
     }
     results.push({ ...s, status, info: status === 'SKIP' && !stop && block.device && !hasDevice ? 'sin emulador' : '' });
   }
-  if (results.some((r) => r.status === 'FAIL' && r.p === 0)) stop = true;
+  if (!args['keep-going'] && results.some((r) => r.status === 'FAIL' && r.p === 0)) stop = true;
 }
 
 console.log('\n=== Resumen ===');
