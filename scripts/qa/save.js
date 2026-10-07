@@ -39,6 +39,8 @@ async function inList(name, filter) {
     const name = typeof args.name === 'string' ? args.name : 'QA Manual';
     const visited = String(args.state || 'pendiente').toLowerCase().startsWith('v');
     await fill('Nombre del restaurante', name);
+    q.hideKeyboard(); // con el teclado abierto Direccion y Rating no salen en el arbol (visto en CI)
+    await q.sleep(500);
     await fill('Direccion del restaurante', typeof args.address === 'string' ? args.address : 'Calle Mayor 1, Madrid');
     q.hideKeyboard();
     await q.sleep(500);

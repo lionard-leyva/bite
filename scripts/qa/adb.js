@@ -265,6 +265,17 @@ async function dismissDevMenu() {
   }
 }
 
+// Los nodos fuera de pantalla no salen en el volcado de uiautomator: desliza hasta que `label` entre en el arbol.
+async function revealLabel(label, maxSwipes = 4) {
+  for (let i = 0; i < maxSwipes; i++) {
+    const hit = findNode(await dumpUi(), label);
+    if (hit) return hit;
+    swipeUp();
+    await sleep(600);
+  }
+  return findNode(await dumpUi(), label);
+}
+
 const clearLogcat = () => adb(['logcat', '-c']);
 
 // Errores JS/nativos desde el ultimo clearLogcat: rechazos sin capturar, crashes, redbox.
@@ -288,5 +299,5 @@ function report(name, checks, extra = []) {
 module.exports = {
   PKG, METRO_URL, adb, sleep, parseArgs, dumpUi, parseNodes, findNode, findNodes, waitFor, tap, tapLabel,
   typeText, hideKeyboard, swipeUp, swipeDown, inList, tapInList, screenSize, systemInsets, openTab,
-  screenshot, launchApp, goToMap, clearLogcat, logcatErrors, report,
+  screenshot, launchApp, goToMap, revealLabel, clearLogcat, logcatErrors, report,
 };
