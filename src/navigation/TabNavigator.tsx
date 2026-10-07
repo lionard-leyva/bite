@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import ListScreen from '../screens/ListScreen';
@@ -9,6 +10,9 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function TabNavigator() {
   useShareIntent();
+  const insets = useSafeAreaInsets();
+  // Con navegacion por gestos el indicador del sistema cruza las etiquetas si la altura es fija.
+  const bottomPadding = Math.max(insets.bottom, 8);
 
   return (
     <Tab.Navigator
@@ -18,8 +22,8 @@ export default function TabNavigator() {
         tabBarInactiveTintColor: '#8E8E93',
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarStyle: {
-          height: 60,
-          paddingBottom: 8,
+          height: 52 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 4,
         },
       }}

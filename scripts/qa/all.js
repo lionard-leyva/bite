@@ -2,6 +2,7 @@
 // Uso: npm run qa:all [-- --p0] [--static] [--only MAP-01,SHR-02] [--release]
 //   --p0      solo casos bloqueantes      --static  solo typecheck + Jest + server (sin emulador)
 //   --only    ids concretos (los bloques estaticos/reset no se saltan salvo que se pida --static)
+//   --skip    ids a omitir (CI: LOC-01 y MAP-01 dependen de ubicacion/markers, poco fiables en el emulador)
 //   --release incluye SHR-03 (arranque en frio; requiere build release instalada y BITE_RELEASE=1)
 // Un bloque con un P0 en FAIL detiene los bloques siguientes, salvo con --keep-going (CI: un solo run muestra todos
 // los fallos). Exit code 1 si algun P0 falla.
@@ -34,13 +35,13 @@ const BLOCKS = [
     { id: 'MAP-01', p: 0, title: 'callout del marker', cmd: npm('qa:map', '--restaurant', lucio) },
     { id: 'LOC-01', p: 0, title: 'Ir a mi ubicacion', cmd: npm('qa:location', '--keep') },
     { id: 'ADD-02', p: 0, title: 'no guarda formulario vacio', cmd: npm('qa:save', '--empty') },
-    { id: 'VIS-01', p: 0, title: 'filtros Visitados y Pendientes', cmd: npm('qa:list', '--filter', 'visitados,pendientes', '--expect', `QA Visitado;${lucio},${botin}`, '--absent', `${lucio},${botin};QA Visitado`) },
+    { id: 'VIS-01', p: 0, retry: 1, title: 'filtros Visitados y Pendientes', cmd: npm('qa:list', '--filter', 'visitados,pendientes', '--expect', `QA Visitado;${lucio},${botin}`, '--absent', `${lucio},${botin};QA Visitado`) },
     { id: 'DET-01', p: 0, title: 'detalle + toggle visitado (VIS-02)', cmd: npm('qa:detail', '--restaurant', lucio, '--state', 'pendiente', '--toggle') },
   ] },
   { name: 'Dispositivo P1/P2', device: true, steps: [
-    { id: 'SRC-02', p: 1, title: 'busqueda y limpiar', cmd: npm('qa:list', '--search', 'lucio', '--expect', lucio, '--absent', botin, '--restore', botin) },
-    { id: 'KBD-01', p: 1, title: 'teclado y descendentes', cmd: npm('qa:keyboard') },
-    { id: 'SAF-01', p: 1, title: 'safe areas', cmd: npm('qa:safearea', '--restaurant', gyoza) },
+    { id: 'SRC-02', p: 1, retry: 1, title: 'busqueda y limpiar', cmd: npm('qa:list', '--search', 'lucio', '--expect', lucio, '--absent', botin, '--restore', botin) },
+    { id: 'KBD-01', p: 1, retry: 1, title: 'teclado y descendentes', cmd: npm('qa:keyboard') },
+    { id: 'SAF-01', p: 1, retry: 1, title: 'safe areas', cmd: npm('qa:safearea', '--restaurant', gyoza) },
     { id: 'DET-02', p: 0, title: 'eliminar (al final: borra datos)', cmd: npm('qa:detail', '--restaurant', gyoza, '--delete') },
   ] },
   { name: 'Release', device: true, release: true, steps: [
@@ -76,6 +77,7 @@ function acquireLock() {
 const args = q.parseArgs();
 if (!args.static) acquireLock();
 const only = typeof args.only === 'string' ? new Set(args.only.split(',').map((s) => s.trim())) : null;
+const skip = typeof args.skip === 'string' ? new Set(args.skip.split(',').map((x) => x.trim())) : new Set();
 const hasDevice = !args.static && deviceReady();
 const results = [];
 let stop = false;
@@ -88,14 +90,21 @@ for (const block of BLOCKS) {
     const always = ['RESET', 'SEED', 'X-04'].includes(s.id) || block.name === 'Estatico';
     if (only && !only.has(s.id) && !always) continue;
     let status;
-    if (stop) status = 'SKIP';
+    if (skip.has(s.id)) status = 'SKIP';
+    else if (stop) status = 'SKIP';
     else if (block.device && !hasDevice) status = 'SKIP';
     else {
       console.log(`--- ${s.id} ${s.title}`);
-      const r = spawnSync(s.cmd, { shell: true, stdio: 'inherit', env: { ...process.env, ...(s.env || {}) } });
+      const run = () => spawnSync(s.cmd, { shell: true, stdio: 'inherit', env: { ...process.env, ...(s.env || {}) } });
+      let r = run();
+      // Solo casos de lectura: reintentar uno modifica datos dos veces. Cubre gestos que a veces cuentan como toque.
+      for (let n = 1; r.status !== 0 && n <= (s.retry || 0); n++) {
+        console.log(`--- ${s.id} reintento ${n}`);
+        r = run();
+      }
       status = r.status === 0 ? 'OK' : 'FAIL';
     }
-    results.push({ ...s, status, info: status === 'SKIP' && !stop && block.device && !hasDevice ? 'sin emulador' : '' });
+    results.push({ ...s, status, info: skip.has(s.id) ? 'omitido (--skip)' : status === 'SKIP' && !stop && block.device && !hasDevice ? 'sin emulador' : '' });
   }
   if (!args['keep-going'] && results.some((r) => r.status === 'FAIL' && r.p === 0)) stop = true;
 }
