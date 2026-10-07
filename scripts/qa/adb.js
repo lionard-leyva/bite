@@ -187,7 +187,9 @@ async function openTab(label) {
 
 function screenshot(name) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const file = path.join(OUT_DIR, `${name}.png`);
+  // upload-artifact de GitHub rechaza `: * ? " < > |` en nombres: un solo archivo invalido tira todo el artefacto.
+  const safe = String(name).replace(/[^A-Za-z0-9._-]+/g, '-');
+  const file = path.join(OUT_DIR, `${safe}.png`);
   fs.writeFileSync(file, adb(['exec-out', 'screencap', '-p'], { binary: true }));
   return path.relative(process.cwd(), file);
 }
