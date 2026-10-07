@@ -39,6 +39,7 @@ server/             # Express proxy (directions API, resolve-link de Maps, rate 
 modules/share-intent/ # Modulo Expo local (Android): texto compartido a Bite (ACTION_SEND)
 src/
 ├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
+features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por jest-cucumber (ver §10)
 ├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
 ├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
@@ -215,6 +216,23 @@ Notas:
 - Tras `pm clear` el dev-client muestra su bienvenida/menu y Gboard el aviso "Try out your stylus": `adb.js` cierra el menu y desactiva `stylus_handwriting_enabled`. El boton flotante de engranaje (arriba a la derecha) es del dev-client, no de Bite.
 - Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
 - `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
+
+### Pruebas de aceptacion en Gherkin (`features/`)
+
+Los comportamientos de negocio se definen en `.feature` en espanol (`# language: es`) y se ejecutan con `jest-cucumber`. El `.feature` es la fuente: pasos declarativos y de negocio (nunca de interfaz), un escenario por comportamiento, etiquetado con el ID del caso de `docs/qa/e2e-plan.md` (`@SHL-02`, `@MCH-03`...). No es una traduccion 1:1 de `qa:all`.
+
+| Feature | Casos | Ejecuta | Proyecto Jest |
+|---|---|---|---|
+| `compartir-lista.feature` | SHL-01..03 | `listService` en Firestore en memoria | unit |
+| `donde-cenamos.feature` | MCH-01, 02, 03, 06 | `decisionService` + `matchLogic` en memoria | unit |
+| `guardar-desde-compartir.feature` | SHR-01, 02, 04 | `shareParser` | unit |
+| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
+
+- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit, corren con `npm test` y en `ci.yml`) y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
+- `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
+- `featureLinks.test.ts` exige que cada `@ID` este enlazado desde `docs/qa/e2e-plan.md`.
+- **Regla: un comportamiento nuevo se describe primero en un `.feature`** (con su ID del plan), se ve fallar por falta de pasos/comportamiento y solo entonces se implementa. Despues, una mutacion a proposito del codigo (o de las reglas) debe romper el escenario; si sobrevive, el escenario es decorativo.
+- Limites: el estado "Pendiente" y la nota "Visto en X" los fija `SaveScreen` (UI) y no estan cubiertos; MCH-06 comprueba que la sesion no lleva votos ni revela match prematuro, no lo que pinta `MatchScreen`. Fuera de alcance: migracion skip a cuenta (esta en `AuthContext`).
 
 ### Manual (solo flujos no automatizados)
 

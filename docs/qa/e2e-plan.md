@@ -4,6 +4,8 @@ Objetivo: que un agente QA ejecute la regresion end to end sin ayuda, con el mec
 
 Regla de coste (por orden): test Jest/servidor > script adb determinista > procedimiento documentado > Mobile MCP (solo para mirar un screenshot o explorar un flujo nuevo).
 
+Los casos con enlace **Gherkin** en la columna Mecanismo tienen su comportamiento de negocio definido y ejecutado en `features/*.feature` (en español, ver CLAUDE.md §10). `src/__tests__/featureLinks.test.ts` falla si una etiqueta `@ID` de un `.feature` no esta enlazada desde su fila.
+
 ## 1. Precondiciones
 
 | Item | Valor |
@@ -66,10 +68,10 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| SHR-01 | P0 | App abierta, compartir URL larga de Maps | "Guardar restaurante", banner "Desde Google Maps", nombre prellenado | `npm run qa:share -- --text "<url>" --name "Casa Lucio" --banner "Desde Google Maps"` | ✅ |
-| SHR-02 | P0 | SHR-01 + `--save` | Queda como Pendiente | `qa:share ... --save` | ✅ |
+| SHR-01 | P0 | App abierta, compartir URL larga de Maps | "Guardar restaurante", banner "Desde Google Maps", nombre prellenado | `npm run qa:share -- --text "<url>" --name "Casa Lucio" --banner "Desde Google Maps"` + [Gherkin](../../features/guardar-desde-compartir.feature) | ✅ |
+| SHR-02 | P0 | SHR-01 + `--save` | Queda como Pendiente | `qa:share ... --save` + [Gherkin](../../features/guardar-desde-compartir.feature) | ✅ |
 | SHR-03 | P0 | App cerrada (arranque en frio) | Igual que SHR-01 | `BITE_RELEASE=1 npm run qa:share -- --state closed ...` (solo release) | ✅ (requiere release) |
-| SHR-04 | P1 | Texto de Instagram / TikTok | Nota "Visto en X: url", sin nombre si el texto es largo | `qa:share` sin `--name` + `shareParser.test.ts` | ✅ |
+| SHR-04 | P1 | Texto de Instagram / TikTok | Nota "Visto en X: url", sin nombre si el texto es largo | `qa:share` sin `--name` + `shareParser.test.ts` + [Gherkin](../../features/guardar-desde-compartir.feature) | ✅ |
 | SHR-05 | P1 | `maps.app.goo.gl` corto | Resuelve via `/api/resolve-link`; fallback en dispositivo | `server:test` (resolveLink) + `qa:share` con proxy | 🟡 (E2E depende de red) |
 
 ### 2.5 Match (¿Donde cenamos hoy?)
@@ -78,20 +80,20 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| MCH-01 | P0 | Candidatos: pendientes ordenados por Haversine, max 10 | Orden y limite correctos | `matchLogic.test.ts` | ✅ |
-| MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | `decisionService.test.ts` (markMatched concurrente, Firestore en memoria) | ✅ |
-| MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) | ✅ |
+| MCH-01 | P0 | Candidatos: pendientes ordenados por Haversine, max 10 | Orden y limite correctos | `matchLogic.test.ts` + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
+| MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | `decisionService.test.ts` (markMatched concurrente, Firestore en memoria) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
+| MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | `decisionService.test.ts` (ronda de 13 h) | ✅ |
 | MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen | 🟡 |
-| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen | ❌ |
+| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) | ❌ |
 
 ### 2.6 Listas compartidas
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | `listService.test.ts` | ✅ |
-| SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | `listService.test.ts` | ✅ |
-| SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | `listService.test.ts` | ✅ |
+| SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
+| SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
+| SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
 | SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado | ❌ |
 | SHL-05 | P2 | Dos dispositivos reales | Ambos ven cambios | Manual (CLAUDE.md §10) o Firebase Emulator (§5) | ❌ |
 
@@ -101,15 +103,15 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| EMU-01 | P0 | Ana crea lista, Bea se une con codigo | Ambas en `members[]`, `sharedListId` de Bea | Auto | ✅ |
-| EMU-02 | P0 | Ana y Bea anaden restaurantes con listener | Ambas ven los dos (sync en ambos sentidos) | Auto | ✅ |
+| EMU-01 | P0 | Ana crea lista, Bea se une con codigo | Ambas en `members[]`, `sharedListId` de Bea | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
+| EMU-02 | P0 | Ana y Bea anaden restaurantes con listener | Ambas ven los dos (sync en ambos sentidos) | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
 | EMU-03 | P1 | Dos joins simultaneos / dos escrituras al mismo restaurante | Todos miembros; campos distintos no se pierden | Auto | ✅ |
 | EMU-04 | P1 | Bea sale de la lista | Fuera de `members[]`, lista propia nueva | Auto | ✅ |
-| EMU-05 | P0 | Ambos abren Match a la vez | Misma ronda (transaccion) | Auto | ✅ |
-| EMU-06 | P0 | Ambos dan LIKE al mismo sitio, ambos llaman `markMatched` | Un solo MATCHED con el restaurante; ronda distinta se ignora | Auto | ✅ |
-| EMU-07 | P0 | Bea vota con id/usuario de Ana | Denegado | Auto | ✅ |
-| RUL-01 | P0 | Tercero logueado lee/escribe restaurantes, sesion, lista ajena | Denegado (no es miembro) | Auto | ✅ |
-| RUL-02 | P0 | Usuario sin sesion lee/escribe | Denegado | Auto | ✅ |
+| EMU-05 | P0 | Ambos abren Match a la vez | Misma ronda (transaccion) | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
+| EMU-06 | P0 | Ambos dan LIKE al mismo sitio, ambos llaman `markMatched` | Un solo MATCHED con el restaurante; ronda distinta se ignora | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
+| EMU-07 | P0 | Bea vota con id/usuario de Ana | Denegado | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
+| RUL-01 | P0 | Tercero logueado lee/escribe restaurantes, sesion, lista ajena | Denegado (no es miembro) | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
+| RUL-02 | P0 | Usuario sin sesion lee/escribe | Denegado | Auto + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ |
 | RUL-03 | P1 | Tercero se anade con otro uid, cambia ownerId o borra lista | Denegado; solo anadirse a si mismo pasa | Auto | ✅ |
 | RUL-04 | P1 | Firmar restaurante como otro / moverlo a lista ajena | Denegado | Auto | ✅ |
 | RUL-05 | P1 | Tercero lee votos de la ronda (get y query por lista) | Denegado; miembros leen con query `listId`+`roundId` | Auto | ✅ |

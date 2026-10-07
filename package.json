@@ -41,7 +41,8 @@
           "**/qaSeed.test.ts",
           "**/keyboardOverlap.test.ts",
           "**/safeAreaOffenders.test.ts",
-          "**/*.feature.test.ts"
+          "**/*.feature.test.ts",
+          "**/featureLinks.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"
