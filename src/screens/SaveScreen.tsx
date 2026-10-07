@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useReducer, useRef, useEffect } from 'react';
 import {
   View,
@@ -49,8 +50,10 @@ function SectionLabel({ children }: { children: string }) {
 }
 
 function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  // El modal de Android dibuja bajo la barra de estado (edge-to-edge): sin esto la X queda sobre el reloj.
+  const insets = useSafeAreaInsets();
   return (
-    <>
+    <View style={{ paddingTop: Platform.OS === 'android' ? insets.top : 0 }}>
       <DragHandle />
       <View
         style={{
@@ -87,7 +90,7 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
         </Text>
         <View style={{ width: 32 }} />
       </View>
-    </>
+    </View>
   );
 }
 

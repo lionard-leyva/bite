@@ -187,7 +187,9 @@ async function openTab(label) {
 
 function screenshot(name) {
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  const file = path.join(OUT_DIR, `${name}.png`);
+  // upload-artifact de GitHub rechaza `: * ? " < > |` en nombres: un solo archivo invalido tira todo el artefacto.
+  const safe = String(name).replace(/[^A-Za-z0-9._-]+/g, '-');
+  const file = path.join(OUT_DIR, `${safe}.png`);
   fs.writeFileSync(file, adb(['exec-out', 'screencap', '-p'], { binary: true }));
   return path.relative(process.cwd(), file);
 }
@@ -227,10 +229,13 @@ function launchApp() {
 // Tras `pm clear` el dev-client abre su menu (bienvenida "Continue" y luego el menu con "Go home") y, con el
 // emulador recien arrancado, puede salir el ANR "System UI isn't responding" ("Wait"): se cierran todos.
 // Los overlays van primero: AuthScreen sigue en el arbol debajo y el tap caeria en el sheet.
-const OVERLAYS = ['Continue', 'Wait', 'Go home'];
+// Tras `pm clear` Android vuelve a pedir permisos (ubicacion, notificaciones...) y el dialogo tapa la app.
+const OVERLAYS = ['Continue', 'Wait', 'Go home', 'While using the app', 'Allow'];
 async function goToMap() {
   let first = null;
-  for (let i = 0; i < 5; i++) {
+  // Por tiempo y no por numero de intentos: un emulador lento reabre el ANR del launcher varias veces seguidas.
+  const deadline = Date.now() + 120000;
+  while (Date.now() < deadline) {
     first = await waitFor([...OVERLAYS, 'Continuar sin cuenta', 'Mapa'], 30000);
     if (!first || !OVERLAYS.includes(first.label)) break;
     if (first.label === 'Go home') adb(['shell', 'input', 'keyevent', '4']);

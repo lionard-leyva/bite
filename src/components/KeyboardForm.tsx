@@ -1,5 +1,6 @@
-import { KeyboardAvoidingView, ScrollView, Platform, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
-import type { ReactNode, Ref } from 'react';
+import { Keyboard, KeyboardAvoidingView, ScrollView, View, Platform, type ScrollViewProps, type StyleProp, type ViewStyle } from 'react-native';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode, type Ref } from 'react';
+import { keyboardOverlap } from '../utils/keyboardOverlap';
 
 interface KeyboardFormProps extends ScrollViewProps {
   children: ReactNode;
@@ -26,16 +27,52 @@ export default function KeyboardForm({
     contentContainerStyle,
   ];
 
+  const innerScrollRef = useRef<ScrollView | null>(null);
+  const scrollToEndOnResize = useRef(false);
+  const [keyboardSpacer, setKeyboardSpacer] = useState(0);
+
+  // Con edge-to-edge en Android <= 14 la ventana no se redimensiona al abrir el teclado y este tapa el final del
+  // formulario. Se mide cuanto tapa y se anade ese alto al contenido para poder desplazarlo por encima.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      innerScrollRef.current?.getNativeScrollRef()?.measureInWindow((_x, y, _width, height) => {
+        const overlap = keyboardOverlap(y + height, e.endCoordinates.screenY);
+        scrollToEndOnResize.current = overlap > 0;
+        setKeyboardSpacer(overlap);
+      });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardSpacer(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  const setScrollRef = (node: ScrollView | null) => {
+    innerScrollRef.current = node;
+    if (typeof scrollRef === 'function') scrollRef(node);
+    else if (scrollRef) (scrollRef as MutableRefObject<ScrollView | null>).current = node;
+  };
+
   const scrollView = (
     <ScrollView
-      ref={scrollRef}
+      ref={setScrollRef}
       className={scrollClassName}
       contentContainerStyle={contentStyle}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       {...scrollProps}
+      onContentSizeChange={(width, height) => {
+        if (scrollToEndOnResize.current) {
+          scrollToEndOnResize.current = false;
+          innerScrollRef.current?.scrollToEnd({ animated: true });
+        }
+        scrollProps.onContentSizeChange?.(width, height);
+      }}
     >
       {children}
+      {keyboardSpacer > 0 && <View style={{ height: keyboardSpacer }} />}
     </ScrollView>
   );
 

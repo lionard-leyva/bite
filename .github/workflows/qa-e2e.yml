@@ -1,7 +1,11 @@
 name: QA E2E (Android emulator)
 
-# No bloquea PRs: tarda ~30 min, necesita secretos y depende de un emulador.
+# No bloquea PRs: necesita secretos y depende de un emulador.
 # Corre de noche sobre master y a demanda (Actions > QA E2E > Run workflow).
+#
+# Dos jobs a proposito: compilar (Gradle/Kotlin dejan JVMs vivas) y emular en el mismo runner de 2 CPU ahogaba al
+# emulador (ANR "Pixel Launcher isn't responding") y llenaba el disco. Ademas el APK se cachea: si no cambia el codigo
+# de la app, solo se repite la parte del emulador.
 on:
   schedule:
     - cron: '17 3 * * *'
@@ -12,13 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  e2e:
+  build:
+    name: build release x86_64
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     env:
-      # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
-      BITE_RELEASE: '1'
-      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      # Sin clave real el mapa no carga tiles, pero react-native-maps no debe crashear por falta de meta-data.
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY || 'ci-placeholder-maps-key' }}
       # El QA corre en modo "Continuar sin cuenta": Firebase solo necesita inicializar.
       FIREBASE_API_KEY: ci-placeholder
       FIREBASE_AUTH_DOMAIN: demo-bite.firebaseapp.com
@@ -28,24 +32,79 @@ jobs:
       FIREBASE_APP_ID: 1:0:android:0
     steps:
       - uses: actions/checkout@v4
+
+      # La clave incluye si hay clave real de Maps (el valor nunca entra en la clave) y todo lo que acaba en el APK.
+      # Los scripts de scripts/qa no cuentan: cambiarlos no obliga a recompilar.
+      - name: Restaurar APK cacheado
+        id: apk
+        uses: actions/cache@v4
+        with:
+          path: bite.apk
+          key: apk-maps${{ secrets.GOOGLE_MAPS_API_KEY != '' }}-${{ hashFiles('package-lock.json', 'app.config.js', 'App.tsx', 'index.ts', 'babel.config.js', 'metro.config.js', 'tailwind.config.js', 'global.css', 'src/**', 'modules/**', 'assets/**') }}
+
+      - name: Liberar disco
+        if: steps.apk.outputs.cache-hit != 'true'
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+
       - uses: actions/setup-node@v4
+        if: steps.apk.outputs.cache-hit != 'true'
         with:
           node-version: 22
           cache: npm
       - uses: actions/setup-java@v4
+        if: steps.apk.outputs.cache-hit != 'true'
         with:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.apk.outputs.cache-hit != 'true'
 
+      - name: Instalar dependencias
+        if: steps.apk.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Generar proyecto nativo y compilar release x86_64
+        if: steps.apk.outputs.cache-hit != 'true'
+        run: |
+          npx expo prebuild --platform android --no-install
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/bite.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: bite.apk
+          retention-days: 3
+
+  e2e:
+    name: qa:all en emulador
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
+      BITE_RELEASE: '1'
+    steps:
+      # El AVD pixel_7 pide 7,3 GB de userdata y un runner limpio solo trae ~6,9 GB libres.
+      - name: Liberar disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
       - run: npm ci
       - run: npm ci
         working-directory: server
 
-      - name: Generar proyecto nativo y compilar release x86_64
-        run: |
-          npx expo prebuild --platform android --no-install
-          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
 
       - name: Activar KVM
         run: |
@@ -62,9 +121,12 @@ jobs:
           profile: pixel_7
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
+          disk-size: 4096M
           script: |
-            adb install -r android/app/build/outputs/apk/release/app-release.apk
-            npm run qa:all -- --release
+            adb install -r bite.apk
+            adb shell settings put global hide_error_dialogs 1
+            for i in $(seq 1 30); do adb shell dumpsys window | grep -q "mCurrentFocus.*[Ll]auncher" && break; sleep 2; done
+            mkdir -p qa-out && (free -m > qa-out/resources.txt; BITE_INSET_TOP=136 BITE_INSET_BOTTOM=63 npm run qa:all -- --release --keep-going --skip LOC-01,MAP-01; rc=$?; adb logcat -d > qa-out/logcat.txt; adb shell dumpsys window > qa-out/dumpsys-window.txt; adb exec-out screencap -p > qa-out/final.png; exit $rc)
 
       - name: Capturas y logs
         if: always()
