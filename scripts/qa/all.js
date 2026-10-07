@@ -16,6 +16,14 @@ const PKG = q.PKG;
 const npm = (script, ...args) => `npm run --silent ${script}${args.length ? ` -- ${args.map((a) => JSON.stringify(a)).join(' ')}` : ''}`;
 const [lucio, botin, gyoza] = SEED.map((r) => r.name);
 
+// Estado limpio del dispositivo; tambien se ejecuta antes de reintentar SEED, que no es idempotente a medias.
+const RESET_CMD = [
+  `adb shell pm clear ${PKG}`,
+  `adb shell pm grant ${PKG} android.permission.ACCESS_FINE_LOCATION`,
+  `adb shell pm grant ${PKG} android.permission.ACCESS_COARSE_LOCATION`,
+  'adb emu geo fix -3.7038 40.4168',
+].join(' && ');
+
 const BLOCKS = [
   { name: 'Estatico', device: false, steps: [
     { id: 'X-01', p: 0, title: 'typecheck', cmd: 'npm run --silent typecheck' },
@@ -23,13 +31,8 @@ const BLOCKS = [
     { id: 'X-03', p: 0, title: 'server (directions, resolveLink)', cmd: 'npm run --silent server:test' },
   ] },
   { name: 'Reset', device: true, steps: [
-    { id: 'RESET', p: 0, title: 'pm clear + permisos + geo Madrid', cmd: [
-      `adb shell pm clear ${PKG}`,
-      `adb shell pm grant ${PKG} android.permission.ACCESS_FINE_LOCATION`,
-      `adb shell pm grant ${PKG} android.permission.ACCESS_COARSE_LOCATION`,
-      'adb emu geo fix -3.7038 40.4168',
-    ].join(' && ') },
-    { id: 'SEED', p: 0, title: 'semilla = SHR-01 (Maps, banner) + ADD-01 (alta manual Visitado)', cmd: npm('qa:seed', '--visited') },
+    { id: 'RESET', p: 0, title: 'pm clear + permisos + geo Madrid', cmd: RESET_CMD },
+    { id: 'SEED', p: 0, retry: 1, beforeRetry: RESET_CMD, title: 'semilla = SHR-01 (Maps, banner) + ADD-01 (alta manual Visitado)', cmd: npm('qa:seed', '--visited') },
   ] },
   { name: 'Dispositivo P0', device: true, steps: [
     { id: 'MAP-01', p: 0, title: 'callout del marker', cmd: npm('qa:map', '--restaurant', lucio) },
@@ -97,9 +100,11 @@ for (const block of BLOCKS) {
       console.log(`--- ${s.id} ${s.title}`);
       const run = () => spawnSync(s.cmd, { shell: true, stdio: 'inherit', env: { ...process.env, ...(s.env || {}) } });
       let r = run();
-      // Solo casos de lectura: reintentar uno modifica datos dos veces. Cubre gestos que a veces cuentan como toque.
+      // Solo casos de lectura, o con beforeRetry que deja el estado limpio. Cubre gestos que cuentan como toque y un
+      // emulador que pierde el arbol de UI ("null root node").
       for (let n = 1; r.status !== 0 && n <= (s.retry || 0); n++) {
         console.log(`--- ${s.id} reintento ${n}`);
+        if (s.beforeRetry) spawnSync(s.beforeRetry, { shell: true, stdio: 'inherit' });
         r = run();
       }
       status = r.status === 0 ? 'OK' : 'FAIL';
