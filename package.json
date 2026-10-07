@@ -24,7 +24,7 @@
     "qa:keyboard": "node scripts/qa/keyboard.js",
     "qa:safearea": "node scripts/qa/safearea.js",
     "sync": "node scripts/sync.js",
-    "test:emulator": "firebase emulators:exec --only firestore --project demo-bite \"jest --selectProjects emulator\""
+    "test:emulator": "firebase emulators:exec --only firestore --project demo-bite \"jest --selectProjects emulator --runInBand\""
   },
   "jest": {
     "projects": [
