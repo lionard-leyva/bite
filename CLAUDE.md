@@ -192,7 +192,7 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 
 | Comando | Flujo | Verifica |
 |---|---|---|
-| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS en logcat |
+| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y] [--open-detail]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; con `--open-detail` (MAP-02) "Ver detalle" abre el detalle del mismo restaurante; sin errores JS en logcat |
 | `npm run qa:location -- [--lat 40.4168 --lng -3.7038] [--deny]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
 | `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
 | `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
@@ -202,7 +202,10 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:list -- [--filter F] [--search T] --expect A,B [--absent C] [--restore C]` | Lista > filtro/busqueda > limpiar | nombres visibles/ocultos |
 | `npm run qa:detail -- --restaurant X [--state S] [--toggle] [--delete]` | Lista > detalle | nombre, estado, toggle, eliminar |
 | `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
-| `npm run qa:safearea -- [--restaurant X]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos |
+| `npm run qa:safearea -- [--restaurant X] [--nav3]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos; con `--nav3` (SAF-02) lo repite con la navegacion de 3 botones y restaura el modo que habia |
+| `npm run qa:empty` | `pm clear` > Mapa sin restaurantes (MAP-04) | "Tu mapa esta vacio", invitacion a guardar el primero, sin la tarjeta de "Donde cenamos hoy" |
+| `npm run qa:map-controls -- [--match lucio]` | Mapa > buscar > Expandir mapa (MAP-06) | la busqueda sin coincidencias vacia el mapa, la que coincide no; "Explorar mapa" abre y atras vuelve |
+| `npm run qa:profile -- [--count N]` | Perfil sin cuenta (PRF-01) | "Crear cuenta" y el contador local; no ofrece compartir; cancelar el aviso (nunca pulsa "Continuar") |
 
 Notas:
 - Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
@@ -215,6 +218,7 @@ Notas:
 - Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
 - Tras `pm clear` el dev-client muestra su bienvenida/menu y Gboard el aviso "Try out your stylus": `adb.js` cierra el menu y desactiva `stylus_handwriting_enabled`. El boton flotante de engranaje (arriba a la derecha) es del dev-client, no de Bite.
 - Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
+- Los scripts `empty.js`, `map-controls.js`, `profile.js`, `safearea.js --nav3` y `map-callout.js --open-detail` se prueban sin emulador en `src/__tests__/qaScripts.test.ts` con un `adb` falso (`src/__tests__/helpers/fakeAdb.ts`: la pantalla responde segun lo que el script toca y escribe; `BITE_QA_TIME_SCALE` acorta las esperas). Eso comprueba la logica del script, no la app: la validacion real la da `qa-e2e.yml`.
 - `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
 
 ### Pruebas de aceptacion en Gherkin (`features/`)
@@ -248,6 +252,8 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 
 - **Compartir**: cuenta A > Perfil > "Compartir con pareja" (codigo) > cuenta B > Perfil > "Unirme" > codigo > ambos ven restaurantes en tiempo real.
 - **Migracion**: modo sin cuenta con restaurantes > Perfil > "Crear cuenta" > registrarse > aceptar "Migrar restaurantes?".
+- **GPS en Guardar (LOC-04)**: con permiso y posicion real, Guardar > boton de GPS junto a Direccion > se rellena la direccion.
+- **Editar perfil (PRF-02)**: con cuenta, Perfil > "Editar perfil" > ciudad > "Guardar cambios" > reabrir y comprobar que persiste.
 - **Offline**: guardar con conexion > modo avion > mapa/lista siguen > reconectar > sync.
 
 ## 11. Referencias Rapidas

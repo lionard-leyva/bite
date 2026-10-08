@@ -23,6 +23,9 @@
     "qa:detail": "node scripts/qa/detail.js",
     "qa:keyboard": "node scripts/qa/keyboard.js",
     "qa:safearea": "node scripts/qa/safearea.js",
+    "qa:empty": "node scripts/qa/empty.js",
+    "qa:map-controls": "node scripts/qa/map-controls.js",
+    "qa:profile": "node scripts/qa/profile.js",
     "sync": "node scripts/sync.js",
     "test:emulator": "firebase emulators:exec --only firestore --project demo-bite \"jest --selectProjects emulator --runInBand\""
   },
@@ -45,7 +48,8 @@
           "**/featureLinks.test.ts",
           "**/screenSummary.test.ts",
           "**/qaReveal.test.ts",
-          "**/qaPermissions.test.ts"
+          "**/qaPermissions.test.ts",
+        "**/qaScripts.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"

@@ -16,16 +16,16 @@ Una página. Detalle de cada caso en `e2e-plan.md`; reglas de Gherkin en `CLAUDE
 |---|---|---|
 | 1. Robot rápido | `MAP-05` sin proxy, `ADD-04` fotos (parcial), `ADD-03` Places sin red, `DET-03` id inexistente, `KBD-03` regla de campos, `PRF-03` migración, `MCH-05` acceso, `MCH-06` pantalla, `LOC-02` (lógica), `VIS-03` visitado, `SHL-04` sincronía, `SHL-01..03`, `MCH-01..04`, `SHR-01/02/04`, `EMU-*`, `RUL-*` | hecho |
 | 2. Robot lento | `LOC-02` (P0, `qa:location --deny`, validado en CI), `ADD-01/02`, `SHR-03`, `VIS-01/02`, `DET-01/02`, `SRC-01/02`, `KBD-02`, `SAF-01` | hecho |
-| 2. Robot lento | `LOC-04`, `MAP-02`, `MAP-04`, `MAP-06`, `PRF-01`, `PRF-02`, `SAF-02` | pendiente |
+| 2. Robot lento | `MAP-04` (`qa:empty`), `MAP-06` (`qa:map-controls`), `PRF-01` (`qa:profile`), `SAF-02` (`qa:safearea --nav3`), `MAP-02` (`qa:map --open-detail`) | escritos y probados con `adb` falso; falta validarlos en el E2E de CI |
 | 2. Robot lento | `MAP-01`, `MAP-03`, `LOC-01` | omitidos: los marcadores del mapa no salen en el árbol de accesibilidad sin `title` |
-| 3. Manual | `SHL-05`, `EMU-08` (dos móviles reales), `EMU-09` (reglas en consola), `LOC-01` (centrado), `SHR-05` (red) | lista de comprobación |
+| 3. Manual | `SHL-05`, `EMU-08` (dos móviles reales), `EMU-09` (reglas en consola), `LOC-01` (centrado), `SHR-05` (red), `LOC-04` (GPS en Guardar: el emulador no entrega posición), `PRF-02` (editar perfil: solo existe con cuenta) | lista de comprobación |
 
 ## Orden por riesgo
 
 1. `PRF-03` migración (perder los datos del usuario es lo peor): hecho en `migracion.feature`.
 2. `LOC-02` permiso de ubicación denegado (P0) y `MCH-06`: hechos (`LOC-02` en el móvil virtual validado en el E2E de CI, ejecución 17).
 3. Resto de Jest pendientes: `MAP-05`, `ADD-04`, `ADD-03`, `DET-03` y `KBD-03` hechos: no queda ningún caso de Jest pendiente.
-4. Scripts `adb` pendientes.
+4. Scripts `adb`: `MAP-04`, `MAP-06`, `PRF-01`, `SAF-02` y `MAP-02` escritos (pendientes de validar en el E2E de CI); `LOC-04` y `PRF-02` pasan a la lista manual con su motivo.
 5. Lista manual antes de cada versión.
 
 ## Reglas

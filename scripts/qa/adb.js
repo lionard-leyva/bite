@@ -14,7 +14,9 @@ function adb(args, opts = {}) {
   });
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// BITE_QA_TIME_SCALE acorta esperas y timeouts de waitFor (solo para los tests con `adb` falso; en uso real vale 1).
+const TIME_SCALE = Number(process.env.BITE_QA_TIME_SCALE) || 1;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms * TIME_SCALE));
 
 function parseArgs(argv = process.argv.slice(2)) {
   const out = {};
@@ -91,7 +93,7 @@ let lastXml = '';
 
 async function waitFor(labels, timeoutMs = 15000) {
   const list = [].concat(labels);
-  const end = Date.now() + timeoutMs;
+  const end = Date.now() + timeoutMs * TIME_SCALE;
   while (Date.now() < end) {
     // Tras `pm clear` la primera carga del bundle da "null root node" durante mas de 10 dumps: seguir hasta el timeout.
     const xml = await dumpUi().catch(() => '');
