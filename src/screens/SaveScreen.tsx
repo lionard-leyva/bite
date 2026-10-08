@@ -66,7 +66,7 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
           paddingBottom: 8,
         }}
       >
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
           onPress={onClose}
           hitSlop={12}
           style={{

@@ -33,6 +33,7 @@ import { canPlayMatch, needsPartner } from '../utils/matchAccess';
 import { getPrimaryPhoto, type Restaurant, type Vote } from '../types';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import type { Colors } from '../theme/palette';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -162,10 +163,15 @@ interface MatchViewProps {
 
 function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRestart }: MatchViewProps) {
   const styles = useStyles();
+  const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
+    if (reducedMotion) {
+      scale.setValue(1);
+      return;
+    }
     Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
-  }, [scale]);
+  }, [scale, reducedMotion]);
 
   return (
     <View style={styles.centered}>

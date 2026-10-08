@@ -3,6 +3,7 @@ import { Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FAB_SIZE } from '../config/constants';
 import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface FABProps {
   onPress: () => void;
@@ -12,8 +13,10 @@ interface FABProps {
 export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
 
   function onPressIn() {
+    if (reducedMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 0.9,
       useNativeDriver: true,

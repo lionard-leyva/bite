@@ -67,7 +67,7 @@ export default function MapDetailCard({
       ) : null}
 
       {/* Close */}
-      <Pressable
+      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar tarjeta"
         onPress={onClose}
         hitSlop={12}
         style={{

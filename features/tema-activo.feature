@@ -12,3 +12,9 @@ Característica: El tema activo llega a toda la app
     Cuando la app monta su tema
     Entonces las variables del tema llevan los colores del tema oscuro
     Y quien necesite un color suelto lo recibe del mismo tema
+
+  @UI-07
+  Escenario: La app sigue el tema del teléfono
+    Dado la configuración de la app Bite
+    Cuando se lee cómo elige entre tema claro y oscuro
+    Entonces sigue el tema que tenga el teléfono

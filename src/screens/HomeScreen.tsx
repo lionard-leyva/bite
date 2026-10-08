@@ -789,7 +789,7 @@ export default function HomeScreen() {
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={layoutStyles.modalHeader}>
-            <Pressable style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar mapa" hitSlop={8} style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
               <Ionicons name="close" size={18} color={colors['text-primary']} />
             </Pressable>
             <Text style={layoutStyles.modalTitle}>Explorar mapa</Text>

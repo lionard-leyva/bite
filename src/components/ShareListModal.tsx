@@ -76,7 +76,7 @@ export default function ShareListModal({
           <Text className="text-title font-bold text-text-primary">
             Compartir lista
           </Text>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
             className="h-8 w-8 items-center justify-center rounded-full bg-border"
             onPress={onClose}
             hitSlop={12}

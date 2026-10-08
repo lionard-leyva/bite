@@ -443,7 +443,7 @@ export default function ProfileScreen() {
         >
             <View className="mb-6 flex-row items-center justify-between">
               <Text className="text-title font-bold text-text-primary">Editar perfil</Text>
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}
                 className="h-8 w-8 items-center justify-center rounded-full bg-border"
                 onPress={() => setEditVisible(false)}
               >
@@ -631,7 +631,7 @@ export default function ProfileScreen() {
           <View className="flex-1 px-6 pt-6">
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="text-title font-bold text-text-primary">Selecciona ciudad</Text>
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}
                 className="h-8 w-8 items-center justify-center rounded-full bg-border"
                 onPress={() => setCityModalVisible(false)}
               >

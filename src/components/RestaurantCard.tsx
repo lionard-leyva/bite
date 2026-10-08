@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { timeAgo } from '../utils/timeAgo';
 import { getPrimaryPhoto } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import type { Restaurant } from '../types';
 
 interface RestaurantCardProps {
@@ -37,8 +38,10 @@ export default memo(function RestaurantCard({
 }: RestaurantCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
 
   function onPressIn() {
+    if (reducedMotion) return;
     Animated.spring(scaleAnim, {
       toValue: 0.97,
       useNativeDriver: true,

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import { Marker } from 'react-native-maps';
 import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import {
   USER_DOT_OUTER_SIZE,
   USER_DOT_INNER_SIZE,
@@ -17,6 +18,7 @@ interface UserLocationMarkerProps {
 
 export default function UserLocationMarker({ latitude, longitude }: UserLocationMarkerProps) {
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.4)).current;
   const [trackChanges, setTrackChanges] = useState(true);
@@ -28,6 +30,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
   }, []);
 
   useEffect(() => {
+    if (reducedMotion) return;
     const pulse = Animated.loop(
       Animated.parallel([
         Animated.sequence([
@@ -62,7 +65,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
     );
     pulse.start();
     return () => pulse.stop();
-  }, [pulseAnim, opacityAnim]);
+  }, [pulseAnim, opacityAnim, reducedMotion]);
 
   return (
     <Marker

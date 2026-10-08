@@ -278,7 +278,7 @@ export default function AuthScreen() {
             }}
             style={{ fontSize: 16, lineHeight: 20 }}
           />
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel={state.showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
             onPress={() => dispatch({ type: 'patch', payload: { showPassword: !state.showPassword } })}
             hitSlop={8}
             style={{ paddingRight: 14 }}

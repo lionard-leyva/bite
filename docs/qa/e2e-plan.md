@@ -174,6 +174,9 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | UI-04 | P1 | Montar el tema con el teléfono en oscuro | Variables y colores sueltos de la paleta oscura | Jest `ThemeProvider` + [Gherkin](../../features/tema-activo.feature) | 🟡 (no se ve en pantalla: revisar en emulador/dispositivo) |
 | UI-05 | P1 | Buscar colores escritos a mano en toda la interfaz | Ninguno: todo sale del tema | Jest estatico sobre todo `src/` (salvo pruebas y `src/theme`) + [Gherkin](../../features/tema-migrado.feature) | 🟡 (toda la interfaz migrada; falta verla en emulador y activar el tema oscuro) |
 | UI-06 | P1 | Construir el estilo del mapa en claro y oscuro | Solo colores de la paleta; terreno = fondo; agua y parques propios | Jest + [Gherkin](../../features/tema-mapa.feature) | 🟡 (revisar sobre el mapa real en emulador) |
+| UI-07 | P1 | Leer la configuracion de la app | `userInterfaceStyle` automatico (sigue claro/oscuro del telefono) | Jest + [Gherkin](../../features/tema-activo.feature) | 🟡 (cambio nativo: pide rebuild; revisar el oscuro en emulador con `adb shell cmd uimode night yes`) |
+| UI-08 | P1 | Buscar botones de solo icono sin etiqueta | Ninguno | Jest estatico sobre `src/` + [Gherkin](../../features/botones-con-nombre.feature) | 🟡 (revisar con TalkBack) |
+| UI-09 | P1 | Pulsar tarjeta y boton + con "reducir movimiento" | No se encogen ni rebotan | Jest (componentes reales) + [Gherkin](../../features/movimiento-reducido.feature) | 🟡 (revisar en emulador con `adb shell settings put global animator_duration_scale 0`) |
 
 ### 2.13 Transversales
 

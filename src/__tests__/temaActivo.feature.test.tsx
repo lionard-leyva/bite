@@ -50,4 +50,19 @@ defineFeature(feature, (test) => {
       expect(visto!.colors.background).toBe(palette.dark.background);
     });
   });
+
+  test('La app sigue el tema del teléfono', ({ given, when, then }) => {
+    let configuracion: any;
+    given('la configuración de la app Bite', () => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      configuracion = require('../../app.config.js').default({ config: {} });
+    });
+    let estilo: string;
+    when('se lee cómo elige entre tema claro y oscuro', () => {
+      estilo = configuracion.userInterfaceStyle;
+    });
+    then('sigue el tema que tenga el teléfono', () => {
+      expect(estilo).toBe('automatic');
+    });
+  });
 });
