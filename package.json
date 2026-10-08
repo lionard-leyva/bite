@@ -44,7 +44,8 @@
           "**/*.feature.test.ts",
           "**/featureLinks.test.ts",
           "**/screenSummary.test.ts",
-          "**/qaReveal.test.ts"
+          "**/qaReveal.test.ts",
+          "**/qaPermissions.test.ts"
         ],
         "transform": {
           "\\.[jt]sx?$": "babel-jest"
@@ -60,7 +61,7 @@
           "@expo/vector-icons": "<rootDir>/jest/__mocks__/@expo/vector-icons.js"
         },
         "transformIgnorePatterns": [
-          "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|nativewind|react-native-map-clustering)"
+          "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|nativewind|react-native-map-clustering|@cucumber/.*|jest-cucumber|uuid)"
         ]
       },
       {

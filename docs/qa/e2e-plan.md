@@ -51,7 +51,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | LOC-01 | P0 | Permisos + `geo fix` Madrid > "Ir a mi ubicacion" | `dumpsys location` con la posicion; sin rechazos en logcat; mapa centrado (screenshot) | `npm run qa:location` | 🟡 (centrado solo visual; ver nota emulador `Accuracy.Balanced`) |
-| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, mensaje/estado de error, sin unhandled rejection | flag `--deny` en `location.js` | ❌ |
+| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, mensaje/estado de error, sin unhandled rejection | `npm run qa:location -- --deny` + [Gherkin](../../features/ubicacion-denegada.feature) | 🟡 (Jest: sin permiso no hay posicion ni crash y se recupera al concederlo; `--deny` en emulador pendiente de validar en CI; hoy el boton no avisa al usuario) |
 | LOC-03 | P1 | Fallo de ubicacion repetido > reintento | El boton vuelve a pedir posicion | `useLocation.test.tsx` | ✅ |
 | LOC-04 | P1 | "Rellenar direccion con GPS" en Guardar | Direccion rellenada | adb en `qa:save` | ❌ |
 
@@ -85,7 +85,7 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | `decisionService.test.ts` (ronda de 13 h) | ✅ |
 | MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen + [Gherkin](../../features/acceso-a-decision.feature) | 🟡 (acceso y falta de pareja cubiertos; visibilidad de la tarjeta del mapa y textos de los avisos, no) |
-| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) | ❌ |
+| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) + [Gherkin](../../features/pantalla-decision.feature) | ✅ (MatchScreen real con los hooks de datos simulados: lo que vota la otra persona no cambia lo que ves) |
 
 ### 2.6 Listas compartidas
 

@@ -37,6 +37,7 @@ const BLOCKS = [
   { name: 'Dispositivo P0', device: true, steps: [
     { id: 'MAP-01', p: 0, title: 'callout del marker', cmd: npm('qa:map', '--restaurant', lucio) },
     { id: 'LOC-01', p: 0, title: 'Ir a mi ubicacion', cmd: npm('qa:location', '--keep') },
+    { id: 'LOC-02', p: 0, title: 'permiso denegado: sin crash ni errores', cmd: npm('qa:location', '--deny') },
     { id: 'ADD-02', p: 0, title: 'no guarda formulario vacio', cmd: npm('qa:save', '--empty') },
     { id: 'VIS-01', p: 0, retry: 1, title: 'filtros Visitados y Pendientes', cmd: npm('qa:list', '--filter', 'visitados,pendientes', '--expect', `QA Visitado;${lucio},${botin}`, '--absent', `${lucio},${botin};QA Visitado`) },
     { id: 'DET-01', p: 0, title: 'detalle + toggle visitado (VIS-02)', cmd: npm('qa:detail', '--restaurant', lucio, '--state', 'pendiente', '--toggle') },

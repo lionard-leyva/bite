@@ -236,18 +236,21 @@ function launchApp() {
 // Los overlays van primero: AuthScreen sigue en el arbol debajo y el tap caeria en el sheet.
 // Tras `pm clear` Android vuelve a pedir permisos (ubicacion, notificaciones...) y el dialogo tapa la app.
 const OVERLAYS = ['Continue', 'Wait', 'Go home', 'While using the app', 'Allow'];
-async function goToMap() {
+// Con { deny: true } el dialogo de permisos se rechaza en vez de concederse (qa:location --deny).
+const OVERLAYS_DENY = ['Continue', 'Wait', 'Go home', "Don't allow", 'Deny'];
+async function goToMap({ deny = false } = {}) {
+  const OVERLAYS_NOW = deny ? OVERLAYS_DENY : OVERLAYS;
   let first = null;
   // Por tiempo y no por numero de intentos: un emulador lento reabre el ANR del launcher varias veces seguidas.
   const deadline = Date.now() + 120000;
   while (Date.now() < deadline) {
-    first = await waitFor([...OVERLAYS, 'Continuar sin cuenta', 'Mapa'], 30000);
-    if (!first || !OVERLAYS.includes(first.label)) break;
+    first = await waitFor([...OVERLAYS_NOW, 'Continuar sin cuenta', 'Mapa'], 30000);
+    if (!first || !OVERLAYS_NOW.includes(first.label)) break;
     if (first.label === 'Go home') adb(['shell', 'input', 'keyevent', '4']);
     else tap(first.node.x, first.node.y);
     await sleep(1500);
   }
-  if (!first || OVERLAYS.includes(first.label)) {
+  if (!first || OVERLAYS_NOW.includes(first.label)) {
     throw new Error('La app no llego a AuthScreen ni al Mapa (Metro arrancado?)');
   }
   if (first.label === 'Continuar sin cuenta') tap(first.node.x, first.node.y);

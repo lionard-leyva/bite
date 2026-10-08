@@ -193,7 +193,7 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | Comando | Flujo | Verifica |
 |---|---|---|
 | `npm run qa:map -- --restaurant "Nombre" [--marker X,Y]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS en logcat |
-| `npm run qa:location -- [--lat 40.4168 --lng -3.7038]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
+| `npm run qa:location -- [--lat 40.4168 --lng -3.7038] [--deny]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
 | `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
 | `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
 | `npm run qa:all [-- --p0 \| --static \| --only IDs \| --release]` | suite E2E por bloques (estatico > reset+semilla > P0 > P1 > logs) | resumen `OK/FAIL/SKIP` por caso; exit 1 si falla un P0 |
@@ -230,8 +230,10 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
 | `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
 | `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
+| `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` reales con `expo-location` simulado | components |
+| `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
 
-- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit, corren con `npm test` y en `ci.yml`) y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
+- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
 - `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
 - `featureLinks.test.ts` exige que cada `@ID` este enlazado desde `docs/qa/e2e-plan.md`.
 - **Regla: un comportamiento nuevo se describe primero en un `.feature`** (con su ID del plan), se ve fallar por falta de pasos/comportamiento y solo entonces se implementa. Despues, una mutacion a proposito del codigo (o de las reglas) debe romper el escenario; si sobrevive, el escenario es decorativo.
