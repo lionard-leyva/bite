@@ -18,6 +18,7 @@ export const MIGRADOS = [
   'src/components/MatchEntryCard.tsx',
   'src/components/LocationNotice.tsx',
   'src/components/DragHandle.tsx',
+  'src/screens/MatchScreen.tsx',
 ];
 
 // Hex, rgb()/rgba(), nombres sueltos y paletas por defecto de Tailwind (text-red-600).
