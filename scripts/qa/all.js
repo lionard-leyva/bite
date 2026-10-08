@@ -32,11 +32,14 @@ const BLOCKS = [
   ] },
   { name: 'Reset', device: true, steps: [
     { id: 'RESET', p: 0, title: 'pm clear + permisos + geo Madrid', cmd: RESET_CMD },
+    // Antes de sembrar: el Mapa sin restaurantes. Solo lee.
+    { id: 'MAP-04', p: 2, retry: 1, title: 'mapa vacio', cmd: npm('qa:empty') },
     { id: 'SEED', p: 0, retry: 1, beforeRetry: RESET_CMD, title: 'semilla = SHR-01 (Maps, banner) + ADD-01 (alta manual Visitado)', cmd: npm('qa:seed', '--visited') },
   ] },
   { name: 'Dispositivo P0', device: true, steps: [
     { id: 'MAP-01', p: 0, title: 'callout del marker', cmd: npm('qa:map', '--restaurant', lucio) },
     { id: 'LOC-01', p: 0, title: 'Ir a mi ubicacion', cmd: npm('qa:location', '--keep') },
+    { id: 'LOC-02', p: 0, title: 'permiso denegado: sin crash ni errores', cmd: npm('qa:location', '--deny') },
     { id: 'ADD-02', p: 0, title: 'no guarda formulario vacio', cmd: npm('qa:save', '--empty') },
     { id: 'VIS-01', p: 0, retry: 1, title: 'filtros Visitados y Pendientes', cmd: npm('qa:list', '--filter', 'visitados,pendientes', '--expect', `QA Visitado;${lucio},${botin}`, '--absent', `${lucio},${botin};QA Visitado`) },
     { id: 'DET-01', p: 0, title: 'detalle + toggle visitado (VIS-02)', cmd: npm('qa:detail', '--restaurant', lucio, '--state', 'pendiente', '--toggle') },
@@ -45,6 +48,9 @@ const BLOCKS = [
     { id: 'SRC-02', p: 1, retry: 1, title: 'busqueda y limpiar', cmd: npm('qa:list', '--search', 'lucio', '--expect', lucio, '--absent', botin, '--restore', botin) },
     { id: 'KBD-01', p: 1, retry: 1, title: 'teclado y descendentes', cmd: npm('qa:keyboard') },
     { id: 'SAF-01', p: 1, retry: 1, title: 'safe areas', cmd: npm('qa:safearea', '--restaurant', gyoza) },
+    { id: 'SAF-02', p: 2, retry: 1, title: 'safe areas con navegacion de 3 botones', cmd: npm('qa:safearea', '--nav3') },
+    { id: 'MAP-06', p: 1, retry: 1, title: 'buscar en el mapa y expandirlo', cmd: npm('qa:map-controls', '--match', 'lucio') },
+    { id: 'PRF-01', p: 1, retry: 1, title: 'Perfil sin cuenta (Crear cuenta, sin compartir)', cmd: npm('qa:profile', '--count', String(SEED.length + 1)) },
     { id: 'DET-02', p: 0, title: 'eliminar (al final: borra datos)', cmd: npm('qa:detail', '--restaurant', gyoza, '--delete') },
   ] },
   { name: 'Release', device: true, release: true, steps: [

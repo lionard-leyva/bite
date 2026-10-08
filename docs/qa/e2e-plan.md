@@ -40,20 +40,20 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | MAP-01 | P0 | Abrir app > Continuar sin cuenta > Mapa > tocar marker "Casa Lucio" | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS | `npm run qa:map -- --restaurant "Casa Lucio"` | ✅ |
-| MAP-02 | P1 | Desde MAP-01 tocar "Ver detalle" | Abre DetailScreen del mismo restaurante | extender `map-callout.js` con `--open-detail` | ❌ |
+| MAP-02 | P1 | Desde MAP-01 tocar "Ver detalle" | Abre DetailScreen del mismo restaurante | `npm run qa:map -- --restaurant X --marker X,Y --open-detail` | 🟡 (script hecho y probado con `adb` falso; necesita localizar el marker, asi que en `qa:all` no corre mientras se omita MAP-01) |
 | MAP-03 | P1 | Filtros Todos / Pendientes / Visitados en el Mapa | Markers cambian (Visitado desaparece en Pendientes) | adb: contar markers por `content-desc` (requiere `title` en MapMarker) o screenshot diff | ❌ |
-| MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | script adb `qa:empty` (waitFor de los textos) | ❌ |
-| MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado | ❌ |
-| MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | adb tapLabel + waitFor | ❌ |
+| MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | `npm run qa:empty` (en `qa:all`, entre RESET y SEED) | ✅ (validado en el emulador de CI, ejecucion 21; SEED sigue OK despues) |
+| MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado + [Gherkin](../../features/distancia-sin-proxy.feature) | ✅ (hook `useNavigationETA` y `navigationService` reales con `fetch` simulado: caído, error, colgado, recuperación y cambio de sitio; cómo pinta el texto `MapDetailCard` es de UI) |
+| MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | `npm run qa:map-controls -- --match lucio` (la busqueda se comprueba por el mensaje de mapa vacio, porque los markers no salen en el arbol) | 🟡 (la ejecucion 21 fallo: con texto el campo se anuncia con ese texto y no con su placeholder, y el script lo buscaba por el placeholder; corregido, falta validarlo en el emulador de CI) |
 
 ### 2.2 Ubicacion
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | LOC-01 | P0 | Permisos + `geo fix` Madrid > "Ir a mi ubicacion" | `dumpsys location` con la posicion; sin rechazos en logcat; mapa centrado (screenshot) | `npm run qa:location` | 🟡 (centrado solo visual; ver nota emulador `Accuracy.Balanced`) |
-| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, mensaje/estado de error, sin unhandled rejection | flag `--deny` en `location.js` | ❌ |
+| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, aviso con "Abrir Ajustes" y boton atenuado, sin unhandled rejection | `npm run qa:location -- --deny` + [Gherkin](../../features/ubicacion-denegada.feature) | ✅ (Jest: sin permiso no hay posicion ni crash, se recupera al concederlo, banner "Abrir Ajustes" tras pulsar y boton atenuado; `--deny` validado en el emulador del E2E de CI, ejecucion 17: app viva, Mapa, aviso, boton "Ubicacion desactivada", sin errores JS, permiso aun denegado) |
 | LOC-03 | P1 | Fallo de ubicacion repetido > reintento | El boton vuelve a pedir posicion | `useLocation.test.tsx` | ✅ |
-| LOC-04 | P1 | "Rellenar direccion con GPS" en Guardar | Direccion rellenada | adb en `qa:save` | ❌ |
+| LOC-04 | P1 | "Rellenar direccion con GPS" en Guardar | Direccion rellenada | **Manual** (lista de comprobacion) | ❌ no automatizable hoy: el boton esta desactivado hasta que `useLocation` tiene posicion y el emulador no la entrega con la precision de `locationService` (el mismo limite que LOC-01), y rellenar la direccion depende ademas de la geocodificacion inversa de Google |
 
 ### 2.3 Anadir restaurante (manual)
 
@@ -61,8 +61,8 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 |---|---|---|---|---|---|
 | ADD-01 | P0 | FAB > nombre, direccion, rating, precio, Estado Visitado, nota > Guardar | Aparece en Lista y Mapa con estado Visitado | `npm run qa:save -- --name "QA Visitado" --state visitado` | ✅ |
 | ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `npm run qa:save -- --empty` (Guardar con formulario vacio no sale de la pantalla) | ✅ |
-| ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado | ❌ |
-| ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria | ❌ |
+| ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado + [Gherkin](../../features/busqueda-de-lugares.feature) | ✅ (con `onFail` pasa a escribir a mano, avisa, conserva lo escrito y deja el resto del formulario a la vista; sin clave arranca en manual) |
+| ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria + [Gherkin](../../features/fotos.feature) | 🟡 (se reduce a 800 px, JPEG, calidad 0,7 antes de subir, se sube la reducida, rutas por foto y fallo sin subir nada; que pese <200 KB y el selector de galería no se pueden comprobar aqui) |
 
 ### 2.4 Compartir hacia Bite (Android)
 
@@ -84,8 +84,8 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | `decisionService.test.ts` (markMatched concurrente, Firestore en memoria) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | `decisionService.test.ts` (ronda de 13 h) | ✅ |
-| MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen | 🟡 |
-| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) | ❌ |
+| MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen + [Gherkin](../../features/acceso-a-decision.feature) | 🟡 (acceso y falta de pareja cubiertos; visibilidad de la tarjeta del mapa y textos de los avisos, no) |
+| MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) + [Gherkin](../../features/pantalla-decision.feature) | ✅ (MatchScreen real con los hooks de datos simulados: lo que vota la otra persona no cambia lo que ves) |
 
 ### 2.6 Listas compartidas
 
@@ -94,7 +94,7 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
 | SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
 | SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
-| SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado | ❌ |
+| SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ (listener real del emulador, misma consulta por lista; el hook `useRestaurants` no) |
 | SHL-05 | P2 | Dos dispositivos reales | Ambos ven cambios | Manual (CLAUDE.md §10) o Firebase Emulator (§5) | ❌ |
 
 ### 2.6b Compartido (2 usuarios, Emulator Suite)
@@ -124,7 +124,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | VIS-01 | P0 | Lista > filtro Pendientes / Visitados con semilla | Solo los del estado | `npm run qa:list -- --filter visitados --expect "QA Visitado" --absent "Casa Lucio"` | ✅ |
 | VIS-02 | P1 | Detalle en modo sin cuenta > tocar estado | Alterna "Pendiente de ir" / "Visitado" (se guarda en AsyncStorage) | `npm run qa:detail -- --restaurant X --toggle` (cambia y vuelve) | ✅ |
-| VIS-03 | P1 | Toggle con cuenta | Persiste en Firestore | Jest `restaurantService` | ❌ |
+| VIS-03 | P1 | Toggle con cuenta | Persiste en Firestore | Jest `restaurantService` + [Gherkin](../../features/visitado.feature) | ✅ (efecto en Firestore; el botón de Detalle con cuenta es de UI y no está cubierto) |
 
 ### 2.8 Detalle
 
@@ -132,7 +132,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | DET-01 | P0 | Lista > tocar restaurante | Nombre, direccion, estado, rating, nota | `npm run qa:detail -- --restaurant X --state pendiente` | ✅ |
 | DET-02 | P0 | "Eliminar" > confirmar | Desaparece de Lista y Mapa | `npm run qa:detail -- --restaurant X --delete` | ✅ |
-| DET-03 | P2 | Id inexistente | "Restaurante no encontrado" | Jest de DetailScreen | ❌ |
+| DET-03 | P2 | Id inexistente | "Restaurante no encontrado" | Jest de DetailScreen + [Gherkin](../../features/detalle-inexistente.feature) | ✅ |
 
 ### 2.9 Busqueda (Lista)
 
@@ -145,9 +145,9 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir pide login | `qa:profile` | ❌ |
-| PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos | `qa:profile --edit` (solo campos locales) | ❌ |
-| PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual | ❌ |
+| PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir no se ofrece sin cuenta | `npm run qa:profile -- --count N` (comprueba tambien que el aviso de "Crear cuenta" se cancela sin pulsar "Continuar", que cerraria la sesion) | ✅ (validado en el emulador de CI, ejecucion 21: paso en el reintento; el primer intento miro el Perfil antes de que cargara y ahora espera) |
+| PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos | **Manual con cuenta** | ❌ no automatizable sin cuenta: "Editar perfil" solo existe con sesion iniciada (`ProfileScreen` lo oculta en modo sin cuenta); haria falta una cuenta de prueba o el Auth Emulator en el dispositivo |
+| PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual + [Gherkin](../../features/migracion.feature) | 🟡 (datos cubiertos: copia, fotos, no pierde nada ni duplica si falla a medias y se reintenta; el aviso "Migrar?" y la comprobación de sesión de AuthContext, no) |
 
 ### 2.11 Teclado y descendentes (g j p q y)
 
@@ -155,14 +155,14 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `npm run qa:keyboard` (texto llega al campo + screenshot por campo; recorte de descendentes lo juzga `qa-visual-triage`) | 🟡 (visual) |
 | KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `npm run qa:keyboard` (bounds del campo enfocado <= top del `ime` en `dumpsys window`) | ✅ |
-| KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest/grep sobre estilos (test de estilos) | ❌ |
+| KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest sobre el codigo fuente + [Gherkin](../../features/campos-de-texto.feature) | ✅ (revisa `<TextInput>`, su `style` por referencia, `className` `h-N`/`text-body` y los estilos `textInput:` de Places) |
 
 ### 2.12 Safe areas
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
-| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `cmd overlay enable ...threebutton` + `qa:safearea` | 🟡 (manual el cambio de navegacion) |
+| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia) | 🟡 (ejecucion 21: Mapa, Lista y Perfil OK con barra de 126 px; en Guardar "Elegir foto de galeria" [2145-2308] solapa la barra [2274-2400]. Probable falso positivo: es contenido desplazable y la regla solo exime lo cortado por el borde de la pantalla, no por la barra; pendiente de decidir si medir la pantalla desplazada al final. La rotacion no esta automatizada) |
 
 ### 2.13 Transversales
 

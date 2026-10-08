@@ -40,14 +40,14 @@ modules/share-intent/ # Modulo Expo local (Android): texto compartido a Bite (AC
 src/
 ├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
 features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por jest-cucumber (ver §10)
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
+├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard, LocationNotice
 ├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService
+├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService
 ├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
-├── utils/          # timeAgo, geo (haversine), matchLogic, shareParser
+├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, locationNotice, shareParser
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -192,8 +192,8 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 
 | Comando | Flujo | Verifica |
 |---|---|---|
-| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS en logcat |
-| `npm run qa:location -- [--lat 40.4168 --lng -3.7038]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
+| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y] [--open-detail]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; con `--open-detail` (MAP-02) "Ver detalle" abre el detalle del mismo restaurante; sin errores JS en logcat |
+| `npm run qa:location -- [--lat 40.4168 --lng -3.7038] [--deny]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
 | `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
 | `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
 | `npm run qa:all [-- --p0 \| --static \| --only IDs \| --release]` | suite E2E por bloques (estatico > reset+semilla > P0 > P1 > logs) | resumen `OK/FAIL/SKIP` por caso; exit 1 si falla un P0 |
@@ -202,7 +202,10 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:list -- [--filter F] [--search T] --expect A,B [--absent C] [--restore C]` | Lista > filtro/busqueda > limpiar | nombres visibles/ocultos |
 | `npm run qa:detail -- --restaurant X [--state S] [--toggle] [--delete]` | Lista > detalle | nombre, estado, toggle, eliminar |
 | `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
-| `npm run qa:safearea -- [--restaurant X]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos |
+| `npm run qa:safearea -- [--restaurant X] [--nav3]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos; con `--nav3` (SAF-02) lo repite con la navegacion de 3 botones y restaura el modo que habia |
+| `npm run qa:empty` | `pm clear` > Mapa sin restaurantes (MAP-04) | "Tu mapa esta vacio", invitacion a guardar el primero, sin la tarjeta de "Donde cenamos hoy" |
+| `npm run qa:map-controls -- [--match lucio]` | Mapa > buscar > Expandir mapa (MAP-06) | la busqueda sin coincidencias vacia el mapa, la que coincide no; "Explorar mapa" abre y atras vuelve |
+| `npm run qa:profile -- [--count N]` | Perfil sin cuenta (PRF-01) | "Crear cuenta" y el contador local; no ofrece compartir; cancelar el aviso (nunca pulsa "Continuar") |
 
 Notas:
 - Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
@@ -215,6 +218,7 @@ Notas:
 - Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
 - Tras `pm clear` el dev-client muestra su bienvenida/menu y Gboard el aviso "Try out your stylus": `adb.js` cierra el menu y desactiva `stylus_handwriting_enabled`. El boton flotante de engranaje (arriba a la derecha) es del dev-client, no de Bite.
 - Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
+- Los scripts `empty.js`, `map-controls.js`, `profile.js`, `safearea.js --nav3` y `map-callout.js --open-detail` se prueban sin emulador en `src/__tests__/qaScripts.test.ts` con un `adb` falso (`src/__tests__/helpers/fakeAdb.ts`: la pantalla responde segun lo que el script toca y escribe; `BITE_QA_TIME_SCALE` acorta las esperas). Eso comprueba la logica del script, no la app: la validacion real la da `qa-e2e.yml`.
 - `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
 
 ### Pruebas de aceptacion en Gherkin (`features/`)
@@ -226,18 +230,30 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `compartir-lista.feature` | SHL-01..03 | `listService` en Firestore en memoria | unit |
 | `donde-cenamos.feature` | MCH-01, 02, 03, 06 | `decisionService` + `matchLogic` en memoria | unit |
 | `guardar-desde-compartir.feature` | SHR-01, 02, 04 | `shareParser` | unit |
-| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
+| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02, SHL-04 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
+| `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
+| `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
+| `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
+| `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` + reglas del aviso (`utils/locationNotice`) + `LocationNotice` reales con `expo-location` y `Linking.openSettings` simulados | components |
+| `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
+| `distancia-sin-proxy.feature` | MAP-05 | `useNavigationETA` + `navigationService` reales con `fetch` simulado (proxy caido, con error, colgado, recuperado, cambio de sitio) | components |
+| `fotos.feature` | ADD-04 | `imageService` real con manipulador de imagenes, Storage y `fetch` simulados (800 px, JPEG, calidad 0,7 antes de subir) | unit |
+| `busqueda-de-lugares.feature` | ADD-03 | `SaveScreen` real con el buscador de Google simulado (se le provoca `onFail`; pasa a entrada manual, avisa y conserva el nombre) | components |
+| `detalle-inexistente.feature` | DET-03 | `DetailScreen` real con la lista de restaurantes simulada ("Restaurante no encontrado") | components |
+| `campos-de-texto.feature` | KBD-03 | regla estatica sobre el codigo (`src/__tests__/helpers/textInputAudit.ts`): ningun `TextInput` con `height` menor que su interlineado | unit |
 
-- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit, corren con `npm test` y en `ci.yml`) y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
+- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
 - `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
 - `featureLinks.test.ts` exige que cada `@ID` este enlazado desde `docs/qa/e2e-plan.md`.
 - **Regla: un comportamiento nuevo se describe primero en un `.feature`** (con su ID del plan), se ve fallar por falta de pasos/comportamiento y solo entonces se implementa. Despues, una mutacion a proposito del codigo (o de las reglas) debe romper el escenario; si sobrevive, el escenario es decorativo.
-- Limites: el estado "Pendiente" y la nota "Visto en X" los fija `SaveScreen` (UI) y no estan cubiertos; MCH-06 comprueba que la sesion no lleva votos ni revela match prematuro, no lo que pinta `MatchScreen`. Fuera de alcance: migracion skip a cuenta (esta en `AuthContext`).
+- Limites: el estado "Pendiente" y la nota "Visto en X" los fija `SaveScreen` (UI) y no estan cubiertos; MCH-06 comprueba que la sesion no lleva votos ni revela match prematuro, no lo que pinta `MatchScreen`. La migracion skip a cuenta vive en `services/migrationService` (la llama `AuthContext.migrateLocalData`, que conserva la comprobacion de sesion).
 
 ### Manual (solo flujos no automatizados)
 
 - **Compartir**: cuenta A > Perfil > "Compartir con pareja" (codigo) > cuenta B > Perfil > "Unirme" > codigo > ambos ven restaurantes en tiempo real.
 - **Migracion**: modo sin cuenta con restaurantes > Perfil > "Crear cuenta" > registrarse > aceptar "Migrar restaurantes?".
+- **GPS en Guardar (LOC-04)**: con permiso y posicion real, Guardar > boton de GPS junto a Direccion > se rellena la direccion.
+- **Editar perfil (PRF-02)**: con cuenta, Perfil > "Editar perfil" > ciudad > "Guardar cambios" > reabrir y comprobar que persiste.
 - **Offline**: guardar con conexion > modo avion > mapa/lista siguen > reconectar > sync.
 
 ## 11. Referencias Rapidas

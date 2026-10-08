@@ -13,6 +13,7 @@ Característica: La pareja comparte lista y nadie más entra
     Y la lista de Bea es la de Ana
 
   @EMU-02
+  @SHL-04
   Escenario: Lo que guarda una lo ve la otra al momento, en los dos sentidos
     Dado que Ana y Bea comparten lista y las dos están mirando los restaurantes
     Cuando Ana guarda "Gyoza" y Bea guarda "Taco"

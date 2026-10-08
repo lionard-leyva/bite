@@ -1,5 +1,7 @@
 // QA: abrir app > continuar sin cuenta > Mapa > tocar restaurante > verificar callout (MapDetailCard).
-// Uso: npm run qa:map -- [--restaurant "Nombre"] [--marker X,Y]
+// Uso: npm run qa:map -- [--restaurant "Nombre"] [--marker X,Y] [--open-detail]
+//   --open-detail (MAP-02): ademas pulsa "Ver detalle" y comprueba que abre el DetailScreen del mismo restaurante.
+//   Necesita localizar el marker, asi que en CI (donde MAP-01 se omite) solo se usa con --marker.
 const q = require('./adb');
 
 (async () => {
@@ -34,6 +36,16 @@ const q = require('./adb');
   if (name) checks.push({ name: `callout muestra "${name}"`, ok: !!q.findNode(xml, name) });
 
   const shot = q.screenshot('map-callout');
+  if (args['open-detail']) {
+    if (!card) checks.push({ name: '"Ver detalle" abre el detalle (no hay callout)', ok: false });
+    else {
+      q.tap(card.node.x, card.node.y);
+      const detail = await q.waitFor('Eliminar', 10000); // solo existe en DetailScreen
+      checks.push({ name: '"Ver detalle" abre el detalle', ok: !!detail });
+      if (name) checks.push({ name: `el detalle es del mismo restaurante ("${name}")`, ok: !!detail && !!q.findNode(detail.xml, name) });
+      q.screenshot('map-detail');
+    }
+  }
   const errors = q.logcatErrors();
   checks.push({ name: 'sin errores JS en logcat', ok: errors.length === 0, info: errors.length ? `${errors.length} lineas` : '' });
   q.report('qa:map', checks, [`screenshot: ${shot}`, ...errors.slice(0, 10)]);

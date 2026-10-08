@@ -29,6 +29,7 @@ import {
   rankCandidates,
   type RankedCandidate,
 } from '../utils/matchLogic';
+import { canPlayMatch, needsPartner } from '../utils/matchAccess';
 import { getPrimaryPhoto, type Restaurant, type Vote } from '../types';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -215,7 +216,7 @@ export default function MatchScreen() {
   const location = useLocation();
   const [partnerName, setPartnerName] = useState('tu pareja');
 
-  const canPlay = !skipMode && !!user && !!listId;
+  const canPlay = canPlayMatch({ skipMode, hasUser: !!user, listId });
   const origin = useMemo(
     () =>
       location.latitude != null && location.longitude != null
@@ -313,7 +314,7 @@ export default function MatchScreen() {
         onAction={restart}
       />
     );
-  } else if (session.participants.length < 2) {
+  } else if (needsPartner(session.participants)) {
     content = (
       <Notice
         icon="heart-outline"
