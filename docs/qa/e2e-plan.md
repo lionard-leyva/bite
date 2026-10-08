@@ -84,7 +84,7 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | MCH-02 | P0 | Ambos LIKE al mismo sitio | MATCHED una sola vez (transaccion) | `decisionService.test.ts` (markMatched concurrente, Firestore en memoria) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-03 | P0 | Dos clientes crean ronda a la vez | Misma `roundId` | `decisionService.test.ts` (dos getOrStartSession a la vez) + [Gherkin](../../features/donde-cenamos.feature) | ✅ |
 | MCH-04 | P1 | Ronda >12 h | Caduca, se crea nueva | `decisionService.test.ts` (ronda de 13 h) | ✅ |
-| MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen | 🟡 |
+| MCH-05 | P1 | Sin cuenta / sin pareja | MatchEntryCard oculta o "Hace falta tu pareja" | `MatchEntryCard.test.tsx` + Jest de MatchScreen + [Gherkin](../../features/acceso-a-decision.feature) | 🟡 (acceso y falta de pareja cubiertos; visibilidad de la tarjeta del mapa y textos de los avisos, no) |
 | MCH-06 | P2 | UI no muestra votos del otro | Solo pantalla de match | Jest de MatchScreen + [Gherkin](../../features/donde-cenamos.feature) | ❌ |
 
 ### 2.6 Listas compartidas
@@ -94,7 +94,7 @@ Requiere cuenta + lista compartida: **no ejecutable en dispositivo sin Firebase*
 | SHL-01 | P0 | Generar inviteCode | 6 chars uppercase en `lists/{id}` | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
 | SHL-02 | P0 | Unirse con codigo valido / invalido / propio | Se anade a `members[]` y `sharedListId`; invalido da error | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
 | SHL-03 | P1 | Dejar de compartir | Se quita de `members[]`, vuelve a lista propia | `listService.test.ts` + [Gherkin](../../features/compartir-lista.feature) | ✅ |
-| SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado | ❌ |
+| SHL-04 | P1 | Sync en tiempo real (pareja anade) | Aparece sin refresh | Jest `useRestaurants` con `onSnapshot` simulado + [Gherkin](../../features/pareja-y-seguridad.feature) | ✅ (listener real del emulador, misma consulta por lista; el hook `useRestaurants` no) |
 | SHL-05 | P2 | Dos dispositivos reales | Ambos ven cambios | Manual (CLAUDE.md §10) o Firebase Emulator (§5) | ❌ |
 
 ### 2.6b Compartido (2 usuarios, Emulator Suite)
@@ -124,7 +124,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | VIS-01 | P0 | Lista > filtro Pendientes / Visitados con semilla | Solo los del estado | `npm run qa:list -- --filter visitados --expect "QA Visitado" --absent "Casa Lucio"` | ✅ |
 | VIS-02 | P1 | Detalle en modo sin cuenta > tocar estado | Alterna "Pendiente de ir" / "Visitado" (se guarda en AsyncStorage) | `npm run qa:detail -- --restaurant X --toggle` (cambia y vuelve) | ✅ |
-| VIS-03 | P1 | Toggle con cuenta | Persiste en Firestore | Jest `restaurantService` | ❌ |
+| VIS-03 | P1 | Toggle con cuenta | Persiste en Firestore | Jest `restaurantService` + [Gherkin](../../features/visitado.feature) | ✅ (efecto en Firestore; el botón de Detalle con cuenta es de UI y no está cubierto) |
 
 ### 2.8 Detalle
 

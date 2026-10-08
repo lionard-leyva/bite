@@ -47,7 +47,7 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
 ├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService
 ├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
-├── utils/          # timeAgo, geo (haversine), matchLogic, shareParser
+├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, shareParser
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -226,7 +226,9 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `compartir-lista.feature` | SHL-01..03 | `listService` en Firestore en memoria | unit |
 | `donde-cenamos.feature` | MCH-01, 02, 03, 06 | `decisionService` + `matchLogic` en memoria | unit |
 | `guardar-desde-compartir.feature` | SHR-01, 02, 04 | `shareParser` | unit |
-| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
+| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02, SHL-04 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
+| `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
+| `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
 
 - Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit, corren con `npm test` y en `ci.yml`) y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
 - `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
