@@ -80,7 +80,7 @@ jobs:
     name: qa:all en emulador
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
       BITE_RELEASE: '1'
