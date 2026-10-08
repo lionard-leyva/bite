@@ -13,11 +13,9 @@ import { ensureUserList, consolidateUserLists, joinListByCode } from '../service
 import {
   getOrCreateDeviceId,
   setSkipMode,
-  getLocalRestaurants,
   getLocalRestaurantCount,
-  clearLocalRestaurants,
 } from '../services/localStorageService';
-import { saveRestaurant } from '../services/restaurantService';
+import { migrateLocalRestaurants } from '../services/migrationService';
 import { uploadAvatar } from '../services/imageService';
 
 export interface AuthState {
@@ -280,36 +278,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
   async function migrateLocalData(): Promise<number> {
     if (!state.user || state.skipMode) return 0;
-    const user = state.user;
 
-    const locals = await getLocalRestaurants();
-    if (locals.length === 0) return 0;
-
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < locals.length; i += BATCH_SIZE) {
-      const batch = locals.slice(i, i + BATCH_SIZE);
-      await Promise.all(
-        batch.map((r) =>
-          saveRestaurant({
-            name: r.name,
-            address: r.address,
-            latitude: r.latitude,
-            longitude: r.longitude,
-            rating: r.rating,
-            note: r.note,
-            visited: r.visited,
-            pricePerPerson: r.pricePerPerson,
-            photoUris: r.photoURLs?.length ? r.photoURLs : r.photoURL ? [r.photoURL] : [],
-            userId: user.uid,
-            listId: state.listId,
-          }),
-        ),
-      );
-    }
-
-    await clearLocalRestaurants();
-    dispatch({ type: 'patch', payload: { pendingMigration: false } });
-    return locals.length;
+    const migrated = await migrateLocalRestaurants({ userId: state.user.uid, listId: state.listId });
+    if (migrated > 0) dispatch({ type: 'patch', payload: { pendingMigration: false } });
+    return migrated;
   }
 
   function dismissMigration() {

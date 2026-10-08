@@ -147,7 +147,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir pide login | `qa:profile` | ❌ |
 | PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos | `qa:profile --edit` (solo campos locales) | ❌ |
-| PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual | ❌ |
+| PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual + [Gherkin](../../features/migracion.feature) | 🟡 (datos cubiertos: copia, fotos, no pierde nada si falla; el aviso "Migrar?" y la comprobación de sesión de AuthContext, no) |
 
 ### 2.11 Teclado y descendentes (g j p q y)
 
