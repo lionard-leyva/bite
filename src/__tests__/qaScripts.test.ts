@@ -221,14 +221,17 @@ describe('SAF-02 qa:safearea --nav3', () => {
       '  InsetsSource type=statusBars frame=[0,0][1080,136] visible=true\n' +
       '  InsetsSource type=navigationBars frame=[0,2280][1080,2424] visible=true\n',
   };
-  const screen = (_log: string[], tree: any, _tapped: any, data: any) =>
+  const screen = (log: string[], tree: any, tapped: any, data: any) =>
     tree(
       ([
         { text: 'Mapa', x: 200, y: 2100 },
         { text: 'Lista', x: 540, y: 2100 },
         { text: 'Perfil', x: 880, y: 2100 },
         { text: 'Guardar restaurante', x: 540, y: 1800 },
-      ] as any[]).concat(data.bajoLaBarra ? [{ text: 'Guardar', x: 540, y: 2350 }] : []),
+      ] as any[])
+        .concat(data.bajoLaBarra ? [{ text: 'Guardar', x: 540, y: 2350 }] : [])
+        // Contenido desplazable: solo queda bajo la barra mientras no se ha llegado al final del scroll.
+        .concat(data.soloHastaElFinal && tapped(log, 540, 1800) && !log.some((l) => l.includes('input swipe')) ? [{ text: 'Elegir foto de galeria', x: 540, y: 2350 }] : []),
     );
   const run = (data: object) =>
     runScript('safearea.js', ['--nav3'], { screen, replies, data, env: { BITE_INSET_TOP: '136', BITE_INSET_BOTTOM: '63' } });
@@ -250,6 +253,11 @@ describe('SAF-02 qa:safearea --nav3', () => {
     expect(r.out).toContain('FAIL qa:safearea');
     expect(r.log.indexOf(`${OVERLAY}gestural`)).toBeGreaterThan(r.log.indexOf(`${OVERLAY}threebutton`));
     expect(r.status).toBe(1);
+  });
+
+  it('en Guardar baja hasta el final antes de medir: el contenido desplazable puede pasar bajo la barra a mitad de scroll', () => {
+    const r = run({ soloHastaElFinal: true });
+    expect(r.out).toContain('PASS qa:safearea');
   });
 
   it('restaura el modo que habia, no siempre el de gestos', () => {

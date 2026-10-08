@@ -38,7 +38,7 @@ async function main(args) {
     { name: 'Mapa', open: () => q.openTab('Mapa') },
     { name: 'Lista', open: () => q.openTab('Lista') },
     { name: 'Perfil', open: () => q.openTab('Perfil') },
-    { name: 'Guardar', open: async () => { await q.openTab('Mapa'); await q.tapLabel('Guardar restaurante', 10000); await q.sleep(1500); } },
+    { name: 'Guardar', open: async () => { await q.openTab('Mapa'); await q.tapLabel('Guardar restaurante', 10000); await q.sleep(1500); }, scrollToEnd: true },
   ];
   if (typeof args.restaurant === 'string') {
     screens.push({ name: 'Detalle', open: async () => { await q.openTab('Lista'); await q.tapInList(args.restaurant); await q.waitFor('Eliminar', 10000); } });
@@ -48,6 +48,10 @@ async function main(args) {
   for (const s of screens) {
     try {
       await s.open();
+      // El contenido desplazable pasa bajo la barra mientras se desplaza; lo que importa es que al llegar al final no quede tapado.
+      if (s.scrollToEnd) {
+        for (let i = 0; i < 4; i++) { q.swipeUp(); await q.sleep(500); }
+      }
       const bad = offenders(await q.dumpUi(), top, bottom, h);
       q.screenshot(`safearea-${s.name.toLowerCase()}`);
       checks.push({
