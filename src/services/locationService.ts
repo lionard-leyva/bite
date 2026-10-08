@@ -5,21 +5,28 @@ export async function requestLocationPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function getCurrentLocation(): Promise<{
-  latitude: number;
-  longitude: number;
-} | null> {
-  const granted = await requestLocationPermission();
-  if (!granted) return null;
+export type LocationOutcome =
+  | { ok: true; coords: { latitude: number; longitude: number } }
+  // permission: el usuario no dio permiso. unavailable: lo dio, pero no se pudo obtener la posicion.
+  | { ok: false; reason: 'permission' | 'unavailable' };
 
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.Balanced,
-  });
+export async function getLocationOutcome(): Promise<LocationOutcome> {
+  let granted: boolean;
+  try {
+    granted = await requestLocationPermission();
+  } catch {
+    return { ok: false, reason: 'unavailable' };
+  }
+  if (!granted) return { ok: false, reason: 'permission' };
 
-  return {
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-  };
+  try {
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return { ok: true, coords: { latitude: location.coords.latitude, longitude: location.coords.longitude } };
+  } catch {
+    return { ok: false, reason: 'unavailable' };
+  }
 }
 
 export async function reverseGeocode(

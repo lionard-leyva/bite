@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getCurrentLocation, reverseGeocode, reverseGeocodeCity } from '../services/locationService';
+import { getLocationOutcome, reverseGeocode, reverseGeocodeCity } from '../services/locationService';
+import type { LocationErrorKind } from '../utils/locationNotice';
 
 interface LocationState {
   latitude: number | null;
@@ -8,6 +9,8 @@ interface LocationState {
   city: string | null;
   loading: boolean;
   error: string | null;
+  /** Why it failed: no permission (needs Settings) or the position could not be obtained. */
+  errorKind: LocationErrorKind | null;
 }
 
 export interface Coords {
@@ -25,6 +28,7 @@ export function useLocation() {
     city: null,
     loading: true,
     error: null,
+    errorKind: null,
   });
   const mountedRef = useRef(true);
   const requestRef = useRef(0);
@@ -33,16 +37,18 @@ export function useLocation() {
   const refresh = useCallback(async (): Promise<Coords | null> => {
     const requestId = ++requestRef.current;
     const isCurrent = () => mountedRef.current && requestId === requestRef.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ ...s, loading: true, error: null, errorKind: null }));
 
     try {
-      const coords = await getCurrentLocation();
-      if (!isCurrent()) return coords;
-
-      if (!coords) {
-        setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR }));
+      const outcome = await getLocationOutcome();
+      if (!outcome.ok) {
+        if (isCurrent()) {
+          setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR, errorKind: outcome.reason }));
+        }
         return null;
       }
+      const coords = outcome.coords;
+      if (!isCurrent()) return coords;
 
       // Geocoding is cosmetic: its failure must not discard a valid position.
       const [address, city] = await Promise.all([
@@ -58,11 +64,12 @@ export function useLocation() {
         city,
         loading: false,
         error: null,
+        errorKind: null,
       });
       return coords;
     } catch {
       if (isCurrent()) {
-        setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR }));
+        setState((s) => ({ ...s, loading: false, error: LOCATION_ERROR, errorKind: 'unavailable' }));
       }
       return null;
     }

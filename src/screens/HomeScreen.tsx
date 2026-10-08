@@ -13,6 +13,7 @@ import { useNavigationETA } from '../hooks/useNavigationETA';
 import FAB from '../components/FAB';
 import MapDetailCard from '../components/MapDetailCard';
 import MatchEntryCard from '../components/MatchEntryCard';
+import LocationNotice from '../components/LocationNotice';
 import MapMarker, { markerAnchorY } from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
 import type { FilterValue } from '../components/FilterButtons';
@@ -20,6 +21,7 @@ import type { RootStackParamList, TabParamList } from '../navigation/types';
 import { getPrimaryPhoto, type Restaurant } from '../types';
 import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
 import { timeAgo } from '../utils/timeAgo';
+import { locationNotice, locationButtonState } from '../utils/locationNotice';
 import {
   CLUSTER_RADIUS,
   CLUSTER_COLOR,
@@ -187,6 +189,10 @@ export default function HomeScreen() {
   const focusRestaurantId = route.params?.focusRestaurantId;
   const { restaurants: rawRestaurants, loading, error } = useRestaurants({ mode: 'all' });
   const location = useLocation();
+  // El aviso de ubicacion solo sale tras pulsar el boton (ver utils/locationNotice).
+  const [locationAsked, setLocationAsked] = useState(false);
+  const locationBanner = locationNotice(location.errorKind, locationAsked);
+  const locationButton = locationButtonState(location.errorKind);
   const mapRef = useRef<MapView>(null);
   const hasInitiallyFit = useRef(false);
 
@@ -458,6 +464,7 @@ export default function HomeScreen() {
   }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
 
   const handleMyLocation = useCallback(async () => {
+    setLocationAsked(true);
     // Ask again so a failed first attempt at mount does not disable the button; fall back to the last known fix.
     const fresh = await location.refresh();
     const coords =
@@ -683,12 +690,12 @@ export default function HomeScreen() {
               </View>
 
               <Pressable
-                style={layoutStyles.circleControl}
+                style={[layoutStyles.circleControl, locationButton.dimmed && layoutStyles.circleControlDim]}
                 onPress={handleMyLocation}
                 accessibilityRole="button"
-                accessibilityLabel="Ir a mi ubicacion"
+                accessibilityLabel={locationButton.label}
               >
-                <Ionicons name="navigate" size={18} color="#E5E7EB" />
+                <Ionicons name="navigate" size={18} color={locationButton.dimmed ? '#6B7280' : '#E5E7EB'} />
               </Pressable>
             </View>
 
@@ -717,6 +724,10 @@ export default function HomeScreen() {
                 );
               })}
             </View>
+
+            {locationBanner && (
+              <LocationNotice notice={locationBanner} onDismiss={() => setLocationAsked(false)} />
+            )}
           </View>
 
           <Pressable
@@ -850,6 +861,9 @@ const layoutStyles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
+  },
+  circleControlDim: {
+    opacity: 0.55,
   },
   filterRow: {
     flexDirection: 'row',

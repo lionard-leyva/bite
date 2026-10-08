@@ -1,13 +1,16 @@
 // QA: inyectar ubicacion (Madrid por defecto) > abrir Bite > "Ir a mi ubicacion" > verificar coords + logcat.
 // Uso: npm run qa:location -- [--lat 40.4168] [--lng -3.7038] [--keep] [--deny]
 // --keep: reutiliza la app ya abierta (p. ej. justo tras qa:map) en vez de un arranque en frio.
-// --deny: LOC-02. Revoca el permiso de ubicacion, pulsa "Ir a mi ubicacion" y comprueba que Bite no se rompe: la app
-//         sigue viva y en el Mapa, sin errores JS, y el permiso sigue denegado (si un dialogo lo concedio, el caso no
-//         probo nada y falla). Siempre vuelve a conceder el permiso al terminar para no afectar a los casos siguientes.
+// --deny: LOC-02. Revoca el permiso de ubicacion, pulsa el boton y comprueba que Bite no se rompe: la app sigue viva y
+//         en el Mapa, sin errores JS, sale el aviso con "Abrir Ajustes", el boton se anuncia como desactivado y el
+//         permiso sigue denegado (si un dialogo lo concedio, el caso no probo nada y falla). Siempre vuelve a conceder
+//         el permiso al terminar para no afectar a los casos siguientes.
 const q = require('./adb');
 const { isPermissionGranted } = require('./permissions');
 
 const PERMS = ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'];
+// Sin permiso la etiqueta del boton cambia (utils/locationNotice): al arrancar ya puede ser la de "desactivada".
+const LOCATION_BUTTON = /^(Ir a mi ubicacion|Ubicacion desactivada)/i;
 const tryAdb = (args) => {
   try {
     return q.adb(args);
@@ -28,7 +31,7 @@ async function denied() {
     q.launchApp();
     await q.goToMap({ deny: true });
     await q.sleep(1500);
-    await q.tapLabel('Ir a mi ubicacion', 10000);
+    await q.tapLabel(LOCATION_BUTTON, 10000);
     // Si Android aun enseña el dialogo, se rechaza.
     const dialog = await q.waitFor(["Don't allow", 'Deny'], 2500);
     if (dialog) q.tap(dialog.node.x, dialog.node.y);
@@ -36,8 +39,12 @@ async function denied() {
 
     const pid = tryAdb(['shell', 'pidof', q.PKG]).trim();
     checks.push({ name: 'la app sigue viva tras pulsar sin permiso', ok: pid !== '', info: pid ? `pid ${pid}` : 'proceso muerto (crash)' });
-    const onMap = pid !== '' && !!q.findNode(await q.dumpUi(), 'Ir a mi ubicacion');
+    const onMap = pid !== '' && !!q.findNode(await q.dumpUi(), LOCATION_BUTTON);
     checks.push({ name: 'sigue en el Mapa con el boton disponible', ok: onMap });
+    const aviso = pid !== '' ? await q.waitFor('Abrir Ajustes', 8000) : null;
+    checks.push({ name: 'sale el aviso con "Abrir Ajustes"', ok: !!aviso });
+    const atenuado = pid !== '' && !!q.findNode(await q.dumpUi(), /^Ubicacion desactivada/i);
+    checks.push({ name: 'el boton se anuncia como "Ubicacion desactivada"', ok: atenuado });
     const errors = q.logcatErrors();
     checks.push({ name: 'sin errores JS en logcat (rechazo sin capturar)', ok: errors.length === 0, info: errors.length ? `${errors.length} lineas` : '' });
     const granted = isPermissionGranted(tryAdb(['shell', 'dumpsys', 'package', q.PKG]), 'android.permission.ACCESS_FINE_LOCATION');

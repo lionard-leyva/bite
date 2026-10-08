@@ -40,14 +40,14 @@ modules/share-intent/ # Modulo Expo local (Android): texto compartido a Bite (AC
 src/
 ├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
 features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por jest-cucumber (ver §10)
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard
+├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard, LocationNotice
 ├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
 ├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService
 ├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
-├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, shareParser
+├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, locationNotice, shareParser
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -230,7 +230,7 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
 | `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
 | `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
-| `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` reales con `expo-location` simulado | components |
+| `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` + reglas del aviso (`utils/locationNotice`) + `LocationNotice` reales con `expo-location` y `Linking.openSettings` simulados | components |
 | `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
 
 - Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
