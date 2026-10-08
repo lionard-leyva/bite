@@ -5,7 +5,8 @@ export type ColorName =
   | 'primary' | 'on-primary' | 'primary-light'
   | 'visited' | 'on-visited' | 'visited-light'
   | 'danger' | 'on-danger'
-  | 'warning' | 'star';
+  | 'warning' | 'star'
+  | 'map-water' | 'map-park' | 'location';
 export type Colors = Record<ColorName, string>;
 export type Scheme = 'light' | 'dark';
 export const palette: Record<Scheme, Colors>;

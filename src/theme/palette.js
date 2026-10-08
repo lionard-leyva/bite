@@ -9,6 +9,7 @@
 //  visited / on-visited / visited-light   estado Visitado (salvia)
 //  danger / on-danger           errores y acciones destructivas
 //  warning / star               aviso y estrellas (graficos, >= 3:1 sobre surface)
+//  map-water / map-park / location   agua y parques del mapa, y el punto azul del usuario
 const light = {
   background: '#F8F1EA',
   surface: '#FFFDFB',
@@ -26,6 +27,9 @@ const light = {
   'on-danger': '#FFFFFF',
   warning: '#B87900',
   star: '#B87900',
+  'map-water': '#CFE0E3',
+  'map-park': '#DCE6D2',
+  location: '#2F6FB5',
 };
 
 const dark = {
@@ -45,6 +49,9 @@ const dark = {
   'on-danger': '#2B0805',
   warning: '#E5B03A',
   star: '#E5B03A',
+  'map-water': '#1F3238',
+  'map-park': '#2A3426',
+  location: '#6FA8E8',
 };
 
 // "#B84A33" -> "184 74 51": NativeWind compone rgb(var(--color-x) / alfa) y asi admite bg-primary/10.

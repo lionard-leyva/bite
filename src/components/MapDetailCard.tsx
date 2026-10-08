@@ -2,6 +2,8 @@ import { View, Text, Pressable, Platform, Animated, ActivityIndicator } from 're
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import DragHandle from './DragHandle';
+import { useTheme } from '../theme/ThemeProvider';
+import { withAlpha } from '../theme/color';
 import { getPrimaryPhoto } from '../types';
 import type { Restaurant } from '../types';
 import {
@@ -31,6 +33,7 @@ export default function MapDetailCard({
   metaLine,
   etaLoading,
 }: MapDetailCardProps) {
+  const { colors } = useTheme();
   return (
     <Animated.View
       style={{
@@ -38,13 +41,13 @@ export default function MapDetailCard({
         bottom: CARD_BOTTOM_POSITION,
         left: CARD_HORIZONTAL_MARGIN,
         right: CARD_HORIZONTAL_MARGIN,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: colors.surface,
         borderRadius: CARD_BORDER_RADIUS,
         zIndex: Z_CARD,
         transform: [{ translateY }],
         ...(Platform.OS === 'android'
           ? { elevation: 6 }
-          : { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.08, shadowRadius: 8 }),
+          : { shadowColor: colors['text-primary'], shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 10 }),
       }}
     >
       <DragHandle />
@@ -75,24 +78,24 @@ export default function MapDetailCard({
           width: 30,
           height: 30,
           borderRadius: 15,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+          backgroundColor: withAlpha(colors['text-primary'], 0.6),
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Ionicons name="close" size={18} color="#fff" />
+        <Ionicons name="close" size={18} color={colors.background} />
       </Pressable>
 
       {/* Info */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-        <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '700', color: '#1F2937' }}>
+        <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '700', color: colors['text-primary'] }}>
           {restaurant.name}
         </Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
           <Text style={{ fontSize: 13 }}>{'\u{2B50}'.repeat(restaurant.rating)}</Text>
-          <View style={{ backgroundColor: restaurant.visited ? '#E6F7F5' : '#FFEEEE', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-            <Text style={{ fontSize: 10, fontWeight: '600', color: restaurant.visited ? '#00A699' : '#FF5A5F' }}>
+          <View style={{ backgroundColor: restaurant.visited ? colors['visited-light'] : colors['primary-light'], paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: restaurant.visited ? colors.visited : colors['text-secondary'] }}>
               {restaurant.visited ? 'Visitado' : 'Pendiente'}
             </Text>
           </View>
@@ -100,16 +103,16 @@ export default function MapDetailCard({
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
           {etaLoading ? (
-            <ActivityIndicator size={10} color="#9CA3AF" />
+            <ActivityIndicator size={10} color={colors['text-tertiary']} />
           ) : (
-            <Text style={{ fontSize: 13, color: '#6B7280' }}>
+            <Text style={{ fontSize: 13, color: colors['text-secondary'] }}>
               {(() => {
                 const parts = metaLine.split(' \u00B7 ');
                 const dist = parts[0] ?? '';
                 const rest = parts.slice(1).join(' \u00B7 ');
                 return (
                   <>
-                    <Text style={{ fontWeight: '700', color: '#111827' }}>{dist}</Text>
+                    <Text style={{ fontWeight: '700', color: colors['text-primary'] }}>{dist}</Text>
                     {rest ? <Text>{` \u00B7 ${rest}`}</Text> : null}
                   </>
                 );
@@ -125,7 +128,7 @@ export default function MapDetailCard({
           onPress={onDetail}
           style={{
             flex: 1,
-            backgroundColor: '#ef4444',
+            backgroundColor: colors.primary,
             paddingVertical: 10,
             borderRadius: 8,
             alignItems: 'center',
@@ -135,15 +138,15 @@ export default function MapDetailCard({
             minHeight: 44,
           }}
         >
-          <Ionicons name="information-circle-outline" size={16} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Ver detalle</Text>
+          <Ionicons name="information-circle-outline" size={16} color={colors['on-primary']} />
+          <Text style={{ color: colors['on-primary'], fontWeight: '700', fontSize: 14 }}>Ver detalle</Text>
         </Pressable>
 
         <Pressable
           onPress={onNavigate}
           style={{
             flex: 1,
-            backgroundColor: '#3b82f6',
+            backgroundColor: colors.visited,
             paddingVertical: 10,
             borderRadius: 8,
             alignItems: 'center',
@@ -153,8 +156,8 @@ export default function MapDetailCard({
             minHeight: 44,
           }}
         >
-          <Ionicons name="navigate" size={16} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Ir ahora</Text>
+          <Ionicons name="navigate" size={16} color={colors['on-visited']} />
+          <Text style={{ color: colors['on-visited'], fontWeight: '700', fontSize: 14 }}>Ir ahora</Text>
         </Pressable>
       </View>
     </Animated.View>

@@ -1,6 +1,7 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { LocationNoticeContent } from '../utils/locationNotice';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface LocationNoticeProps {
   notice: LocationNoticeContent;
@@ -8,20 +9,24 @@ interface LocationNoticeProps {
 }
 
 export default function LocationNotice({ notice, onDismiss }: LocationNoticeProps) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.banner} accessibilityRole="alert">
-      <Text style={styles.message}>{notice.message}</Text>
+    <View
+      style={[styles.banner, { backgroundColor: colors.surface, shadowColor: colors['text-primary'] }]}
+      accessibilityRole="alert"
+    >
+      <Text style={[styles.message, { color: colors['text-primary'] }]}>{notice.message}</Text>
       <View style={styles.actions}>
         {notice.actionLabel && (
           <Pressable
-            style={styles.action}
+            style={[styles.action, { backgroundColor: colors.primary }]}
             onPress={() => {
               Linking.openSettings().catch(() => {});
             }}
             accessibilityRole="button"
             accessibilityLabel={notice.actionLabel}
           >
-            <Text style={styles.actionText}>{notice.actionLabel}</Text>
+            <Text style={[styles.actionText, { color: colors['on-primary'] }]}>{notice.actionLabel}</Text>
           </Pressable>
         )}
         <Pressable
@@ -30,7 +35,7 @@ export default function LocationNotice({ notice, onDismiss }: LocationNoticeProp
           accessibilityRole="button"
           accessibilityLabel="Cerrar aviso de ubicacion"
         >
-          <Ionicons name="close" size={16} color="#E5E7EB" />
+          <Ionicons name="close" size={16} color={colors['text-secondary']} />
         </Pressable>
       </View>
     </View>
@@ -45,13 +50,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 90, 95, 0.55)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  message: { flex: 1, color: '#F3F4F6', fontSize: 13 },
+  message: { flex: 1, fontSize: 13 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  action: { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#FF5A5F' },
-  actionText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  action: { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
+  actionText: { fontSize: 12, fontWeight: '700' },
   close: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 });
