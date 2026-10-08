@@ -1,6 +1,7 @@
 import { View, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { RATING_MAX } from '../config/constants';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface StarRatingProps {
   rating: number;
@@ -13,6 +14,7 @@ export default function StarRating({
   onRate,
   size = 36,
 }: StarRatingProps) {
+  const { colors } = useTheme();
   return (
     <View className="flex-row items-center gap-1">
       {Array.from({ length: RATING_MAX }, (_, i) => {
@@ -29,7 +31,7 @@ export default function StarRating({
             <Ionicons
               name={filled ? 'star' : 'star-outline'}
               size={size}
-              color={filled ? '#FFB400' : '#EBEBEB'}
+              color={filled ? colors.star : colors.border}
             />
           </Pressable>
         );

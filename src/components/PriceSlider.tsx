@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { PRICE_VALUES, PRICE_LABELS, PRICE_TRACK_COLOR } from '../config/constants';
+import { PRICE_VALUES, PRICE_LABELS } from '../config/constants';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface PriceSliderProps {
   value: number;
@@ -9,6 +10,7 @@ interface PriceSliderProps {
 
 export default function PriceSlider({ value, onChange }: PriceSliderProps) {
   const [trackWidth, setTrackWidth] = useState(0);
+  const { colors } = useTheme();
   const activeIndex = PRICE_VALUES.indexOf(value as (typeof PRICE_VALUES)[number]);
   const idx = activeIndex >= 0 ? activeIndex : 1; // fallback to index 1 (€20)
 
@@ -18,10 +20,10 @@ export default function PriceSlider({ value, onChange }: PriceSliderProps) {
     <View>
       {/* Big centered price + label */}
       <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <Text style={{ fontSize: 32, fontWeight: '700', color: '#1F2937' }}>
+        <Text style={{ fontSize: 32, fontWeight: '700', color: colors['text-primary'] }}>
           {'\u20AC'}{PRICE_VALUES[idx]}
         </Text>
-        <Text style={{ fontSize: 14, color: '#6B7280', marginTop: 2 }}>
+        <Text style={{ fontSize: 14, color: colors['text-secondary'], marginTop: 2 }}>
           {PRICE_LABELS[idx]}
         </Text>
       </View>
@@ -32,7 +34,7 @@ export default function PriceSlider({ value, onChange }: PriceSliderProps) {
         onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width - 20)}
       >
         {/* Background track */}
-        <View style={{ height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' }} />
+        <View style={{ height: 4, borderRadius: 2, backgroundColor: colors.border }} />
 
         {/* Active track */}
         {trackWidth > 0 && (
@@ -42,7 +44,7 @@ export default function PriceSlider({ value, onChange }: PriceSliderProps) {
               left: 10,
               height: 4,
               borderRadius: 2,
-              backgroundColor: PRICE_TRACK_COLOR,
+              backgroundColor: colors.primary,
               width: idx * segmentWidth,
             }}
           />
@@ -66,9 +68,9 @@ export default function PriceSlider({ value, onChange }: PriceSliderProps) {
                   width: size,
                   height: size,
                   borderRadius: size / 2,
-                  backgroundColor: isPast ? PRICE_TRACK_COLOR : '#D1D5DB',
+                  backgroundColor: isPast ? colors.primary : colors['text-tertiary'],
                   borderWidth: isActive ? 3 : 0,
-                  borderColor: '#fff',
+                  borderColor: colors.surface,
                 }}
               />
             );
@@ -87,7 +89,7 @@ export default function PriceSlider({ value, onChange }: PriceSliderProps) {
                 width: 32,
                 textAlign: 'center',
                 fontSize: 11,
-                color: i === idx ? '#1F2937' : '#9CA3AF',
+                color: i === idx ? colors['text-primary'] : colors['text-secondary'],
                 fontWeight: i === idx ? '600' : '400',
               }}
             >

@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity, Pressable, Modal } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import DragHandle from './DragHandle';
+import { useTheme } from '../theme/ThemeProvider';
+import { withAlpha } from '../theme/color';
 
 const BOTTOM_INSET = initialWindowMetrics?.insets.bottom ?? 34;
 
@@ -25,19 +27,20 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={{ flex: 1, justifyContent: 'flex-end' }}>
         {/* Backdrop */}
         <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ flex: 1, backgroundColor: withAlpha(colors['text-primary'], 0.5) }}
           onPress={onCancel}
         />
 
         {/* Sheet */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: colors.surface,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             paddingHorizontal: 24,
@@ -52,7 +55,7 @@ export default function ConfirmModal({
               marginBottom: 8,
               fontSize: 18,
               fontWeight: '700',
-              color: '#1F2937',
+              color: colors['text-primary'],
             }}
           >
             {title}
@@ -61,7 +64,7 @@ export default function ConfirmModal({
             style={{
               marginBottom: 24,
               fontSize: 15,
-              color: '#6B7280',
+              color: colors['text-secondary'],
               lineHeight: 22,
             }}
           >
@@ -77,11 +80,11 @@ export default function ConfirmModal({
               justifyContent: 'center',
               borderRadius: 12,
               paddingVertical: 16,
-              backgroundColor: destructive ? '#FF5A5F' : '#1F2937',
+              backgroundColor: destructive ? colors.danger : colors['text-primary'],
               marginBottom: 10,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: destructive ? colors['on-danger'] : colors.background }}>
               {confirmLabel}
             </Text>
           </TouchableOpacity>
@@ -95,11 +98,11 @@ export default function ConfirmModal({
               justifyContent: 'center',
               borderRadius: 12,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: colors.border,
               paddingVertical: 16,
             }}
           >
-            <Text style={{ fontSize: 16, fontWeight: '500', color: '#6B7280' }}>
+            <Text style={{ fontSize: 16, fontWeight: '500', color: colors['text-secondary'] }}>
               {cancelLabel}
             </Text>
           </TouchableOpacity>

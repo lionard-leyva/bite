@@ -19,6 +19,11 @@ export const MIGRADOS = [
   'src/components/LocationNotice.tsx',
   'src/components/DragHandle.tsx',
   'src/screens/MatchScreen.tsx',
+  'src/screens/SaveScreen.tsx',
+  'src/components/PhotoPicker.tsx',
+  'src/components/PriceSlider.tsx',
+  'src/components/StarRating.tsx',
+  'src/components/ConfirmModal.tsx',
 ];
 
 // Hex, rgb()/rgba(), nombres sueltos y paletas por defecto de Tailwind (text-red-600).
