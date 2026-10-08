@@ -16,7 +16,8 @@ Una página. Detalle de cada caso en `e2e-plan.md`; reglas de Gherkin en `CLAUDE
 |---|---|---|
 | 1. Robot rápido | `MAP-05` sin proxy, `ADD-04` fotos (parcial), `ADD-03` Places sin red, `DET-03` id inexistente, `KBD-03` regla de campos, `PRF-03` migración, `MCH-05` acceso, `MCH-06` pantalla, `LOC-02` (lógica), `VIS-03` visitado, `SHL-04` sincronía, `SHL-01..03`, `MCH-01..04`, `SHR-01/02/04`, `EMU-*`, `RUL-*` | hecho |
 | 2. Robot lento | `LOC-02` (P0, `qa:location --deny`, validado en CI), `ADD-01/02`, `SHR-03`, `VIS-01/02`, `DET-01/02`, `SRC-01/02`, `KBD-02`, `SAF-01` | hecho |
-| 2. Robot lento | `MAP-04` (`qa:empty`), `MAP-06` (`qa:map-controls`), `PRF-01` (`qa:profile`), `SAF-02` (`qa:safearea --nav3`), `MAP-02` (`qa:map --open-detail`) | escritos y probados con `adb` falso; falta validarlos en el E2E de CI |
+| 2. Robot lento | `MAP-04` (`qa:empty`), `PRF-01` (`qa:profile`) | hecho (validados en el E2E de CI, ejecución 21) |
+| 2. Robot lento | `MAP-06` (`qa:map-controls`), `SAF-02` (`qa:safearea --nav3`), `MAP-02` (`qa:map --open-detail`) | escritos; MAP-06 corregido tras fallar en la ejecución 21, SAF-02 con un probable falso positivo en Guardar; falta validarlos |
 | 2. Robot lento | `MAP-01`, `MAP-03`, `LOC-01` | omitidos: los marcadores del mapa no salen en el árbol de accesibilidad sin `title` |
 | 3. Manual | `SHL-05`, `EMU-08` (dos móviles reales), `EMU-09` (reglas en consola), `LOC-01` (centrado), `SHR-05` (red), `LOC-04` (GPS en Guardar: el emulador no entrega posición), `PRF-02` (editar perfil: solo existe con cuenta) | lista de comprobación |
 

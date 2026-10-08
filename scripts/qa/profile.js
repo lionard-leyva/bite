@@ -11,6 +11,8 @@ const SHARE_ENTRIES = [/^Compartir con pareja o grupo$/i, /^Gestionar lista comp
   const checks = [];
   q.clearLogcat();
   await q.openTab('Perfil');
+  // El contenido puede tardar en salir tras cambiar de pestana (visto en el emulador real de CI): se espera antes de juzgarlo.
+  await q.waitFor('Modo sin cuenta', 10000);
 
   // Lo que no existe no sale en el volcado, y lo que esta bajo el pliegue tampoco: la ausencia se comprueba en todo el scroll.
   const seen = [await q.dumpUi()];

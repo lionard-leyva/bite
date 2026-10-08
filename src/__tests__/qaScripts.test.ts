@@ -69,7 +69,8 @@ describe('MAP-06 qa:map-controls', () => {
     return tree(
       tabs
         .concat([
-          { hint: 'Buscar en esta zona', x: 300, y: 200 },
+          // Como en el emulador real: con texto el campo anuncia el texto y deja de anunciar su placeholder.
+          query ? { text: query, x: 300, y: 200 } : { hint: 'Buscar en esta zona', x: 300, y: 200 },
           { desc: 'Expandir mapa', x: 900, y: 700 },
         ] as any)
         .concat(!hayCoincidencia && !data.noFiltra ? [{ text: 'Tu mapa esta vacio', x: 540, y: 900 }] : []),
@@ -123,7 +124,16 @@ describe('PRF-01 qa:profile', () => {
       { text: 'Mapa', x: 200, y: 2300 },
       { text: 'Perfil', x: 880, y: 2300 },
     ];
-    if (!perfil) return tree(tabs);
+    // Contenido tardio: tras tocar "Perfil" las primeras `carga` capturas aun no lo muestran (visto en el emulador real).
+    let capturasTrasTocar = 0;
+    let tocado = false;
+    for (const l of log) {
+      if (l === 'shell input tap 880 2300') {
+        tocado = true;
+        capturasTrasTocar = 0;
+      } else if (tocado && l.indexOf('uiautomator dump') >= 0) capturasTrasTocar++;
+    }
+    if (!perfil || (data.carga && capturasTrasTocar <= data.carga)) return tree(tabs);
     if (modal) {
       // El aviso se dibuja sobre el Perfil, que sigue en el arbol.
       return tree(
@@ -176,6 +186,12 @@ describe('PRF-01 qa:profile', () => {
     const r = runScript('profile.js', ['--count', '4'], { screen, data: { compartirAbajo: true } });
     expect(r.out).toMatch(/FAIL .*compartir/i);
     expect(r.status).toBe(1);
+  });
+
+  it('espera a que cargue el Perfil antes de juzgarlo (contenido tardio)', () => {
+    const r = runScript('profile.js', ['--count', '4'], { screen, data: { carga: 3 } });
+    expect(r.out).toContain('PASS qa:profile');
+    expect(r.status).toBe(0);
   });
 
   it('da FAIL si "Crear cuenta" no abre el aviso', () => {

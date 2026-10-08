@@ -42,9 +42,9 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | MAP-01 | P0 | Abrir app > Continuar sin cuenta > Mapa > tocar marker "Casa Lucio" | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; sin errores JS | `npm run qa:map -- --restaurant "Casa Lucio"` | ✅ |
 | MAP-02 | P1 | Desde MAP-01 tocar "Ver detalle" | Abre DetailScreen del mismo restaurante | `npm run qa:map -- --restaurant X --marker X,Y --open-detail` | 🟡 (script hecho y probado con `adb` falso; necesita localizar el marker, asi que en `qa:all` no corre mientras se omita MAP-01) |
 | MAP-03 | P1 | Filtros Todos / Pendientes / Visitados en el Mapa | Markers cambian (Visitado desaparece en Pendientes) | adb: contar markers por `content-desc` (requiere `title` en MapMarker) o screenshot diff | ❌ |
-| MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | `npm run qa:empty` (en `qa:all`, entre RESET y SEED) | 🟡 (probado con `adb` falso; falta validarlo en el emulador de CI) |
+| MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | `npm run qa:empty` (en `qa:all`, entre RESET y SEED) | ✅ (validado en el emulador de CI, ejecucion 21; SEED sigue OK despues) |
 | MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado + [Gherkin](../../features/distancia-sin-proxy.feature) | ✅ (hook `useNavigationETA` y `navigationService` reales con `fetch` simulado: caído, error, colgado, recuperación y cambio de sitio; cómo pinta el texto `MapDetailCard` es de UI) |
-| MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | `npm run qa:map-controls -- --match lucio` (la busqueda se comprueba por el mensaje de mapa vacio, porque los markers no salen en el arbol) | 🟡 (probado con `adb` falso; falta validarlo en el emulador de CI) |
+| MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | `npm run qa:map-controls -- --match lucio` (la busqueda se comprueba por el mensaje de mapa vacio, porque los markers no salen en el arbol) | 🟡 (la ejecucion 21 fallo: con texto el campo se anuncia con ese texto y no con su placeholder, y el script lo buscaba por el placeholder; corregido, falta validarlo en el emulador de CI) |
 
 ### 2.2 Ubicacion
 
@@ -145,7 +145,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
-| PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir no se ofrece sin cuenta | `npm run qa:profile -- --count N` (comprueba tambien que el aviso de "Crear cuenta" se cancela sin pulsar "Continuar", que cerraria la sesion) | 🟡 (probado con `adb` falso; falta validarlo en el emulador de CI) |
+| PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir no se ofrece sin cuenta | `npm run qa:profile -- --count N` (comprueba tambien que el aviso de "Crear cuenta" se cancela sin pulsar "Continuar", que cerraria la sesion) | ✅ (validado en el emulador de CI, ejecucion 21: paso en el reintento; el primer intento miro el Perfil antes de que cargara y ahora espera) |
 | PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos | **Manual con cuenta** | ❌ no automatizable sin cuenta: "Editar perfil" solo existe con sesion iniciada (`ProfileScreen` lo oculta en modo sin cuenta); haria falta una cuenta de prueba o el Auth Emulator en el dispositivo |
 | PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual + [Gherkin](../../features/migracion.feature) | 🟡 (datos cubiertos: copia, fotos, no pierde nada ni duplica si falla a medias y se reintenta; el aviso "Migrar?" y la comprobación de sesión de AuthContext, no) |
 
@@ -162,7 +162,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
-| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia) | 🟡 (3 botones hecho y probado con `adb` falso; falta validarlo en el emulador de CI; la rotacion no esta automatizada) |
+| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia) | 🟡 (ejecucion 21: Mapa, Lista y Perfil OK con barra de 126 px; en Guardar "Elegir foto de galeria" [2145-2308] solapa la barra [2274-2400]. Probable falso positivo: es contenido desplazable y la regla solo exime lo cortado por el borde de la pantalla, no por la barra; pendiente de decidir si medir la pantalla desplazada al final. La rotacion no esta automatizada) |
 
 ### 2.13 Transversales
 

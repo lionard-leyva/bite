@@ -8,11 +8,14 @@ const SEARCH = 'Buscar en esta zona';
 const EMPTY = 'Tu mapa esta vacio';
 const NO_MATCH = 'zzzz';
 
+// Con texto, el campo se anuncia con ese texto y ya no con su placeholder (visto en el emulador real de CI).
+const searchField = (typed) => new RegExp(`^(${SEARCH}|${typed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})$`, 'i');
+
 // El campo conserva el texto: se borra con DEL (keyevent 67) desde el final.
-async function clearSearch(length) {
-  await q.tapLabel(SEARCH, 8000);
+async function clearSearch(typed) {
+  await q.tapLabel(searchField(typed), 8000);
   q.adb(['shell', 'input', 'keyevent', '123']); // MOVE_END
-  for (let i = 0; i < length + 2; i++) q.adb(['shell', 'input', 'keyevent', '67']);
+  for (let i = 0; i < typed.length + 2; i++) q.adb(['shell', 'input', 'keyevent', '67']);
   q.hideKeyboard();
   await q.sleep(800);
 }
@@ -33,12 +36,12 @@ async function search(text) {
 
   await search(NO_MATCH);
   checks.push({ name: 'busqueda sin coincidencias vacia el mapa', ok: !!(await q.waitFor(EMPTY, 6000)) });
-  await clearSearch(NO_MATCH.length);
+  await clearSearch(NO_MATCH);
   checks.push({ name: 'al borrar la busqueda vuelve el mapa', ok: !q.findNode(await q.dumpUi(), EMPTY) });
 
   await search(match);
   checks.push({ name: `busqueda "${match}" con coincidencia mantiene el mapa`, ok: !q.findNode(await q.dumpUi(), EMPTY) });
-  await clearSearch(match.length);
+  await clearSearch(match);
 
   await q.tapLabel('Expandir mapa', 8000);
   const expanded = await q.waitFor('Explorar mapa', 8000);
