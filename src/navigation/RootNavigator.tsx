@@ -5,14 +5,16 @@ import { useAuth } from '../hooks/useAuth';
 import TabNavigator from './TabNavigator';
 import AuthScreen from '../screens/AuthScreen';
 import DetailScreen from '../screens/DetailScreen';
+import { useTheme } from '../theme/ThemeProvider';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function LoadingScreen() {
+  const { colors } = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAFAFA' }}>
-      <ActivityIndicator size="large" color="#FF5A5F" />
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 }
@@ -20,6 +22,7 @@ function LoadingScreen() {
 export default function RootNavigator() {
   const { user, skipMode, isLoading, pendingMigration, migrateLocalData, dismissMigration } = useAuth();
   const migrationShown = useRef(false);
+  const { colors } = useTheme();
 
   useEffect(() => {
     if (pendingMigration && !migrationShown.current) {
@@ -81,8 +84,8 @@ export default function RootNavigator() {
             options={{
               headerShown: true,
               title: '',
-              headerStyle: { backgroundColor: '#FAFAFA' },
-              headerTintColor: '#222222',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors['text-primary'],
             }}
           />
         </>

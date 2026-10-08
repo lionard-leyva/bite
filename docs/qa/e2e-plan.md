@@ -164,6 +164,15 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
 | SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia) | 🟡 (ejecucion 21: Mapa, Lista y Perfil OK con barra de 126 px; en Guardar "Elegir foto de galeria" [2145-2308] solapa la barra [2274-2400]. Probable falso positivo: es contenido desplazable y la regla solo exime lo cortado por el borde de la pantalla, no por la barra; pendiente de decidir si medir la pantalla desplazada al final. La rotacion no esta automatizada) |
 
+### 2.14 Diseño y tema
+
+| ID | P | Pasos | Esperado | Mecanismo | Estado |
+|---|---|---|---|---|---|
+| UI-01 | P1 | Medir el contraste de la paleta (claro y oscuro) | Texto >= 4,5:1 y gráficos >= 3:1 | Jest sobre `src/theme/palette.js` + [Gherkin](../../features/tema.feature) | 🟡 (la paleta cumple; falta migrar las pantallas, que aún usan colores sueltos) |
+| UI-02 | P1 | Comparar tema claro y oscuro | Mismos colores en los dos y no un invertido | Jest + [Gherkin](../../features/tema.feature) | 🟡 |
+| UI-03 | P1 | Compilar clases de Tailwind | Leen las variables del tema y admiten opacidad | Jest (Tailwind + PostCSS reales) + [Gherkin](../../features/tema.feature) | 🟡 |
+| UI-04 | P1 | Montar el tema con el teléfono en oscuro | Variables y colores sueltos de la paleta oscura | Jest `ThemeProvider` + [Gherkin](../../features/tema-activo.feature) | 🟡 (no se ve en pantalla: revisar en emulador/dispositivo) |
+
 ### 2.13 Transversales
 
 | ID | P | Mecanismo | Estado |
