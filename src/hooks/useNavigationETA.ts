@@ -58,6 +58,8 @@ export function useNavigationETA({
 
     const controller = new AbortController();
     abortRef.current = controller;
+    // The previous selection's time must not be shown for this one while its own ETA loads.
+    setEta(null);
     setEtaLoading(true);
 
     fetchETA(userLat, userLng, destLat, destLng, restaurantId, controller.signal)

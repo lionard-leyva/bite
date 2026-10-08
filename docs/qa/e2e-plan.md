@@ -43,7 +43,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | MAP-02 | P1 | Desde MAP-01 tocar "Ver detalle" | Abre DetailScreen del mismo restaurante | extender `map-callout.js` con `--open-detail` | ❌ |
 | MAP-03 | P1 | Filtros Todos / Pendientes / Visitados en el Mapa | Markers cambian (Visitado desaparece en Pendientes) | adb: contar markers por `content-desc` (requiere `title` en MapMarker) o screenshot diff | ❌ |
 | MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | script adb `qa:empty` (waitFor de los textos) | ❌ |
-| MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado | ❌ |
+| MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado + [Gherkin](../../features/distancia-sin-proxy.feature) | ✅ (hook `useNavigationETA` y `navigationService` reales con `fetch` simulado: caído, error, colgado, recuperación y cambio de sitio; cómo pinta el texto `MapDetailCard` es de UI) |
 | MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | adb tapLabel + waitFor | ❌ |
 
 ### 2.2 Ubicacion
@@ -62,7 +62,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | ADD-01 | P0 | FAB > nombre, direccion, rating, precio, Estado Visitado, nota > Guardar | Aparece en Lista y Mapa con estado Visitado | `npm run qa:save -- --name "QA Visitado" --state visitado` | ✅ |
 | ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `npm run qa:save -- --empty` (Guardar con formulario vacio no sale de la pantalla) | ✅ |
 | ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado | ❌ |
-| ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria | ❌ |
+| ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria + [Gherkin](../../features/fotos.feature) | 🟡 (se reduce a 800 px, JPEG, calidad 0,7 antes de subir, se sube la reducida, rutas por foto y fallo sin subir nada; que pese <200 KB y el selector de galería no se pueden comprobar aqui) |
 
 ### 2.4 Compartir hacia Bite (Android)
 

@@ -232,6 +232,8 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
 | `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` + reglas del aviso (`utils/locationNotice`) + `LocationNotice` reales con `expo-location` y `Linking.openSettings` simulados | components |
 | `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
+| `distancia-sin-proxy.feature` | MAP-05 | `useNavigationETA` + `navigationService` reales con `fetch` simulado (proxy caido, con error, colgado, recuperado, cambio de sitio) | components |
+| `fotos.feature` | ADD-04 | `imageService` real con manipulador de imagenes, Storage y `fetch` simulados (800 px, JPEG, calidad 0,7 antes de subir) | unit |
 
 - Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
 - `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
