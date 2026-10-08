@@ -112,6 +112,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # X-01..X-03 (typecheck, Jest, server) se omiten aqui: ya corren en ci.yml en cada PR y repetirlos dentro del
+      # emulador cuesta ~2,5 min de un runner que ya va justo de CPU.
       - name: qa:all en emulador
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -126,7 +128,7 @@ jobs:
             adb install -r bite.apk
             adb shell settings put global hide_error_dialogs 1
             for i in $(seq 1 30); do adb shell dumpsys window | grep -q "mCurrentFocus.*[Ll]auncher" && break; sleep 2; done
-            mkdir -p qa-out && (free -m > qa-out/resources.txt; BITE_INSET_TOP=136 BITE_INSET_BOTTOM=63 npm run qa:all -- --release --keep-going --skip LOC-01,MAP-01; rc=$?; adb logcat -d > qa-out/logcat.txt; adb shell dumpsys window > qa-out/dumpsys-window.txt; adb exec-out screencap -p > qa-out/final.png; exit $rc)
+            mkdir -p qa-out && (free -m > qa-out/resources.txt; BITE_INSET_TOP=136 BITE_INSET_BOTTOM=63 npm run qa:all -- --release --keep-going --skip LOC-01,MAP-01,X-01,X-02,X-03; rc=$?; adb logcat -d > qa-out/logcat.txt; adb shell dumpsys window > qa-out/dumpsys-window.txt; adb exec-out screencap -p > qa-out/final.png; exit $rc)
 
       - name: Capturas y logs
         if: always()
