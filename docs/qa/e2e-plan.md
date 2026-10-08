@@ -51,7 +51,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | LOC-01 | P0 | Permisos + `geo fix` Madrid > "Ir a mi ubicacion" | `dumpsys location` con la posicion; sin rechazos en logcat; mapa centrado (screenshot) | `npm run qa:location` | 🟡 (centrado solo visual; ver nota emulador `Accuracy.Balanced`) |
-| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, aviso con "Abrir Ajustes" y boton atenuado, sin unhandled rejection | `npm run qa:location -- --deny` + [Gherkin](../../features/ubicacion-denegada.feature) | 🟡 (Jest: sin permiso no hay posicion ni crash, se recupera al concederlo, banner "Abrir Ajustes" tras pulsar y boton atenuado; `--deny` en emulador pendiente de validar en CI) |
+| LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, aviso con "Abrir Ajustes" y boton atenuado, sin unhandled rejection | `npm run qa:location -- --deny` + [Gherkin](../../features/ubicacion-denegada.feature) | ✅ (Jest: sin permiso no hay posicion ni crash, se recupera al concederlo, banner "Abrir Ajustes" tras pulsar y boton atenuado; `--deny` validado en el emulador del E2E de CI, ejecucion 17: app viva, Mapa, aviso, boton "Ubicacion desactivada", sin errores JS, permiso aun denegado) |
 | LOC-03 | P1 | Fallo de ubicacion repetido > reintento | El boton vuelve a pedir posicion | `useLocation.test.tsx` | ✅ |
 | LOC-04 | P1 | "Rellenar direccion con GPS" en Guardar | Direccion rellenada | adb en `qa:save` | ❌ |
 
