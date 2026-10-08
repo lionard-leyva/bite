@@ -156,6 +156,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `npm run qa:keyboard` (texto llega al campo + screenshot por campo; recorte de descendentes lo juzga `qa-visual-triage`) | 🟡 (visual) |
 | KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `npm run qa:keyboard` (bounds del campo enfocado <= top del `ime` en `dumpsys window`) | ✅ |
 | KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest sobre el codigo fuente + [Gherkin](../../features/campos-de-texto.feature) | ✅ (revisa `<TextInput>`, su `style` por referencia, `className` `h-N`/`text-body` y los estilos `textInput:` de Places) |
+| KBD-04 | P1 | Abrir y cerrar el teclado en un formulario largo | El formulario vuelve a donde estaba (no queda desplazado ocultando el primer campo) | Jest (`KeyboardForm` real, teclado simulado) + [Gherkin](../../features/formulario-con-teclado.feature) | ✅ (visto en CI como fallo de KBD-01 y `qa:save`: con el margen inferior el campo Direccion quedaba fuera de pantalla) |
 
 ### 2.12 Safe areas
 
