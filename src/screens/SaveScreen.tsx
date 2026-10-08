@@ -814,7 +814,7 @@ export default function SaveScreen() {
             style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           >
             {saving ? (
-              <ActivityIndicator color={colors['on-primary']} />
+              <ActivityIndicator color={colors['text-secondary']} />
             ) : (
               <Text className={`text-body font-semibold ${canSave ? 'text-on-primary' : 'text-text-secondary'}`}>
                 {isEditMode ? 'Actualizar' : 'Guardar'}

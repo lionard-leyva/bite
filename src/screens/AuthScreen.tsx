@@ -15,10 +15,12 @@ import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { pickImage } from '../services/imageService';
 import { reverseGeocode } from '../services/locationService';
 import KeyboardForm from '../components/KeyboardForm';
+import { useTheme } from '../theme/ThemeProvider';
 
 type Tab = 'login' | 'register';
 
 export default function AuthScreen() {
+  const { colors } = useTheme();
   const { login, register, skipLogin } = useAuth();
 
   interface AuthFormState {
@@ -192,7 +194,7 @@ export default function AuthScreen() {
         {/* Brand icon */}
         <View className="items-center mb-3">
           <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
-            <Ionicons name="restaurant" size={40} color="#FF5A5F" />
+            <Ionicons name="restaurant" size={40} color={colors['primary']} />
           </View>
         </View>
 
@@ -211,7 +213,7 @@ export default function AuthScreen() {
             onPress={() => dispatch({ type: 'patch', payload: { tab: 'login' } })}
           >
             <Text
-              className={`text-sm font-medium ${state.tab === 'login' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${state.tab === 'login' ? 'text-background' : 'text-text-secondary'}`}
             >
               Iniciar sesion
             </Text>
@@ -221,7 +223,7 @@ export default function AuthScreen() {
             onPress={() => dispatch({ type: 'patch', payload: { tab: 'register' } })}
           >
             <Text
-              className={`text-sm font-medium ${state.tab === 'register' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${state.tab === 'register' ? 'text-background' : 'text-text-secondary'}`}
             >
               Registrarse
             </Text>
@@ -233,7 +235,7 @@ export default function AuthScreen() {
           ref={emailRef}
           className={`rounded-input border bg-surface px-4 py-3 text-text-primary ${state.emailError ? 'border-primary' : 'border-border'}`}
           placeholder="Email"
-          placeholderTextColor="#A0A0A0"
+          placeholderTextColor={colors['text-tertiary']}
           value={state.email}
           onChangeText={handleEmailChange}
           autoCapitalize="none"
@@ -257,7 +259,7 @@ export default function AuthScreen() {
             ref={passwordRef}
             className="flex-1 px-4 py-3 text-text-primary"
             placeholder="Contraseña"
-            placeholderTextColor="#A0A0A0"
+            placeholderTextColor={colors['text-tertiary']}
             value={state.password}
             onChangeText={handlePasswordChange}
             secureTextEntry={!state.showPassword}
@@ -284,7 +286,7 @@ export default function AuthScreen() {
             <Ionicons
               name={state.showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
-              color="#A0A0A0"
+              color={colors['text-tertiary']}
             />
           </Pressable>
         </View>
@@ -308,7 +310,7 @@ export default function AuthScreen() {
                   />
                 ) : (
                   <View className="h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                    <Ionicons name="person" size={32} color="#FF5A5F" />
+                    <Ionicons name="person" size={32} color={colors['primary']} />
                   </View>
                 )}
                 <Text className="mt-2 text-xs text-text-tertiary">
@@ -321,7 +323,7 @@ export default function AuthScreen() {
               ref={nameRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={state.name}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { name: text } })}
               autoCapitalize="words"
@@ -335,7 +337,7 @@ export default function AuthScreen() {
                 ref={addressRef}
                 className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
                 placeholder="Direccion"
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor={colors['text-tertiary']}
                 value={state.address}
                 onChangeText={(text) => {
                   dispatch({ type: 'patch', payload: { address: text, addressLat: null, addressLng: null } });
@@ -358,8 +360,8 @@ export default function AuthScreen() {
                   height: 32,
                   borderRadius: 16,
                   borderWidth: addressGpsState === 'filled' ? 0 : 1.5,
-                  borderColor: '#D1D5DB',
-                  backgroundColor: addressGpsState === 'filled' ? '#00A699' : 'transparent',
+                  borderColor: colors['text-tertiary'],
+                  backgroundColor: addressGpsState === 'filled' ? colors['visited'] : 'transparent',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -367,12 +369,12 @@ export default function AuthScreen() {
                 accessibilityLabel="Rellenar direccion con GPS"
               >
                 {addressGpsState === 'loading' ? (
-                  <ActivityIndicator size={14} color="#6B7280" />
+                  <ActivityIndicator size={14} color={colors['text-secondary']} />
                 ) : (
                   <Ionicons
                     name="locate"
                     size={16}
-                    color={addressGpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                    color={addressGpsState === 'filled' ? colors['on-visited'] : colors['text-secondary']}
                   />
                 )}
               </Pressable>
@@ -382,7 +384,7 @@ export default function AuthScreen() {
               ref={birthdayRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Cumpleaños (DD/MM/AAAA)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={state.birthday}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { birthday: text } })}
               keyboardType="numbers-and-punctuation"
@@ -395,7 +397,7 @@ export default function AuthScreen() {
               ref={bioRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Bio (opcional)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={state.bio}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { bio: text } })}
               multiline
@@ -410,7 +412,7 @@ export default function AuthScreen() {
               ref={inviteRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Codigo para unirme a pareja o grupo (opcional)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={state.inviteCode}
               onChangeText={(text) => dispatch({ type: 'patch', payload: { inviteCode: text } })}
               autoCapitalize="characters"
@@ -431,9 +433,9 @@ export default function AuthScreen() {
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
           {state.loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors['text-secondary']} />
           ) : (
-            <Text className="text-body font-semibold text-white">
+            <Text className="text-body font-semibold text-on-primary">
               {state.tab === 'login' ? 'Iniciar sesion' : 'Crear cuenta'}
             </Text>
           )}

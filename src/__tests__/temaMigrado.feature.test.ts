@@ -1,6 +1,6 @@
 // Acceptance: features/tema-migrado.feature (UI-05 del plan E2E). Regla estatica sobre el codigo.
 import { defineFeature, loadFeature } from 'jest-cucumber';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 
 const feature = loadFeature('features/tema-migrado.feature');
 
@@ -24,6 +24,11 @@ export const MIGRADOS = [
   'src/components/PriceSlider.tsx',
   'src/components/StarRating.tsx',
   'src/components/ConfirmModal.tsx',
+  'src/screens/DetailScreen.tsx',
+  'src/screens/ProfileScreen.tsx',
+  'src/components/ShareListModal.tsx',
+  'src/components/InviteCodeDisplay.tsx',
+  'src/screens/AuthScreen.tsx',
 ];
 
 // Hex, rgb()/rgba(), nombres sueltos y paletas por defecto de Tailwind (text-red-600).
@@ -42,7 +47,34 @@ export function coloresSueltos(archivos: string[]): string[] {
   return out;
 }
 
+// Todo .ts/.tsx de src salvo las pruebas y src/theme (donde viven los hex), mas App.tsx.
+function archivosDeInterfaz(dir = 'src'): string[] {
+  const out: string[] = dir === 'src' ? ['App.tsx'] : [];
+  for (const nombre of readdirSync(dir)) {
+    const ruta = `${dir}/${nombre}`;
+    if (statSync(ruta).isDirectory()) {
+      if (nombre !== '__tests__' && nombre !== 'theme') out.push(...archivosDeInterfaz(ruta));
+    } else if (/\.tsx?$/.test(nombre)) out.push(ruta);
+  }
+  return out;
+}
+
 defineFeature(feature, (test) => {
+  test('Ningún archivo de la interfaz lleva colores sueltos', ({ given, when, then }) => {
+    let archivos: string[] = [];
+    let hallados: string[] = [];
+    given('todos los archivos de interfaz de Bite', () => {
+      archivos = archivosDeInterfaz();
+      expect(archivos.length).toBeGreaterThan(20);
+    });
+    when('se buscan colores escritos a mano en su código', () => {
+      hallados = coloresSueltos(archivos);
+    });
+    then('no hay ninguno', () => {
+      expect(hallados).toEqual([]);
+    });
+  });
+
   test('Los archivos migrados no llevan colores sueltos', ({ given, when, then }) => {
     let archivos: string[] = [];
     let hallados: string[] = [];

@@ -1,11 +1,13 @@
 import { View, Text, Pressable, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface InviteCodeDisplayProps {
   code: string;
 }
 
 export default function InviteCodeDisplay({ code }: InviteCodeDisplayProps) {
+  const { colors } = useTheme();
   const formatted =
     code.length === 6
       ? `${code.slice(0, 3)}-${code.slice(3)}`
@@ -27,8 +29,8 @@ export default function InviteCodeDisplay({ code }: InviteCodeDisplayProps) {
         className="flex-row items-center gap-2 rounded-pill bg-primary px-6 py-3"
         onPress={handleShare}
       >
-        <Ionicons name="share-outline" size={18} color="white" />
-        <Text className="text-sm font-semibold text-white">Compartir codigo</Text>
+        <Ionicons name="share-outline" size={18} color={colors['on-primary']} />
+        <Text className="text-sm font-semibold text-on-primary">Compartir codigo</Text>
       </Pressable>
     </View>
   );

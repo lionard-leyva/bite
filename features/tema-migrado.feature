@@ -11,3 +11,9 @@ Característica: Las pantallas migradas usan solo colores del tema
     Dado los archivos de interfaz ya migrados al tema
     Cuando se buscan colores escritos a mano en su código
     Entonces no hay ninguno
+
+  @UI-05
+  Escenario: Ningún archivo de la interfaz lleva colores sueltos
+    Dado todos los archivos de interfaz de Bite
+    Cuando se buscan colores escritos a mano en su código
+    Entonces no hay ninguno
