@@ -1,5 +1,6 @@
 import { View, TextInput, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface SearchBarProps {
   value: string;
@@ -7,13 +8,14 @@ interface SearchBarProps {
 }
 
 export default function SearchBar({ value, onChangeText }: SearchBarProps) {
+  const { colors } = useTheme();
   return (
     <View className="flex-row items-center rounded-pill bg-background border border-border px-4 py-2.5">
-      <Ionicons name="search" size={18} color="#B0B0B0" style={{ marginRight: 8 }} />
+      <Ionicons name="search" size={18} color={colors["text-tertiary"]} style={{ marginRight: 8 }} />
       <TextInput
         className="flex-1 text-body text-text-primary"
         placeholder="Buscar..."
-        placeholderTextColor="#A0A0A0"
+        placeholderTextColor={colors["text-tertiary"]}
         value={value}
         onChangeText={onChangeText}
         autoCorrect={false}
@@ -27,7 +29,7 @@ export default function SearchBar({ value, onChangeText }: SearchBarProps) {
           accessibilityRole="button"
           accessibilityLabel="Limpiar busqueda"
         >
-          <Ionicons name="close-circle" size={18} color="#B0B0B0" />
+          <Ionicons name="close-circle" size={18} color={colors["text-tertiary"]} />
         </Pressable>
       )}
     </View>

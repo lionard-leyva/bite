@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FAB_SIZE } from '../config/constants';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface FABProps {
   onPress: () => void;
@@ -10,6 +11,7 @@ interface FABProps {
 
 export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const { colors } = useTheme();
 
   function onPressIn() {
     Animated.spring(scaleAnim, {
@@ -39,10 +41,10 @@ export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
           width: FAB_SIZE,
           height: FAB_SIZE,
           borderRadius: FAB_SIZE / 2,
-          backgroundColor: '#FF5A5F',
+          backgroundColor: colors.primary,
           alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: '#FF5A5F',
+          shadowColor: colors.primary,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.35,
           shadowRadius: 12,
@@ -54,7 +56,7 @@ export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
         accessibilityRole="button"
         accessibilityLabel="Guardar restaurante"
       >
-        <Ionicons name="add" size={32} color="white" />
+        <Ionicons name="add" size={32} color={colors["on-primary"]} />
       </Pressable>
     </Animated.View>
   );

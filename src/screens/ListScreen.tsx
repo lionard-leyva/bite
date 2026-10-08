@@ -10,6 +10,7 @@ import FilterButtons, { type FilterValue } from '../components/FilterButtons';
 import RestaurantCard from '../components/RestaurantCard';
 import type { RootStackParamList } from '../navigation/types';
 import type { Restaurant } from '../types';
+import { useTheme } from '../theme/ThemeProvider';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -17,6 +18,7 @@ export default function ListScreen() {
   const navigation = useNavigation<Nav>();
   const { restaurants, loading, error, loadMore, loadingMore, hasMore } = useRestaurants({ mode: 'paged' });
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('all');
 
@@ -52,7 +54,7 @@ export default function ListScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#FF5A5F" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -67,8 +69,8 @@ export default function ListScreen() {
 
       {error ? (
         <View className="flex-1 items-center justify-center gap-3 px-8">
-          <Ionicons name="warning-outline" size={40} color="#EF4444" />
-          <Text className="text-center text-body text-red-600">
+          <Ionicons name="warning-outline" size={40} color={colors.danger} />
+          <Text className="text-center text-body text-danger">
             Error cargando restaurantes. Revisa tu conexion o reinicia la app.
           </Text>
         </View>
@@ -77,7 +79,7 @@ export default function ListScreen() {
           <Ionicons
             name={restaurants.length === 0 ? 'restaurant-outline' : 'search-outline'}
             size={40}
-            color="#B0B0B0"
+            color={colors["text-tertiary"]}
           />
           <Text className="text-body text-text-tertiary">
             {restaurants.length === 0
@@ -105,7 +107,7 @@ export default function ListScreen() {
           ListFooterComponent={
             loadingMore ? (
               <View style={{ paddingVertical: 16 }}>
-                <ActivityIndicator size="small" color="#FF5A5F" />
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : null
           }

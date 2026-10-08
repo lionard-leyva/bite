@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { timeAgo } from '../utils/timeAgo';
 import { getPrimaryPhoto } from '../types';
+import { useTheme } from '../theme/ThemeProvider';
 import type { Restaurant } from '../types';
 
 interface RestaurantCardProps {
@@ -12,6 +13,7 @@ interface RestaurantCardProps {
 }
 
 function MiniStars({ rating }: { rating: number }) {
+  const { colors } = useTheme();
   return (
     <View className="flex-row items-center gap-1">
       <View className="flex-row">
@@ -20,7 +22,7 @@ function MiniStars({ rating }: { rating: number }) {
             key={`star-${k}`}
             name={k < rating ? 'star' : 'star-outline'}
             size={12}
-            color={k < rating ? '#FFB400' : '#EBEBEB'}
+            color={k < rating ? colors.star : colors.border}
           />
         ))}
       </View>
@@ -34,6 +36,7 @@ export default memo(function RestaurantCard({
   onPress,
 }: RestaurantCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const { colors } = useTheme();
 
   function onPressIn() {
     Animated.spring(scaleAnim, {
@@ -50,9 +53,9 @@ export default memo(function RestaurantCard({
   }
 
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 }]}>
+    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, { shadowColor: colors['text-primary'], shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 3 }]}>
       <Pressable
-        className="overflow-hidden rounded-card bg-surface border border-border"
+        className="overflow-hidden rounded-card bg-surface"
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -75,12 +78,9 @@ export default memo(function RestaurantCard({
               className="h-44 w-full items-center justify-center bg-primary-light"
               testID="photo-placeholder"
             >
-              <Ionicons name="restaurant-outline" size={40} color="#FF5A5F" />
+              <Ionicons name="restaurant-outline" size={40} color={colors.primary} />
             </View>
           )}
-
-          {/* Bottom photo overlay */}
-          <View className="absolute bottom-0 left-0 right-0 h-12" style={{ backgroundColor: 'rgba(0,0,0,0.08)' }} />
 
           {/* Visited/Pending pill badge */}
           <View
@@ -91,9 +91,9 @@ export default memo(function RestaurantCard({
             <Ionicons
               name={restaurant.visited ? 'checkmark-circle' : 'time-outline'}
               size={12}
-              color="white"
+              color={restaurant.visited ? colors['on-visited'] : colors['on-primary']}
             />
-            <Text className="text-xs font-semibold text-white">
+            <Text className={`text-xs font-semibold ${restaurant.visited ? 'text-on-visited' : 'text-on-primary'}`}>
               {restaurant.visited ? 'Visitado' : 'Pendiente'}
             </Text>
           </View>
@@ -109,8 +109,8 @@ export default memo(function RestaurantCard({
             <View className="flex-row items-center gap-1.5">
               <MiniStars rating={restaurant.rating} />
               {restaurant.pricePerPerson ? (
-                <View style={{ backgroundColor: '#FFF7ED', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '600', color: '#EA580C' }}>
+                <View className="rounded bg-primary-light px-1.5 py-px">
+                  <Text className="text-label font-semibold text-text-secondary">
                     {'\u20AC'}{restaurant.pricePerPerson}
                   </Text>
                 </View>
@@ -123,7 +123,7 @@ export default memo(function RestaurantCard({
 
           {restaurant.address ? (
             <View className="mt-1 flex-row items-center gap-1">
-              <Ionicons name="location-outline" size={12} color="#6B6B6B" />
+              <Ionicons name="location-outline" size={12} color={colors["text-secondary"]} />
               <Text className="flex-1 text-caption text-text-secondary" numberOfLines={1}>
                 {restaurant.address}
               </Text>

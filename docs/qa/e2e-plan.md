@@ -172,6 +172,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | UI-02 | P1 | Comparar tema claro y oscuro | Mismos colores en los dos y no un invertido | Jest + [Gherkin](../../features/tema.feature) | 🟡 |
 | UI-03 | P1 | Compilar clases de Tailwind | Leen las variables del tema y admiten opacidad | Jest (Tailwind + PostCSS reales) + [Gherkin](../../features/tema.feature) | 🟡 |
 | UI-04 | P1 | Montar el tema con el teléfono en oscuro | Variables y colores sueltos de la paleta oscura | Jest `ThemeProvider` + [Gherkin](../../features/tema-activo.feature) | 🟡 (no se ve en pantalla: revisar en emulador/dispositivo) |
+| UI-05 | P1 | Buscar colores escritos a mano en los archivos migrados | Ninguno: todo sale del tema | Jest estatico + [Gherkin](../../features/tema-migrado.feature) | 🟡 (Lista y componentes compartidos; crece con cada pantalla) |
 
 ### 2.13 Transversales
 
