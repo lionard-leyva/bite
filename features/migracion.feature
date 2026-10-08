@@ -24,6 +24,16 @@ Característica: Pasar de usar Bite sin cuenta a tener cuenta
     Y Ana ve que se han migrado 7
 
   @PRF-03
+  Escenario: Si falla a medias y Ana reintenta, no se repite nada
+    Dado que Ana además guardó otros 4 restaurantes sin cuenta
+    Y que el guardado del sexto restaurante falla por falta de red
+    Cuando Ana intenta migrar y falla
+    Entonces en el móvil queda solo 1 restaurante por migrar
+    Cuando Ana vuelve a intentarlo
+    Entonces su lista de la cuenta tiene exactamente 7 restaurantes sin repetidos
+    Y en el móvil ya no queda ningún restaurante
+
+  @PRF-03
   Escenario: Las fotos locales se suben con la cuenta nueva
     Cuando Ana migra lo guardado en el móvil a su lista con su cuenta nueva
     Entonces las 2 fotos de "Casa Lucio" se suben con su cuenta nueva

@@ -23,6 +23,7 @@ import { migrateLocalRestaurants } from '../services/migrationService';
 import type { Restaurant } from '../types';
 
 const fake = fs as any;
+const raw = require('../../jest/fakeFirestore'); // el mismo objeto que usa restaurantService: se puede espiar
 const feature = loadFeature('features/migracion.feature');
 const upload = uploadPhotos as jest.Mock;
 
@@ -54,6 +55,8 @@ const enLaCuenta = async (listId = 'L1') =>
   (await fake.getDocs(fake.query(fake.collection({}, 'restaurants'), fake.where('listId', '==', listId)))).docs.map((d: any) =>
     d.data(),
   );
+
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(async () => {
   jest.spyOn(console, 'warn').mockImplementation(() => {}); // saveRestaurant traza cada guardado
@@ -115,6 +118,45 @@ defineFeature(feature, (test) => {
     });
     and(/^Ana ve que se han migrado (\d+)$/, (n: string) => {
       expect(migrados).toBe(Number(n));
+    });
+  });
+
+  test('Si falla a medias y Ana reintenta, no se repite nada', ({ given, when, then, and }) => {
+    antecedentes(given);
+    given(/^que Ana además guardó otros (\d+) restaurantes sin cuenta$/, async (n: string) => {
+      for (let i = 0; i < Number(n); i++) await saveLocalRestaurant(local(`x${i}`, `Extra ${i}`));
+    });
+    and('que el guardado del sexto restaurante falla por falta de red', () => {
+      const original = raw.addDoc;
+      let llamadas = 0;
+      jest.spyOn(raw, 'addDoc').mockImplementation(async (...args: unknown[]) => {
+        llamadas += 1;
+        if (llamadas === 6) throw new Error('sin red');
+        return original(...args);
+      });
+    });
+    when('Ana intenta migrar y falla', async () => {
+      error = await migrateLocalRestaurants({ userId: UID, listId: 'L1' }).then(
+        () => undefined,
+        (e) => e,
+      );
+      await flush();
+      expect(error).toBeInstanceOf(Error);
+    });
+    then(/^en el móvil queda solo (\d+) restaurante por migrar$/, async (n: string) => {
+      expect(await getLocalRestaurants()).toHaveLength(Number(n));
+    });
+    when('Ana vuelve a intentarlo', async () => {
+      migrados = await migrateLocalRestaurants({ userId: UID, listId: 'L1' });
+      await flush();
+    });
+    then(/^su lista de la cuenta tiene exactamente (\d+) restaurantes sin repetidos$/, async (n: string) => {
+      const nombres = (await enLaCuenta()).map((d: any) => d.name);
+      expect(nombres).toHaveLength(Number(n));
+      expect(new Set(nombres).size).toBe(Number(n));
+    });
+    and('en el móvil ya no queda ningún restaurante', async () => {
+      expect(await getLocalRestaurants()).toEqual([]);
     });
   });
 
