@@ -180,7 +180,7 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-CI (`.github/workflows`): `ci.yml` en cada PR (typecheck, Jest, server, bundle Android, reglas con Firebase Emulator). `qa-e2e.yml` de noche y a demanda: build release x86_64 + `qa:all -- --release` en emulador, sube `qa-out/`; no bloquea PRs y los casos visuales se revisan en las capturas.
+CI (`.github/workflows`): `ci.yml` en cada PR (typecheck, Jest, server, bundle Android, reglas con Firebase Emulator). `qa-e2e.yml` de noche y a demanda: build release x86_64 (el APK se cachea) + `qa:all -- --release` en emulador sin repetir typecheck/Jest/server (X-01..X-03 ya corren en `ci.yml`), sube `qa-out/`; no bloquea PRs y los casos visuales se revisan en las capturas.
 
 Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
 
