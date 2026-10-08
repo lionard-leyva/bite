@@ -14,8 +14,7 @@ Una página. Detalle de cada caso en `e2e-plan.md`; reglas de Gherkin en `CLAUDE
 
 | Forma | Casos | Estado |
 |---|---|---|
-| 1. Robot rápido | `MAP-05` sin proxy, `ADD-04` fotos (parcial), `PRF-03` migración, `MCH-05` acceso, `MCH-06` pantalla, `LOC-02` (lógica), `VIS-03` visitado, `SHL-04` sincronía, `SHL-01..03`, `MCH-01..04`, `SHR-01/02/04`, `EMU-*`, `RUL-*` | hecho |
-| 1. Robot rápido | `ADD-03`, `DET-03`, `KBD-03` | pendiente |
+| 1. Robot rápido | `MAP-05` sin proxy, `ADD-04` fotos (parcial), `ADD-03` Places sin red, `DET-03` id inexistente, `KBD-03` regla de campos, `PRF-03` migración, `MCH-05` acceso, `MCH-06` pantalla, `LOC-02` (lógica), `VIS-03` visitado, `SHL-04` sincronía, `SHL-01..03`, `MCH-01..04`, `SHR-01/02/04`, `EMU-*`, `RUL-*` | hecho |
 | 2. Robot lento | `ADD-01/02`, `SHR-03`, `VIS-01/02`, `DET-01/02`, `SRC-01/02`, `KBD-02`, `SAF-01` | hecho |
 | 2. Robot lento | `LOC-02` (P0, escrito: `qa:location --deny`, pendiente de validar en CI), `LOC-04`, `MAP-02`, `MAP-04`, `MAP-06`, `PRF-01`, `PRF-02`, `SAF-02` | pendiente |
 | 2. Robot lento | `MAP-01`, `MAP-03`, `LOC-01` | omitidos: los marcadores del mapa no salen en el árbol de accesibilidad sin `title` |
@@ -25,7 +24,7 @@ Una página. Detalle de cada caso en `e2e-plan.md`; reglas de Gherkin en `CLAUDE
 
 1. `PRF-03` migración (perder los datos del usuario es lo peor): hecho en `migracion.feature`.
 2. `LOC-02` permiso de ubicación denegado (P0) y `MCH-06`: hechos (la parte de `LOC-02` en el móvil virtual está escrita y falta validarla en el E2E de CI).
-3. Resto de Jest pendientes: `MAP-05` y `ADD-04` hechos; faltan `ADD-03`, `DET-03` y `KBD-03`.
+3. Resto de Jest pendientes: `MAP-05`, `ADD-04`, `ADD-03`, `DET-03` y `KBD-03` hechos: no queda ningún caso de Jest pendiente.
 4. Scripts `adb` pendientes.
 5. Lista manual antes de cada versión.
 

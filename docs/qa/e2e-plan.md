@@ -61,7 +61,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 |---|---|---|---|---|---|
 | ADD-01 | P0 | FAB > nombre, direccion, rating, precio, Estado Visitado, nota > Guardar | Aparece en Lista y Mapa con estado Visitado | `npm run qa:save -- --name "QA Visitado" --state visitado` | ✅ |
 | ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `npm run qa:save -- --empty` (Guardar con formulario vacio no sale de la pantalla) | ✅ |
-| ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado | ❌ |
+| ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado + [Gherkin](../../features/busqueda-de-lugares.feature) | ✅ (con `onFail` pasa a escribir a mano, avisa, conserva lo escrito y deja el resto del formulario a la vista; sin clave arranca en manual) |
 | ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria + [Gherkin](../../features/fotos.feature) | 🟡 (se reduce a 800 px, JPEG, calidad 0,7 antes de subir, se sube la reducida, rutas por foto y fallo sin subir nada; que pese <200 KB y el selector de galería no se pueden comprobar aqui) |
 
 ### 2.4 Compartir hacia Bite (Android)
@@ -132,7 +132,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | DET-01 | P0 | Lista > tocar restaurante | Nombre, direccion, estado, rating, nota | `npm run qa:detail -- --restaurant X --state pendiente` | ✅ |
 | DET-02 | P0 | "Eliminar" > confirmar | Desaparece de Lista y Mapa | `npm run qa:detail -- --restaurant X --delete` | ✅ |
-| DET-03 | P2 | Id inexistente | "Restaurante no encontrado" | Jest de DetailScreen | ❌ |
+| DET-03 | P2 | Id inexistente | "Restaurante no encontrado" | Jest de DetailScreen + [Gherkin](../../features/detalle-inexistente.feature) | ✅ |
 
 ### 2.9 Busqueda (Lista)
 
@@ -155,7 +155,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 |---|---|---|---|---|---|
 | KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `npm run qa:keyboard` (texto llega al campo + screenshot por campo; recorte de descendentes lo juzga `qa-visual-triage`) | 🟡 (visual) |
 | KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `npm run qa:keyboard` (bounds del campo enfocado <= top del `ime` en `dumpsys window`) | ✅ |
-| KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest/grep sobre estilos (test de estilos) | ❌ |
+| KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest sobre el codigo fuente + [Gherkin](../../features/campos-de-texto.feature) | ✅ (revisa `<TextInput>`, su `style` por referencia, `className` `h-N`/`text-body` y los estilos `textInput:` de Places) |
 
 ### 2.12 Safe areas
 

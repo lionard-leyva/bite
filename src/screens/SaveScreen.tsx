@@ -515,6 +515,8 @@ export default function SaveScreen() {
               onFail={(err) => {
                 console.warn('[SaveScreen] Places autocomplete failed:', err);
                 setPlacesError('No se pudo cargar sugerencias. Revisa tu conexion o la API key.');
+                setIsSearching(false);
+                setManualMode(true);
               }}
               query={{
                 key: MAPS_KEY,
@@ -625,6 +627,7 @@ export default function SaveScreen() {
               onSubmitEditing={() => addressRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
+            {!!placesError && <Text className="mt-2 text-xs text-red-600">{placesError}</Text>}
           </View>
         )}
       </View>
