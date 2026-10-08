@@ -35,6 +35,9 @@ jest.mock('../hooks/useRestaurants', () => ({
 let mockDecision: any;
 jest.mock('../hooks/useDecisionSession', () => ({ useDecisionSession: () => mockDecision }));
 
+// En CI con el emulador de Android corriendo en la misma maquina, el primer render de MatchScreen supera los 5 s por defecto.
+jest.setTimeout(30000);
+
 const feature = loadFeature('features/pantalla-decision.feature');
 
 const restaurante = (id: string, name: string): Restaurant => ({
