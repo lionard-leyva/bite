@@ -1,179 +1,97 @@
 import { memo } from 'react';
-import { Text, View, Platform, Image, StyleSheet } from 'react-native';
+import { Text, View, Platform, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { initialOf } from '../utils/initialOf';
 import { MARKER_SHADOW_RADIUS, MARKER_SHADOW_OPACITY } from '../config/constants';
 
 interface MapMarkerProps {
   name: string;
   visited: boolean;
   isSelected: boolean;
-  photoUri?: string | null;
-  rating?: number;
 }
 
-const MARKER_SIZE_BASE = 30;
-const MARKER_SIZE_SELECTED = 42;
-const PILL_WIDTH = 58;
-const LABEL_HEIGHT = 40;
-const LABEL_GAP = 4;
-const LABEL_WIDTH = 150;
-const PAD = 4;
+const PILL_HEIGHT = 30;
+const PILL_HEIGHT_SELECTED = 36;
+const POINTER = 5; // el piquito que apunta al sitio
+const PAD = 6; // margen para la sombra
+const WIDTH = 64;
+const WIDTH_SELECTED = 200;
+const EMOJI = '🍽';
 
-// Fraccion vertical del circulo dentro del contenedor, para anclar el marker en su base.
+// Fraccion vertical del piquito dentro del contenedor, para anclar el marker justo en el sitio.
 export function markerAnchorY(isSelected: boolean) {
-  const size = isSelected ? MARKER_SIZE_SELECTED : MARKER_SIZE_BASE;
-  const total = size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0);
-  return (size + PAD) / total;
+  const h = isSelected ? PILL_HEIGHT_SELECTED : PILL_HEIGHT;
+  return (PAD + h + POINTER) / (PAD + h + POINTER + PAD);
 }
-function MapMarkerInner({ name, visited, isSelected, photoUri, rating = 0 }: MapMarkerProps) {
+
+// Diseno Terracota: pildora terracota con el emoji si esta pendiente; blanca con borde salvia y ✓ si ya fuimos;
+// la elegida, algo mas grande y con el nombre.
+function MapMarkerInner({ name, visited, isSelected }: MapMarkerProps) {
   const { colors } = useTheme();
-  const size = isSelected ? MARKER_SIZE_SELECTED : MARKER_SIZE_BASE;
+  const h = isSelected ? PILL_HEIGHT_SELECTED : PILL_HEIGHT;
+  const fill = visited ? colors.surface : colors.primary;
+  const ink = visited ? colors['text-primary'] : colors['on-primary'];
+  const border = visited ? { borderWidth: 2, borderColor: colors.visited } : {};
 
   const shadow = Platform.select({
     ios: {
       shadowColor: colors['text-primary'],
-      shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: isSelected ? 0.28 : MARKER_SHADOW_OPACITY,
-      shadowRadius: isSelected ? 12 : MARKER_SHADOW_RADIUS,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isSelected ? 0.3 : MARKER_SHADOW_OPACITY,
+      shadowRadius: isSelected ? 10 : MARKER_SHADOW_RADIUS,
     },
-    android: {
-      elevation: isSelected ? 12 : 6,
-    },
+    android: { elevation: isSelected ? 10 : 5 },
   });
-
-  const initial = initialOf(name);
 
   return (
     <View
       collapsable={false}
-      style={[
-        styles.container,
-        {
-          width: isSelected ? LABEL_WIDTH + PAD * 2 : PILL_WIDTH + PAD * 2,
-          height: size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0),
-        },
-      ]}
+      style={[styles.container, { width: isSelected ? WIDTH_SELECTED : WIDTH, height: PAD + h + POINTER + PAD }]}
     >
-      <View collapsable={false} style={[styles.inner, { marginTop: PAD }]}>
-        <View
-          style={{
-            width: isSelected ? size : PILL_WIDTH,
-            height: size,
-            borderRadius: size / 2,
-            alignItems: 'center',
-            justifyContent: 'center',
-            ...shadow,
-          }}
-        >
-          {isSelected ? (
-            <View
-              style={{
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                backgroundColor: colors.surface,
-                borderWidth: 4,
-                borderColor: colors.primary,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {photoUri ? (
-                <Image
-                  source={{ uri: photoUri }}
-                  style={{ width: size - 12, height: size - 12, borderRadius: (size - 12) / 2 }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={{ color: colors['text-primary'], fontWeight: '800', fontSize: 14 }}>
-                  {initial}
-                </Text>
-              )}
-            </View>
-          ) : (
-            // Pildora: emoji de estado + estrellas. Visitado en salvia, pendiente en terracota.
-            <View
-              style={{
-                width: PILL_WIDTH,
-                height: size,
-                borderRadius: size / 2,
-                backgroundColor: visited ? colors.visited : colors.primary,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>{visited ? '✅' : '🍽'}</Text>
-              <Text style={{ color: visited ? colors['on-visited'] : colors['on-primary'], fontWeight: '800', fontSize: 13 }}>
-                {rating}
-              </Text>
-            </View>
-          )}
-          {isSelected && (
-            <View
-              style={{
-                position: 'absolute',
-                right: 0,
-                bottom: 0,
-                width: 11,
-                height: 11,
-                borderRadius: 5.5,
-                backgroundColor: visited ? colors.visited : colors.primary,
-                borderWidth: 1.5,
-                borderColor: colors.surface,
-              }}
-            />
-          )}
-        </View>
-
+      <View
+        testID="pin"
+        style={{
+          marginTop: PAD,
+          height: h,
+          maxWidth: (isSelected ? WIDTH_SELECTED : WIDTH) - PAD * 2,
+          paddingHorizontal: isSelected ? 12 : 9,
+          borderRadius: h / 2,
+          backgroundColor: fill,
+          ...border,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          ...shadow,
+        }}
+      >
+        <Text style={{ fontSize: isSelected ? 15 : 13 }}>{EMOJI}</Text>
+        {visited && !isSelected && (
+          <Text style={{ color: colors.visited, fontSize: 12, fontFamily: 'Figtree_700Bold' }}>✓</Text>
+        )}
         {isSelected && (
-          <View pointerEvents="none" style={[styles.selectedLabel, { top: size + LABEL_GAP, backgroundColor: colors['text-primary'] }]}>
-            <Text
-              numberOfLines={1}
-              style={{ color: colors.background, fontSize: 12, fontWeight: '700', lineHeight: 15 }}
-            >
-              {name}
-            </Text>
-            <Text style={{ color: colors['primary-light'], fontSize: 12, fontWeight: '800', marginTop: 1, lineHeight: 15 }}>
-              Ver mas
-            </Text>
-          </View>
+          <Text numberOfLines={1} style={{ flexShrink: 1, color: ink, fontSize: 14, fontFamily: 'Figtree_700Bold' }}>
+            {name}
+          </Text>
         )}
       </View>
+      <View
+        style={{
+          width: 10,
+          height: 10,
+          marginTop: -6,
+          backgroundColor: fill,
+          borderRadius: 2,
+          transform: [{ rotate: '45deg' }],
+          ...(visited ? { borderRightWidth: 2, borderBottomWidth: 2, borderColor: colors.visited } : {}),
+        }}
+      />
     </View>
   );
 }
 
 export default memo(MapMarkerInner, (prev, next) =>
-  prev.name === next.name &&
-  prev.visited === next.visited &&
-  prev.isSelected === next.isSelected &&
-  prev.photoUri === next.photoUri &&
-  prev.rating === next.rating,
+  prev.name === next.name && prev.visited === next.visited && prev.isSelected === next.isSelected,
 );
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    overflow: 'visible',
-  },
-  inner: {
-    overflow: 'visible',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  selectedLabel: {
-    position: 'absolute',
-    minWidth: 90,
-    maxWidth: LABEL_WIDTH,
-    height: LABEL_HEIGHT,
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignItems: 'center',
-  },
+  container: { alignItems: 'center', justifyContent: 'flex-start', overflow: 'visible' },
 });

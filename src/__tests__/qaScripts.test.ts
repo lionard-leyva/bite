@@ -46,38 +46,28 @@ describe('MAP-04 qa:empty', () => {
 });
 
 describe('MAP-06 qa:map-controls', () => {
-  // Pantalla con estado: reconstruye la busqueda escrita y si el mapa esta expandido a partir del log.
+  // Pantalla con estado: reconstruye la busqueda escrita a partir del log.
   const screen = (log: string[], tree: any, _tapped: any, data: any) => {
     let query = '';
-    let expanded = false;
     for (const l of log) {
       const t = l.match(/^shell input text (.*)$/);
       if (t) query += t[1];
       if (l === 'shell input keyevent 67') query = query.slice(0, -1);
-      if (l === 'shell input tap 900 700' && !data.noExpande) expanded = true;
-      if (l === 'shell input keyevent 4') expanded = false;
     }
     const tabs: any[] = [{ text: 'Mapa', x: 200, y: 2300 }];
-    if (expanded) {
-      return tree(
-        tabs
-          .concat([{ text: 'Explorar mapa', x: 540, y: 200 }])
-          .concat(data.buscadorEnExpandido ? [{ hint: 'Buscar en esta zona', x: 300, y: 200 }] : []),
-      );
-    }
     const hayCoincidencia = 'casa lucio'.indexOf(query.toLowerCase()) >= 0 && !(data.todoVacio && query !== '');
     return tree(
       tabs
         .concat([
           // Como en el emulador real: con texto el campo anuncia el texto y deja de anunciar su placeholder.
           query ? { text: query, x: 300, y: 200 } : { hint: 'Buscar en esta zona', x: 300, y: 200 },
-          { desc: 'Expandir mapa', x: 900, y: 700 },
         ] as any)
+        .concat(data.conExpandir ? [{ desc: 'Expandir mapa', x: 900, y: 700 }] : [])
         .concat(!hayCoincidencia && !data.noFiltra ? [{ text: 'Tu mapa esta vacio', x: 540, y: 900 }] : []),
     );
   };
 
-  it('da PASS: la busqueda filtra, se limpia y el mapa se expande y se contrae', () => {
+  it('da PASS: la busqueda filtra y se limpia, y no queda boton de expandir', () => {
     const r = runScript('map-controls.js', ['--match', 'lucio'], { screen, data: {} });
     expect(r.out).toContain('PASS qa:map-controls');
     expect(r.status).toBe(0);
@@ -95,15 +85,9 @@ describe('MAP-06 qa:map-controls', () => {
     expect(r.status).toBe(1);
   });
 
-  it('da FAIL si el mapa expandido conserva el buscador', () => {
-    const r = runScript('map-controls.js', ['--match', 'lucio'], { screen, data: { buscadorEnExpandido: true } });
-    expect(r.out).toMatch(/FAIL .*no lleva el buscador/i);
-    expect(r.status).toBe(1);
-  });
-
-  it('da FAIL si "Expandir mapa" no abre el mapa a pantalla completa', () => {
-    const r = runScript('map-controls.js', ['--match', 'lucio'], { screen, data: { noExpande: true } });
-    expect(r.out).toMatch(/FAIL .*Expandir mapa/);
+  it('da FAIL si vuelve a aparecer el boton de expandir el mapa', () => {
+    const r = runScript('map-controls.js', ['--match', 'lucio'], { screen, data: { conExpandir: true } });
+    expect(r.out).toMatch(/FAIL .*expandir/i);
     expect(r.status).toBe(1);
   });
 });

@@ -9,7 +9,7 @@ export default ({ config }) => ({
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
-  userInterfaceStyle: "automatic",
+  userInterfaceStyle: "light",
   newArchEnabled: true,
   // Vistas previas en Expo Go (workflow expo-preview.yml). Apagado: las builds propias (E2E, release) no descargan nada solas.
   runtimeVersion: { policy: "appVersion" },

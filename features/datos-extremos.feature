@@ -55,7 +55,7 @@ Característica: Bite aguanta los datos reales más incómodos
   Esquema del escenario: La tarjeta del mapa no se rompe con un rating fuera de rango
     Dado un restaurante guardado con rating <rating>
     Cuando Ana lo abre en la tarjeta del mapa
-    Entonces ve <estrellas> estrellas
+    Entonces la valoración dice "★ <estrellas>"
 
     Ejemplos:
       | rating | estrellas |

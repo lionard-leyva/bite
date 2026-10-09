@@ -1,4 +1,4 @@
-// QA: controles del Mapa (MAP-06). "Buscar en esta zona" filtra y "Expandir mapa" abre el mapa a pantalla completa.
+// QA: controles del Mapa (MAP-06). "Buscar en esta zona" filtra el mapa (que ya ocupa toda la pantalla: no hay modo expandido).
 // Los markers no salen en el arbol de accesibilidad, asi que el filtro se comprueba por el mensaje de mapa vacio:
 // una busqueda sin coincidencias lo muestra, una con coincidencia no.
 // Uso: npm run qa:map-controls -- [--match lucio]   (parte del nombre de un restaurante guardado; requiere semilla)
@@ -43,13 +43,8 @@ async function search(text) {
   checks.push({ name: `busqueda "${match}" con coincidencia mantiene el mapa`, ok: !q.findNode(await q.dumpUi(), EMPTY) });
   await clearSearch(match);
 
-  await q.tapLabel('Expandir mapa', 8000);
-  const expanded = await q.waitFor('Explorar mapa', 8000);
-  checks.push({ name: '"Expandir mapa" abre el mapa a pantalla completa', ok: !!expanded });
-  checks.push({ name: 'el mapa expandido no lleva el buscador', ok: !!expanded && !q.findNode(expanded.xml, SEARCH) });
-  const shot = q.screenshot('map-expanded');
-  q.adb(['shell', 'input', 'keyevent', '4']); // atras cierra el modal
-  checks.push({ name: 'atras vuelve al mapa normal', ok: !!(await q.waitFor('Expandir mapa', 8000)) });
+  const shot = q.screenshot('map-controls');
+  checks.push({ name: 'ya no hay boton para expandir el mapa', ok: !q.findNode(await q.dumpUi(), 'Expandir mapa') });
 
   const errors = q.logcatErrors();
   checks.push({ name: 'sin errores JS en logcat', ok: errors.length === 0, info: errors.length ? `${errors.length} lineas` : '' });

@@ -80,7 +80,7 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
 5. Listener se desuscribe al cerrar app o hacer logout
 
 ### ¿Dónde cenamos hoy? (Match)
-1. En el Mapa, la tarjeta "¿Dónde cenamos hoy?" abre `MatchScreen` (solo con cuenta y lista compartida)
+1. En la Lista, la tarjeta terracota "¿Dónde cenamos hoy?" (con pendientes) abre `MatchScreen` (jugar pide cuenta y lista compartida)
 2. `decisionSessions/{listId}`: una ronda activa por lista (`roundId`, `participants`, `restaurantIds`, `status: ACTIVE | MATCHED | CLOSED`, `matchedRestaurantId`). Se crea en transaccion para que ambos caigan en la misma ronda; caduca a las 12 h
 3. Candidatos: pendientes ordenados por Haversine, maximo 10. ETA real del proxy solo para la tarjeta visible
 4. Votos en `decisionVotes/{roundId}_{userId}` (`votes: { restaurantId: LIKE | PASS }`). La UI nunca muestra los votos del otro, solo el match
@@ -173,7 +173,7 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 - **Toggle visitado en skip mode**: en modo sin cuenta `DetailScreen` lo guarda en AsyncStorage (`updateLocalRestaurantVisited`).
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Esta versionado en `firestore.indexes.json` (desplegar con `firebase deploy --only firestore:indexes`). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
 - **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. `firestore.rules` (propuesta, no desplegada) limita `decisionSessions` y `decisionVotes` a miembros de la lista; `subscribeVotes` filtra por `listId` + `roundId` para que la regla acepte la query. Minimo si no se despliegan: `request.auth != null`.
-- **Mapa en iOS**: `react-native-maps` usa Apple Maps en iOS (sin `provider` Google), que ignora `customMapStyle`: el estilo Terracota del mapa (agua, parques, oscuro) solo se ve en Android. Con Expo Go el boton azul de engranaje flotante es del menu de desarrollo de Expo, no de Bite (se oculta desde ese menu).
+- **Mapa en iOS**: `react-native-maps` usa Apple Maps en iOS (sin `provider` Google), que ignora `customMapStyle`: el estilo Terracota del mapa solo se ve en Android. En iOS se pide `mapType: mutedStandard`, `userInterfaceStyle: light` y sin puntos de interes, lo mas cerca del mapa crema del diseno. Con Expo Go el boton azul de engranaje flotante es del menu de desarrollo de Expo, no de Bite (se oculta desde ese menu).
 - **Geocodificar por nombre**: `SaveScreen` geocodifica el nombre si no hay coordenadas (`Location.geocodeAsync`) y puede ubicar el sitio en otra ciudad o continente; el mapa ya no se aleja por eso (`mapFocus`), pero el pin quedaria lejos. Elegir el sitio en el buscador de Places da coordenadas exactas.
 - **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
@@ -212,7 +212,7 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
 | `npm run qa:safearea -- [--restaurant X] [--nav3]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos; con `--nav3` (SAF-02) lo repite con la navegacion de 3 botones y restaura el modo que habia |
 | `npm run qa:empty` | `pm clear` > Mapa sin restaurantes (MAP-04) | "Tu mapa esta vacio", invitacion a guardar el primero, sin la tarjeta de "Donde cenamos hoy" |
-| `npm run qa:map-controls -- [--match lucio]` | Mapa > buscar > Expandir mapa (MAP-06) | la busqueda sin coincidencias vacia el mapa, la que coincide no; "Explorar mapa" abre y atras vuelve |
+| `npm run qa:map-controls -- [--match lucio]` | Mapa > buscar (MAP-06) | la busqueda sin coincidencias vacia el mapa, la que coincide no; no hay boton de expandir |
 | `npm run qa:profile -- [--count N]` | Perfil sin cuenta (PRF-01) | "Crear cuenta" y el contador local; no ofrece compartir; cancelar el aviso (nunca pulsa "Continuar") |
 
 Notas:
@@ -251,6 +251,7 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `detalle-inexistente.feature` | DET-03 | `DetailScreen` real con la lista de restaurantes simulada ("Restaurante no encontrado") | components |
 | `campos-de-texto.feature` | KBD-03 | regla estatica sobre el codigo (`src/__tests__/helpers/textInputAudit.ts`): ningun `TextInput` con `height` menor que su interlineado | unit |
 | `encuadre-del-mapa.feature` | MAP-07, MAP-08 | `utils/mapFocus` (encuadre en torno a donde estas, ignorando sitios a mas de 150 km, y enfoque del restaurante recien guardado) | unit |
+| `diseno-terracota.feature` | UI-12, UI-13 | `HomeScreen` y `ListScreen` reales con restaurantes, sesion y miembros simulados (que hay y en que orden, filtro en tinta, titulo, tarjeta de la cena, "Guardado por") | components |
 | `pantalla-de-acceso.feature` | SAF-04 | `AuthScreen` real con la barra superior simulada (59 px): el contenido empieza por debajo | components |
 
 - Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
@@ -262,7 +263,8 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 ### Tema y diseno (Terracota)
 
 - Los colores salen **solo** de `src/theme/palette.js` (claro y oscuro). Las clases de Tailwind (`bg-primary`, `text-text-secondary`) leen variables CSS que pone `ThemeProvider`; para iconos, sombras y estilos en linea usa `const { colors } = useTheme()`. Nada de hex, `rgba()`, `'white'` ni `text-red-600` en la interfaz: `temaMigrado.feature.test.ts` (UI-05) lo vigila en todo `src/`.
-- `userInterfaceStyle: automatic` (UI-07): la app sigue el claro/oscuro del telefono. Es un cambio nativo (rebuild). Probar el oscuro: `adb shell cmd uimode night yes`.
+- **Siempre claro** (UI-04, UI-07): el diseno elegido (A · Terracota) es claro, asi que `userInterfaceStyle: light` y `ThemeProvider` entrega siempre `palette.light`, aunque el telefono este en oscuro. La paleta oscura sigue en `palette.js` (contraste vigilado por UI-01/02) pero no se usa.
+- **Mapa y Lista como el mockup** (UI-12, UI-13, `features/diseno-terracota.feature`): el Mapa ocupa toda la pantalla (sin modo expandido ni boton Perfil) con buscador e iniciales de la pareja, filtros Todos/Pendientes/Visitados (`FilterButtons`, el elegido en tinta), pines en pildora (`MapMarker`: terracota pendiente, blanco con borde salvia y ✓ visitado, nombre al elegirlo), hoja con foto (`PhotoHeader`), "★ 4 · €€ · a 6 min" (`utils/price`), "Guardado por" y Ver detalle / Ir ahora; mi ubicacion es un boton pequeno sobre el +. La Lista abre con "Tu lista"/"Vuestra lista" y la tarjeta de la cena.
 - Fuentes: Young Serif para titulos (`font-display`, regla UI-11 sobre `text-title`/`text-hero`) y Figtree para texto con peso (`font-sans`, `font-sans-medium|semibold|bold`). `theme/FontGate` las carga con `expo-font` y espera a que esten listas (si fallan, sigue con la del sistema). Las fuentes custom ignoran `fontWeight`: elige la clase de familia, no `font-bold`.
 - Todo boton de solo icono lleva `accessibilityLabel` (UI-08). Las animaciones de pulsacion, el pulso del punto de ubicacion y el match respetan "reducir movimiento" con `useReducedMotion` (UI-09).
 

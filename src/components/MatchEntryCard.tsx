@@ -1,66 +1,42 @@
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AvatarStack from './AvatarStack';
 import { useTheme } from '../theme/ThemeProvider';
 
 interface MatchEntryCardProps {
   pendingCount: number;
   onPress: () => void;
-  bottomOffset: number;
+  /** Iniciales de la pareja; sin pareja no se dibujan. */
+  avatarNames?: string[];
 }
 
-export default function MatchEntryCard({ pendingCount, onPress, bottomOffset }: MatchEntryCardProps) {
+// Tarjeta terracota de la Lista (diseno Terracota): abre "¿Dónde cenamos hoy?".
+export default function MatchEntryCard({ pendingCount, onPress, avatarNames = [] }: MatchEntryCardProps) {
   const { colors } = useTheme();
+  const pendientes = `${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}`;
   return (
     <Pressable
-      style={[
-        styles.card,
-        {
-          bottom: bottomOffset,
-          backgroundColor: colors.surface,
-          shadowColor: colors['text-primary'],
-        },
-      ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`¿Dónde cenamos hoy? ${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}`}
+      accessibilityLabel={`¿Dónde cenamos hoy? ${pendientes}`}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        padding: 16,
+        borderRadius: 18,
+        backgroundColor: colors.primary,
+        opacity: pressed ? 0.9 : 1,
+      })}
     >
-      <View style={[styles.icon, { backgroundColor: colors['primary-light'] }]}>
-        <Text style={styles.emoji}>🍽</Text>
-      </View>
+      {avatarNames.length > 0 && <AvatarStack names={avatarNames} size={28} />}
       <View style={{ flex: 1 }}>
-        <Text style={[styles.title, { color: colors['text-primary'] }]}>¿Dónde cenamos hoy?</Text>
-        <Text style={[styles.subtitle, { color: colors['text-secondary'] }]} numberOfLines={1}>Descubrid dónde coincidís ❤</Text>
+        <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 19, color: colors['on-primary'] }}>¿Dónde cenamos hoy?</Text>
+        <Text style={{ fontFamily: 'Figtree_400Regular', fontSize: 13, color: colors['on-primary'], opacity: 0.9, marginTop: 2 }}>
+          {`${pendientes} · votad sin ver lo del otro`}
+        </Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors['text-secondary']} />
+      <Ionicons name="chevron-forward" size={18} color={colors['on-primary']} />
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    position: 'absolute',
-    left: 16,
-    right: 92,
-    minHeight: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 18,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  icon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emoji: { fontSize: 18 },
-  title: { fontSize: 15, fontWeight: '800' },
-  subtitle: { fontSize: 12, marginTop: 1 },
-});

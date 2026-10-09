@@ -1,5 +1,4 @@
 import { View, Pressable, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeProvider';
 
 export type FilterValue = 'all' | 'visited' | 'pending';
@@ -7,41 +6,42 @@ export type FilterValue = 'all' | 'visited' | 'pending';
 interface FilterButtonsProps {
   active: FilterValue;
   onSelect: (value: FilterValue) => void;
+  /** Sobre el mapa los filtros flotan con sombra; en la Lista van planos. */
+  floating?: boolean;
 }
 
-const FILTERS: { label: string; value: FilterValue; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: 'Todos', value: 'all', icon: 'grid-outline' },
-  { label: 'Visitados', value: 'visited', icon: 'checkmark-circle-outline' },
-  { label: 'Pendientes', value: 'pending', icon: 'time-outline' },
+const FILTERS: { label: string; value: FilterValue }[] = [
+  { label: 'Todos', value: 'all' },
+  { label: 'Pendientes', value: 'pending' },
+  { label: 'Visitados', value: 'visited' },
 ];
 
-export default function FilterButtons({
-  active,
-  onSelect,
-}: FilterButtonsProps) {
+// Diseno Terracota: pildoras blancas y la elegida en tinta (no en terracota, que queda para las acciones).
+export default function FilterButtons({ active, onSelect, floating = false }: FilterButtonsProps) {
   const { colors } = useTheme();
   return (
-    <View className="flex-row gap-2">
+    <View style={{ flexDirection: 'row', gap: 6 }}>
       {FILTERS.map((f) => {
         const isActive = active === f.value;
         return (
           <Pressable
             key={f.value}
-            className={`flex-row items-center gap-1.5 rounded-pill px-4 py-1.5 ${isActive ? 'bg-primary' : 'bg-surface border border-border'}`}
             onPress={() => onSelect(f.value)}
-            style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel={`Filtrar: ${f.label}`}
             accessibilityState={{ selected: isActive }}
+            style={{
+              minHeight: 34,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              justifyContent: 'center',
+              backgroundColor: isActive ? colors['text-primary'] : colors.surface,
+              ...(floating
+                ? { shadowColor: colors['text-primary'], shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2 }
+                : { borderWidth: isActive ? 0 : 1, borderColor: colors.border }),
+            }}
           >
-            <Ionicons
-              name={f.icon}
-              size={14}
-              color={isActive ? colors['on-primary'] : colors['text-secondary']}
-            />
-            <Text
-              className={`text-sm font-medium ${isActive ? 'text-on-primary' : 'text-text-secondary'}`}
-            >
+            <Text style={{ fontFamily: 'Figtree_600SemiBold', fontSize: 13, color: isActive ? colors.surface : colors['text-primary'] }}>
               {f.label}
             </Text>
           </Pressable>

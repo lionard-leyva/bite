@@ -108,7 +108,7 @@ defineFeature(feature, (test) => {
       if (tarjeta) {
         pantalla = render(<RestaurantCard restaurant={restaurante({ rating: Number(tarjeta[1]) })} onPress={() => {}} />);
       } else if (hoy) {
-        pantalla = render(<MatchEntryCard pendingCount={Number(hoy[1])} onPress={() => {}} bottomOffset={40} />);
+        pantalla = render(<MatchEntryCard pendingCount={Number(hoy[1])} onPress={() => {}} />);
       } else {
         throw new Error(`situación desconocida: ${situacion}`);
       }
@@ -138,8 +138,9 @@ defineFeature(feature, (test) => {
         />,
       );
     });
-    then(/^ve (\d) estrellas$/, (n: string) => {
-      expect(pantalla.queryAllByText('star')).toHaveLength(Number(n));
+    then(/^la valoración dice "★ (\d)"$/, (n: string) => {
+      // "★ " y el numero van en textos anidados: se compara el texto completo de la linea.
+      expect(pantalla.getByText(new RegExp(`^★ ${n}( ·|$)`))).toBeTruthy();
     });
   });
 
