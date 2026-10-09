@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
+import { useAuth } from '../hooks/useAuth';
 import { useLocation } from '../hooks/useLocation';
 import { useNavigationETA } from '../hooks/useNavigationETA';
 import FAB from '../components/FAB';
@@ -23,6 +24,7 @@ import { formatDistance, haversineKm, openNativeNavigation } from '../services/n
 import { timeAgo } from '../utils/timeAgo';
 import { useTheme } from '../theme/ThemeProvider';
 import { matchesQuery } from '../utils/searchMatch';
+import { focusTargets, newRestaurantToFocus } from '../utils/mapFocus';
 import { mapStyle } from '../theme/mapStyle';
 import type { Colors } from '../theme/palette';
 import { locationNotice, locationButtonState } from '../utils/locationNotice';
@@ -186,6 +188,7 @@ export default function HomeScreen() {
   const route = useRoute<HomeRoute>();
   const focusRestaurantId = route.params?.focusRestaurantId;
   const { restaurants: rawRestaurants, loading, error } = useRestaurants({ mode: 'all' });
+  const { userId } = useAuth();
   const location = useLocation();
   // El aviso de ubicacion solo sale tras pulsar el boton (ver utils/locationNotice).
   const [locationAsked, setLocationAsked] = useState(false);
@@ -362,6 +365,11 @@ export default function HomeScreen() {
     return applySpiderOffsets(center, visibleRestaurants, spiderProgress);
   }, [spiderCenterId, restaurantMap, visibleRestaurants, spiderProgress]);
 
+  const userPoint = useMemo(
+    () => (location.latitude != null && location.longitude != null ? { latitude: location.latitude, longitude: location.longitude } : null),
+    [location.latitude, location.longitude],
+  );
+
   const initialRegion = useMemo(() => ({
     latitude: location.latitude ?? 40.4168,
     longitude: location.longitude ?? -3.7038,
@@ -390,7 +398,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (hasInitiallyFit.current || loading || visibleRestaurants.length === 0) return;
     hasInitiallyFit.current = true;
-    const coords = visibleRestaurants.map((r) => ({
+    const coords = focusTargets(visibleRestaurants, userPoint).map((r) => ({
       latitude: r.latitude,
       longitude: r.longitude,
     }));
@@ -424,7 +432,9 @@ export default function HomeScreen() {
     const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
     if (!targetMap) return;
 
-    const coords = visibleRestaurants.map((r) => ({
+    // Primer encuadre: la zona donde estas o donde guardaste lo ultimo. Buscar o filtrar: todo lo que coincide.
+    const firstFocus = !hasAutoFocusedRef.current;
+    const coords = (firstFocus ? focusTargets(visibleRestaurants, userPoint) : visibleRestaurants).map((r) => ({
       latitude: r.latitude,
       longitude: r.longitude,
     }));
@@ -456,6 +466,21 @@ export default function HomeScreen() {
 
     return () => clearTimeout(timer);
   }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
+
+  // Al guardar un restaurante y volver al mapa, se enfoca el nuevo aunque quede lejos del resto.
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    // Solo los que guarda quien tiene el movil: lo que anade la pareja en tiempo real no mueve el mapa.
+    const target = newRestaurantToFocus(knownIdsRef.current, restaurants.filter((r) => r.createdBy === userId));
+    knownIdsRef.current = new Set(restaurants.map((r) => r.id));
+    if (!target) return;
+    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    targetMap?.animateToRegion(
+      { latitude: target.latitude, longitude: target.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+      350,
+    );
+  }, [restaurants, loading, mapExpanded, userId]);
 
   const handleMyLocation = useCallback(async () => {
     setLocationAsked(true);

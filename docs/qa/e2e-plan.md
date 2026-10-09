@@ -45,6 +45,8 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | MAP-04 | P2 | Mapa vacio tras `pm clear` | "Tu mapa esta vacio" + "Guarda tu primer restaurante para empezar" | `npm run qa:empty` (en `qa:all`, entre RESET y SEED) | ✅ (validado en el emulador de CI, ejecucion 21; SEED sigue OK despues) |
 | MAP-05 | P1 | Callout con proxy caido | Distancia Haversine, sin crash | Jest de `useNavigationETA`/`navigationService` con fetch rechazado + [Gherkin](../../features/distancia-sin-proxy.feature) | ✅ (hook `useNavigationETA` y `navigationService` reales con `fetch` simulado: caído, error, colgado, recuperación y cambio de sitio; cómo pinta el texto `MapDetailCard` es de UI) |
 | MAP-06 | P1 | "Expandir mapa" / "Buscar en esta zona" | Se expande; busqueda filtra | `npm run qa:map-controls -- --match lucio` (la busqueda se comprueba por el mensaje de mapa vacio, porque los markers no salen en el arbol) | 🟡 (la ejecucion 21 fallo: con texto el campo se anuncia con ese texto y no con su placeholder, y el script lo buscaba por el placeholder; corregido, falta validarlo en el emulador de CI) |
+| MAP-07 | P1 | Con restaurantes cerca de ti y uno en otro continente, abrir el Mapa | Encuadra solo los cercanos (150 km); sin ubicacion, la zona del ultimo guardado; si todo esta lejos, todos | Jest (`utils/mapFocus`) + [Gherkin](../../features/encuadre-del-mapa.feature) | 🟡 (la regla esta cubierta; que `HomeScreen` la aplique y como se ve el encuadre se comprueba en el movil) |
+| MAP-08 | P1 | Guardar un restaurante nuevo y volver al Mapa | El mapa se enfoca en el nuevo (el ultimo si llegan varios); en la primera carga o sin nuevos no se mueve | Jest (`utils/mapFocus`) + [Gherkin](../../features/encuadre-del-mapa.feature) | 🟡 (igual que MAP-07: falta verlo en el movil) |
 
 ### 2.2 Ubicacion
 
@@ -165,6 +167,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
 | SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01; en Guardar se mide al llegar al final del scroll | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia; en Guardar baja hasta el final antes de medir) | 🟡 (ejecucion 22: "Elegir foto de galeria" [2145-2308] solapaba la barra [2274-2400] a mitad de scroll; SAF-03 deja margen bajo el formulario y el script ya mide al final. Pendiente de confirmar en una ejecucion E2E. La rotacion no esta automatizada) |
 | SAF-03 | P2 | Guardar con barra inferior de 126 px, hasta el final del formulario | El final deja un margen >= la barra | Jest (`SaveScreen` real) + [Gherkin](../../features/guardar-barra-de-gestos.feature) | ✅ |
+| SAF-04 | P1 | Abrir la pantalla de acceso con barra de estado de 59 px (iPhone con isla dinamica) | El contenido empieza por debajo de la barra: el logo no queda tapado | Jest (`AuthScreen` real) + [Gherkin](../../features/pantalla-de-acceso.feature) | 🟡 (margen cubierto; verlo en un iPhone real) |
 
 ### 2.14 Diseño y tema
 
