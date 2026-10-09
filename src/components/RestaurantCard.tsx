@@ -107,7 +107,7 @@ export default memo(function RestaurantCard({
 
         {/* Info */}
         <View className="px-3 py-2.5">
-          <Text className="text-subtitle font-bold text-text-primary" numberOfLines={1}>
+          <Text className="text-subtitle font-sans-bold text-text-primary" numberOfLines={1}>
             {restaurant.name}
           </Text>
 

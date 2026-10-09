@@ -22,7 +22,7 @@ export default function InviteCodeDisplay({ code }: InviteCodeDisplayProps) {
   return (
     <View className="items-center gap-4 rounded-card border border-border bg-surface p-6">
       <Text className="text-caption text-text-secondary">Tu codigo de invitacion</Text>
-      <Text className="text-hero font-bold tracking-widest text-text-primary">
+      <Text className="text-hero font-display tracking-widest text-text-primary">
         {formatted}
       </Text>
       <Pressable

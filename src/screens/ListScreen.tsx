@@ -64,7 +64,7 @@ export default function ListScreen() {
   return (
     <View className="flex-1 bg-background">
       <View className="bg-surface px-5 pb-3 gap-3 border-b border-border" style={{ paddingTop: insets.top + 8 }}>
-        <Text className="text-title font-bold text-text-primary">Tu lista</Text>
+        <Text className="text-title font-display text-text-primary">Tu lista</Text>
         <SearchBar value={search} onChangeText={setSearch} />
         <FilterButtons active={filter} onSelect={setFilter} />
       </View>

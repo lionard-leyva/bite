@@ -112,7 +112,9 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
   "expo-location": "auto-detectar ubicacion",
   "@react-native-async-storage/async-storage": "modo skip login",
   "nativewind": "Tailwind para React Native",
-  "react-native-google-places-autocomplete": "buscar restaurantes por nombre"
+  "react-native-google-places-autocomplete": "buscar restaurantes por nombre",
+  "expo-font": "carga Young Serif y Figtree (@expo-google-fonts/*)",
+  "expo-haptics": "toque tactil al guardar, votar y hacer match"
 }
 ```
 
@@ -251,6 +253,7 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 
 - Los colores salen **solo** de `src/theme/palette.js` (claro y oscuro). Las clases de Tailwind (`bg-primary`, `text-text-secondary`) leen variables CSS que pone `ThemeProvider`; para iconos, sombras y estilos en linea usa `const { colors } = useTheme()`. Nada de hex, `rgba()`, `'white'` ni `text-red-600` en la interfaz: `temaMigrado.feature.test.ts` (UI-05) lo vigila en todo `src/`.
 - `userInterfaceStyle: automatic` (UI-07): la app sigue el claro/oscuro del telefono. Es un cambio nativo (rebuild). Probar el oscuro: `adb shell cmd uimode night yes`.
+- Fuentes: Young Serif para titulos (`font-display`, regla UI-11 sobre `text-title`/`text-hero`) y Figtree para texto con peso (`font-sans`, `font-sans-medium|semibold|bold`). `theme/FontGate` las carga con `expo-font` y espera a que esten listas (si fallan, sigue con la del sistema). Las fuentes custom ignoran `fontWeight`: elige la clase de familia, no `font-bold`.
 - Todo boton de solo icono lleva `accessibilityLabel` (UI-08). Las animaciones de pulsacion, el pulso del punto de ubicacion y el match respetan "reducir movimiento" con `useReducedMotion` (UI-09).
 
 ### Manual (solo flujos no automatizados)

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import AuthProvider from './src/contexts/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
+import FontGate from './src/theme/FontGate';
 
 // Dentro del ThemeProvider: navegacion y barra de estado toman el color del tema activo.
 function Shell() {
@@ -34,10 +35,12 @@ function Shell() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <Shell />
-      </AuthProvider>
-    </ThemeProvider>
+    <FontGate>
+      <ThemeProvider>
+        <AuthProvider>
+          <Shell />
+        </AuthProvider>
+      </ThemeProvider>
+    </FontGate>
   );
 }

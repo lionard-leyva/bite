@@ -24,6 +24,14 @@ module.exports = {
         modal: '20px',
         pill: '9999px',
       },
+      // Los nombres son los que registra src/theme/FontGate. font-display = titulos; font-sans* = texto con peso.
+      fontFamily: {
+        display: ['YoungSerif_400Regular'],
+        sans: ['Figtree_400Regular'],
+        'sans-medium': ['Figtree_500Medium'],
+        'sans-semibold': ['Figtree_600SemiBold'],
+        'sans-bold': ['Figtree_700Bold'],
+      },
       fontSize: {
         hero: ['32px', { lineHeight: '40px' }],
         title: ['24px', { lineHeight: '32px' }],

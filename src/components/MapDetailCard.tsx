@@ -88,7 +88,7 @@ export default function MapDetailCard({
 
       {/* Info */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-        <Text numberOfLines={1} style={{ fontSize: 18, fontWeight: '700', color: colors['text-primary'] }}>
+        <Text numberOfLines={1} style={{ fontSize: 18, fontFamily: 'YoungSerif_400Regular', color: colors['text-primary'] }}>
           {restaurant.name}
         </Text>
 

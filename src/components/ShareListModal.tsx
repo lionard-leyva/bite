@@ -73,7 +73,7 @@ export default function ShareListModal({
 
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-title font-bold text-text-primary">
+          <Text className="text-title font-display text-text-primary">
             Compartir lista
           </Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
