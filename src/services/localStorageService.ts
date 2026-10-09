@@ -30,7 +30,10 @@ export async function getSkipMode(): Promise<boolean> {
 export async function getLocalRestaurants(): Promise<Restaurant[]> {
   if (_cache !== null) return _cache;
   const raw = await AsyncStorage.getItem(KEYS.RESTAURANTS);
-  _cache = raw ? JSON.parse(raw) : [];
+  // JSON guarda las fechas como texto: se convierten de vuelta para que cumplan el tipo Restaurant (MAP-09).
+  _cache = raw
+    ? (JSON.parse(raw) as Restaurant[]).map((r) => ({ ...r, createdAt: new Date(r.createdAt), updatedAt: new Date(r.updatedAt) }))
+    : [];
   return _cache!;
 }
 

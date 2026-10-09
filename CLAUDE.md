@@ -188,6 +188,7 @@ CI (`.github/workflows`), estrategia por niveles: lo barato y determinista bloqu
 - **Suite entera**: de noche sobre master (P0, P1 y P2) y a demanda con `scope` full o p0. Sube `qa-out/`; los casos visuales se revisan en las capturas.
 - Regla de trabajo: se fusiona con `CI ok` en verde; el E2E se mira cuando termina, no se espera. Si falla en master, se arregla en un PR aparte.
 - Un fallo del E2E nunca se arregla saltando o desactivando el caso: se corrige el codigo o el script.
+- **Vista previa en el movil** (`expo-preview.yml`, Expo Go): es lo que ve el usuario, asi que pasa typecheck y Jest antes de `eas update`, y tras tocar pantallas solo se publica con el E2E P0 de ese cambio en verde. El 9-oct se publico sin esperarlo y el Mapa se cerraba con datos guardados sin cuenta (`createdAt` en texto desde AsyncStorage): MAP-09 lo cubre.
 
 Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
 

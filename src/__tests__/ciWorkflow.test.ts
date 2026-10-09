@@ -58,3 +58,16 @@ describe('qa-e2e.yml', () => {
     expect(e2e.concurrency['cancel-in-progress']).toBe(true);
   });
 });
+
+describe('expo-preview.yml', () => {
+  test('no publica en el movil sin pasar antes typecheck y Jest', () => {
+    const steps: Array<{ run?: string; name?: string }> = load('expo-preview.yml').jobs.publish.steps;
+    const idx = (pred: (s: { run?: string; name?: string }) => boolean) => steps.findIndex(pred);
+    const publicar = idx((s) => (s.run ?? '').includes('eas-cli') && (s.run ?? '').includes('update'));
+    expect(publicar).toBeGreaterThan(-1);
+    expect(idx((s) => s.run === 'npm run typecheck')).toBeGreaterThan(-1);
+    expect(idx((s) => s.run === 'npm test')).toBeGreaterThan(-1);
+    expect(idx((s) => s.run === 'npm run typecheck')).toBeLessThan(publicar);
+    expect(idx((s) => s.run === 'npm test')).toBeLessThan(publicar);
+  });
+});
