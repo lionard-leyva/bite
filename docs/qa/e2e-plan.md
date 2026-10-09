@@ -181,6 +181,10 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | UI-09 | P1 | Pulsar tarjeta y boton + con "reducir movimiento" | No se encogen ni rebotan | Jest (componentes reales) + [Gherkin](../../features/movimiento-reducido.feature) | 🟡 (revisar en emulador con `adb shell settings put global animator_duration_scale 0`) |
 | UI-10 | P1 | Abrir Bite con las fuentes cargando / cargadas / con fallo | Espera a las fuentes; si fallan sigue con la del sistema | Jest (`FontGate` real) + [Gherkin](../../features/fuentes.feature) | 🟡 (revisar Young Serif y Figtree en emulador; cambio nativo no, expo-font ya iba en el binario) |
 | UI-11 | P2 | Buscar titulos grandes (`text-title`, `text-hero`) sin `font-display` | Ninguno | Jest estatico + [Gherkin](../../features/fuentes.feature) | ✅ |
+| HAP-01 | P2 | Pulsar +, votar "Iria", hacer match | Toque ligero / medio / de exito | Jest (FAB y `MatchScreen` reales, `expo-haptics` simulado) + [Gherkin](../../features/detalles-de-diseno.feature) | 🟡 (sentirlo en un movil real) |
+| EMP-01 | P2 | Lista sin restaurantes | "Aqui apareceran vuestros sitios" + el texto de siempre | Jest (`ListScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | ✅ |
+| CEL-01 | P2 | Match con y sin "reducir movimiento" | Confeti solo si el movimiento esta permitido | Jest (`MatchScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | 🟡 (verlo en el movil) |
+| AVA-01 | P2 | Pantalla de match | Iniciales "T" y "B" superpuestas | Jest (`MatchScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | 🟡 |
 | EDG-01 | P2 | Inicial del marcador con nombre que empieza por emoji, espacios o vacio | Emoji entero, mayuscula, `B` si no hay nombre | Jest + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-02 | P1 | Buscar `cafe` con un sitio llamado `Café Comercial` (y al reves) | Ignora tildes y mayusculas | Jest (`utils/searchMatch`) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-03 | P2 | Nota de 200 caracteres en el detalle | Se lee entera | Jest (`DetailScreen` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |

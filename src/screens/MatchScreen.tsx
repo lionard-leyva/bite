@@ -34,6 +34,9 @@ import { getPrimaryPhoto, type Restaurant, type Vote } from '../types';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { tapMedium, tapSuccess } from '../utils/haptics';
+import Confetti from '../components/Confetti';
+import AvatarStack from '../components/AvatarStack';
 import type { Colors } from '../theme/palette';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -75,6 +78,7 @@ function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
   const fly = (vote: Vote) => {
     if (votedRef.current) return;
     votedRef.current = true;
+    tapMedium();
     Animated.timing(pan, {
       toValue: { x: (vote === 'LIKE' ? 1 : -1) * width * 1.5, y: 0 },
       duration: 220,
@@ -166,6 +170,9 @@ function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRest
   const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
+    tapSuccess();
+  }, []);
+  useEffect(() => {
     if (reducedMotion) {
       scale.setValue(1);
       return;
@@ -175,10 +182,12 @@ function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRest
 
   return (
     <View style={styles.centered}>
+      <Confetti />
       <Animated.Text style={[styles.matchEmoji, { transform: [{ scale }] }]}>🎉</Animated.Text>
       <Text style={styles.matchTitle}>¡Es un match!</Text>
       <Text style={styles.matchSubtitle}>Los dos queréis ir a</Text>
       <Text style={styles.matchName}>{restaurant.name}</Text>
+      <AvatarStack names={['Tú', partnerName]} />
       <Text style={styles.matchPair}>❤ Tú + {partnerName}</Text>
       <TravelLine distanceKm={distanceKm} eta={eta} />
       <Pressable style={styles.primaryButton} onPress={onShowMap} accessibilityRole="button">

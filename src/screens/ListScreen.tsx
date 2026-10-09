@@ -83,6 +83,9 @@ export default function ListScreen() {
             size={40}
             color={colors["text-tertiary"]}
           />
+          {restaurants.length === 0 && (
+            <Text className="text-subtitle font-display text-text-primary">Aquí aparecerán vuestros sitios</Text>
+          )}
           <Text className="text-body text-text-tertiary">
             {restaurants.length === 0
               ? 'No tienes restaurantes guardados'
