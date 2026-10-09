@@ -47,7 +47,7 @@ jest.mock('../hooks/useNavigationETA', () => ({ useNavigationETA: () => ({ eta: 
 jest.setTimeout(30000);
 
 import { StyleSheet } from 'react-native';
-import { act, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import HomeScreen from '../screens/HomeScreen';
 import ListScreen from '../screens/ListScreen';
 import { palette } from '../theme/palette';
@@ -150,6 +150,23 @@ defineFeature(feature, (test) => {
       expect(tarjeta.getByText('Visitado')).toBeTruthy();
       expect(tarjeta.getByText('★ 4 · €€ · Calle Mayor 1, Madrid')).toBeTruthy();
       expect(tarjeta.getByText('Guardado por Bea')).toBeTruthy();
+    });
+  });
+
+  test('Buscar algo que no está no cierra el teclado', ({ given, when, then, and }) => {
+    let buscador: any;
+    sinCuenta(given);
+    when(/^abre la lista y busca "(.*)"$/, async (texto: string) => {
+      await abrir(<ListScreen />);
+      buscador = screen.getByPlaceholderText('Buscar...');
+      fireEvent.changeText(buscador, texto);
+    });
+    then(/^ve "(.*)"$/, (texto: string) => {
+      expect(screen.getByText(texto)).toBeTruthy();
+    });
+    and('sigue escribiendo en el mismo buscador, sin que se cierre el teclado', () => {
+      // Si la pantalla cambia de lista a "vacio" y vuelve a montar el campo, el teclado se cierra a mitad de palabra.
+      expect(screen.getByPlaceholderText('Buscar...')).toBe(buscador);
     });
   });
 });

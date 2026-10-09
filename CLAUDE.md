@@ -90,7 +90,7 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
 1. `intentFilters` SEND text/plain en `app.config.js` + `modules/share-intent` (lee EXTRA_SUBJECT/EXTRA_TEXT; arranque en frio `getInitialShare`, en caliente evento `onShare`)
 2. `useShareIntent` (montado en TabNavigator) abre `Save` con `{ sharedText }`
 3. `shareParser`: Google Maps largo → nombre (`/place/`) + coords (`!3d!4d` > `?q=` > `@`); `maps.app.goo.gl` → `POST /api/resolve-link` (sigue redirects solo a hosts de Maps, desenvuelve consent.google.com; fallback: fetch en el dispositivo). Instagram/TikTok → nombre del texto si es corto, nota "Visto en X: url"
-4. SaveScreen prellena como Pendiente: con coords en modo manual; sin coords en el buscador de Places para confirmar
+4. SaveScreen prellena como Pendiente: con coords en la ficha a mano con el pin puesto; sin coords en el buscador de sitios para confirmar
 
 ### Offline (Firestore persistence)
 1. `enablePersistentCacheIndexAutoCreation` activado en init de Firebase
@@ -206,7 +206,7 @@ Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y 
 | `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
 | `npm run qa:all [-- --p0 \| --static \| --only IDs \| --release]` | suite E2E por bloques (estatico > reset+semilla > P0 > P1 > logs) | resumen `OK/FAIL/SKIP` por caso; exit 1 si falla un P0 |
 | `npm run qa:seed [-- --visited]` | 3 restaurantes por Compartir (URLs de `seed-data.js`) + "QA Visitado" manual | quedan guardados |
-| `npm run qa:save -- --name X [--state visitado] [--note T] \| --empty` | FAB > Ingresar manualmente > rellenar > Guardar | aparece en Lista con su estado; vacio no guarda |
+| `npm run qa:save -- --name X [--state visitado] [--note T] \| --empty` | FAB > "¿No aparece? Añádelo a mano" > nombre, direccion, "Marcar en el mapa" > Guardar | aparece en Lista con su estado; vacio no guarda |
 | `npm run qa:list -- [--filter F] [--search T] --expect A,B [--absent C] [--restore C]` | Lista > filtro/busqueda > limpiar | nombres visibles/ocultos |
 | `npm run qa:detail -- --restaurant X [--state S] [--toggle] [--delete]` | Lista > detalle | nombre, estado, toggle, eliminar |
 | `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
@@ -273,7 +273,7 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 
 - **Compartir**: cuenta A > Perfil > "Compartir con pareja" (codigo) > cuenta B > Perfil > "Unirme" > codigo > ambos ven restaurantes en tiempo real.
 - **Migracion**: modo sin cuenta con restaurantes > Perfil > "Crear cuenta" > registrarse > aceptar "Migrar restaurantes?".
-- **GPS en Guardar (LOC-04)**: con permiso y posicion real, Guardar > boton de GPS junto a Direccion > se rellena la direccion.
+- **GPS en Guardar (LOC-04)**: con permiso y posicion real, Guardar > "¿No aparece? Añádelo a mano" > "Usar mi ubicación" > el pin va a tu posicion y la direccion se rellena con la de ese punto.
 - **Editar perfil (PRF-02)**: con cuenta, Perfil > "Editar perfil" > ciudad > "Guardar cambios" > reabrir y comprobar que persiste.
 - **Offline**: guardar con conexion > modo avion > mapa/lista siguen > reconectar > sync.
 

@@ -58,7 +58,7 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | LOC-01 | P0 | Permisos + `geo fix` Madrid > "Ir a mi ubicacion" | `dumpsys location` con la posicion; sin rechazos en logcat; mapa centrado (screenshot) | `npm run qa:location` | 🟡 (centrado solo visual; ver nota emulador `Accuracy.Balanced`) |
 | LOC-02 | P0 | Permiso denegado (`pm revoke ... ACCESS_FINE_LOCATION`) > "Ir a mi ubicacion" | Sin crash, aviso con "Abrir Ajustes" y boton atenuado, sin unhandled rejection | `npm run qa:location -- --deny` + [Gherkin](../../features/ubicacion-denegada.feature) | ✅ (Jest: sin permiso no hay posicion ni crash, se recupera al concederlo, banner "Abrir Ajustes" tras pulsar y boton atenuado; `--deny` validado en el emulador del E2E de CI, ejecucion 17: app viva, Mapa, aviso, boton "Ubicacion desactivada", sin errores JS, permiso aun denegado) |
 | LOC-03 | P1 | Fallo de ubicacion repetido > reintento | El boton vuelve a pedir posicion | `useLocation.test.tsx` | ✅ |
-| LOC-04 | P1 | "Rellenar direccion con GPS" en Guardar | Direccion rellenada | **Manual** (lista de comprobacion) | ❌ no automatizable hoy: el boton esta desactivado hasta que `useLocation` tiene posicion y el emulador no la entrega con la precision de `locationService` (el mismo limite que LOC-01), y rellenar la direccion depende ademas de la geocodificacion inversa de Google |
+| LOC-04 | P1 | "Usar mi ubicación" en Guardar (a mano) | Pin en tu posicion y direccion de ese punto | **Manual** (lista de comprobacion) + Jest ADD-08 (`SaveScreen` con GPS simulado) | 🟡 en el emulador la posicion solo llega con `Accuracy.High`; la logica la cubre ADD-08 |
 
 ### 2.3 Anadir restaurante (manual)
 

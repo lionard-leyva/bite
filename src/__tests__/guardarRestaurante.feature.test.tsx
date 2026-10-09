@@ -22,10 +22,15 @@ jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ userId: 'ana', listId: 
 // Ana en Chamberi (no en Sol, el centro por defecto) y el GPS, al pedirlo de nuevo, la situa unos metros mas alla.
 const mockMadrid = { latitude: 40.4334, longitude: -3.7038 };
 const mockGpsAhora = { latitude: 40.4339, longitude: -3.7031 };
+let mockSinUbicacion = false;
 jest.mock('../hooks/useLocation', () => ({
-  useLocation: () => ({ ...mockMadrid, loading: false, error: null, refresh: async () => mockGpsAhora }),
+  useLocation: () =>
+    mockSinUbicacion
+      ? { latitude: null, longitude: null, loading: false, error: 'x', refresh: async () => null }
+      : { ...mockMadrid, loading: false, error: null, refresh: async () => mockGpsAhora },
 }));
-jest.mock('../services/locationService', () => ({ reverseGeocode: jest.fn(async () => null) }));
+const mockReverse = jest.fn(async (_lat: number, _lng: number): Promise<string | null> => null);
+jest.mock('../services/locationService', () => ({ reverseGeocode: (lat: number, lng: number) => mockReverse(lat, lng) }));
 jest.mock('../services/shareService', () => ({ resolveSharedText: jest.fn() }));
 const mockSave = jest.fn(async (_r: any) => 'nuevo');
 jest.mock('../services/restaurantService', () => ({ saveRestaurant: (r: any) => mockSave(r) }));
@@ -86,6 +91,9 @@ defineFeature(feature, (test) => {
     mockSearchAddresses.mockClear();
     mockDetails.mockClear();
     mockGeocode.mockClear();
+    mockReverse.mockReset();
+    mockReverse.mockImplementation(async () => null);
+    mockSinUbicacion = false;
   });
 
   const abre = (given: any) =>
@@ -320,6 +328,64 @@ defineFeature(feature, (test) => {
       expect(culpables).toEqual([]);
       const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
       expect(pkg.dependencies['react-native-google-places-autocomplete']).toBeUndefined();
+    });
+  });
+
+  test('Al borrar letras por debajo de 3 deja de buscar', ({ given, when, then, and }) => {
+    abre(given);
+    and('el buscador tarda en contestar', () => {
+      mockSearchPlaces.mockImplementationOnce(() => new Promise(() => {}));
+    });
+    when(/^escribe "(.*)" y enseguida lo deja en "(.*)"$/, async (largo: string, corto: string) => {
+      await busca(largo);
+      await waitFor(() => expect(p.getByTestId('buscando')).toBeTruthy());
+      fireEvent.changeText(p.getByPlaceholderText(BUSCADOR), corto);
+    });
+    then('no se queda buscando', async () => {
+      await esperar(50);
+      expect(p.queryByTestId('buscando')).toBeNull();
+    });
+  });
+
+  test('Sin saber dónde está Ana, el pin del mapa hay que moverlo antes de guardar', ({ given, when, then, and }) => {
+    given('que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante', () => {
+      mockSinUbicacion = true;
+      p = render(<SaveScreen />);
+    });
+    aManoConNombre(and);
+    when('pulsa "Marcar en el mapa"', () => {
+      fireEvent.press(p.getByText('Marcar en el mapa'));
+    });
+    then(/^no puede guardar y ve "(.*)"$/, async (aviso: string) => {
+      expect(p.getByTestId('pin-del-sitio')).toBeTruthy();
+      expect(p.getAllByText(aviso).length).toBeGreaterThan(0);
+      guardar();
+      await esperar(50);
+      expect(mockSave).not.toHaveBeenCalled();
+    });
+    and('si arrastra el pin, se guarda donde lo dejó', async () => {
+      act(() => p.getByTestId('pin-del-sitio').props.onDragEnd({ nativeEvent: { coordinate: { latitude: 41.39, longitude: 2.17 } } }));
+      guardar();
+      expect(await guardado()).toMatchObject({ latitude: 41.39, longitude: 2.17 });
+    });
+  });
+
+  test('Al mover el pin, la dirección pasa a ser la del nuevo sitio', ({ given, when, then, and }) => {
+    abre(given);
+    aManoConNombre(and);
+    and(/^ha elegido la dirección "(.*)"$/, async (opcion: string) => {
+      fireEvent.changeText(p.getByPlaceholderText(DIRECCION), 'Felipe II 12');
+      fireEvent.press(await p.findByText(opcion));
+      await waitFor(() => expect(p.getByTestId('pin-del-sitio')).toBeTruthy());
+    });
+    when('arrastra el pin a otra calle', async () => {
+      mockReverse.mockImplementation(async () => 'Calle de Alcalá 100, Madrid');
+      await act(async () => p.getByTestId('pin-del-sitio').props.onDragEnd({ nativeEvent: { coordinate: { latitude: 40.4225, longitude: -3.6795 } } }));
+    });
+    then('se guarda con la dirección de esa calle y no con la anterior', async () => {
+      await waitFor(() => expect(p.getByPlaceholderText(DIRECCION).props.value).toBe('Calle de Alcalá 100, Madrid'));
+      guardar();
+      expect(await guardado()).toMatchObject({ address: 'Calle de Alcalá 100, Madrid', latitude: 40.4225, longitude: -3.6795 });
     });
   });
 });

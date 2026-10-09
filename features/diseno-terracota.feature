@@ -40,3 +40,10 @@ Característica: El Mapa y la Lista se ven como el diseño Terracota elegido
     Entonces el título es "Vuestra lista"
     Y arriba está "¿Dónde cenamos hoy?" con "2 pendientes · votad sin ver lo del otro"
     Y la tarjeta de "Sobrino de Botín" dice "Visitado", "★ 4 · €€ · Calle Mayor 1, Madrid" y "Guardado por Bea"
+
+  @UI-13
+  Escenario: Buscar algo que no está no cierra el teclado
+    Dado que Ana usa Bite sin cuenta con "Casa Lucio" pendiente guardado
+    Cuando abre la lista y busca "zzz"
+    Entonces ve "Sin resultados"
+    Y sigue escribiendo en el mismo buscador, sin que se cierre el teclado

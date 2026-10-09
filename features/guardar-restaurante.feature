@@ -97,3 +97,26 @@ Característica: Guardar un restaurante en el sitio correcto
   Escenario: El móvil no lleva ninguna clave de Google para buscar sitios
     Dado el código de la app
     Entonces ninguna pantalla lee la clave de Google ni usa el buscador de Google en el móvil
+
+  @ADD-05
+  Escenario: Al borrar letras por debajo de 3 deja de buscar
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Y el buscador tarda en contestar
+    Cuando escribe "Los" y enseguida lo deja en "Lo"
+    Entonces no se queda buscando
+
+  @ADD-08
+  Escenario: Sin saber dónde está Ana, el pin del mapa hay que moverlo antes de guardar
+    Dado que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante
+    Y elige añadirlo a mano con el nombre "Casa Lu" y 4 estrellas
+    Cuando pulsa "Marcar en el mapa"
+    Entonces no puede guardar y ve "Arrastra el pin hasta el sitio"
+    Y si arrastra el pin, se guarda donde lo dejó
+
+  @ADD-08
+  Escenario: Al mover el pin, la dirección pasa a ser la del nuevo sitio
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Y elige añadirlo a mano con el nombre "Casa Lu" y 4 estrellas
+    Y ha elegido la dirección "Av. de Felipe II 12"
+    Cuando arrastra el pin a otra calle
+    Entonces se guarda con la dirección de esa calle y no con la anterior

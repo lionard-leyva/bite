@@ -112,7 +112,7 @@ function SharedFromBanner({ banner }: { banner: ShareBanner }) {
   );
 }
 
-function Notice({ text }: { text: string }) {
+function Notice({ text, action }: { text: string; action?: { label: string; onPress: () => void } }) {
   const { colors } = useTheme();
   return (
     <View
@@ -120,7 +120,14 @@ function Notice({ text }: { text: string }) {
       style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
     >
       <Ionicons name="alert-circle-outline" size={22} color={colors.warning} />
-      <Text style={{ flex: 1, fontSize: 15, lineHeight: 22, color: colors['text-primary'] }}>{text}</Text>
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text style={{ fontSize: 15, lineHeight: 22, color: colors['text-primary'] }}>{text}</Text>
+        {action && (
+          <Pressable onPress={action.onPress} accessibilityRole="button" hitSlop={8}>
+            <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 14, color: colors.primary }}>{action.label}</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -239,6 +246,7 @@ export default function SaveScreen() {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState<string | undefined>(undefined);
   const [location, setLocation] = useState<LatLng | null>(null);
+  const [pinToConfirm, setPinToConfirm] = useState(false);
   const [rating, setRating] = useState(0);
   const [visited, setVisited] = useState(false);
   const [note, setNote] = useState('');
@@ -339,6 +347,7 @@ export default function SaveScreen() {
   useEffect(() => {
     if (step !== 'search' || !shouldSearch(name)) {
       setSuggestions([]);
+      setSearching(false);
       return;
     }
     let cancelled = false;
@@ -399,9 +408,16 @@ export default function SaveScreen() {
   function backToSearch() {
     setPicked(false);
     setLocation(null);
+    setPinToConfirm(false);
     setAddress('');
     setCity(undefined);
     setStep('search');
+  }
+
+  // Un fallo puntual (red, tiempo) no deja a Ana sin buscador para siempre
+  function retrySearch() {
+    setSearchDown(false);
+    backToSearch();
   }
 
   async function pickPlace(s: PlaceSuggestion) {
@@ -411,6 +427,7 @@ export default function SaveScreen() {
       setAddress(d.address || s.secondary);
       setCity(d.city);
       setLocation({ latitude: d.latitude, longitude: d.longitude });
+      setPinToConfirm(false);
       setPicked(true);
       setStep('form');
     } catch (err) {
@@ -430,6 +447,7 @@ export default function SaveScreen() {
       setAddress(d.address || s.name);
       setCity(d.city);
       setLocation({ latitude: d.latitude, longitude: d.longitude });
+      setPinToConfirm(false);
       setLocationHint('');
     } catch (err) {
       console.warn('[SaveScreen] Address details failed:', err);
@@ -445,31 +463,42 @@ export default function SaveScreen() {
       setLocationHint('No sabemos dónde estás. Márcalo en el mapa.');
       return;
     }
-    setLocation({ latitude: coords.latitude, longitude: coords.longitude });
-    setCity(undefined);
     setLocationHint('');
-    if (!address.trim()) {
-      try {
-        const addr = await reverseGeocode(coords.latitude, coords.longitude);
-        if (addr) setAddress(addr);
-      } catch {
-        // the pin is enough to save
-      }
+    await placePin({ latitude: coords.latitude, longitude: coords.longitude });
+  }
+
+  // La direccion siempre es la del pin: al moverlo se pide la del nuevo punto (o se vacia si no hay).
+  async function placePin(next: LatLng) {
+    setLocation(next);
+    setPinToConfirm(false);
+    setCity(undefined);
+    let addr: string | null = null;
+    try {
+      addr = await reverseGeocode(next.latitude, next.longitude);
+    } catch {
+      // the pin is enough to save
     }
+    setAddress(addr ?? '');
   }
 
   function markOnMap() {
-    setLocation((current) => current ?? near ?? DEFAULT_CENTER);
-    setCity(undefined);
     setLocationHint('');
+    if (location) return;
+    if (near) {
+      void placePin(near);
+      return;
+    }
+    // Sin saber donde esta Ana, el pin sale en un punto por defecto y hay que llevarlo al sitio antes de guardar
+    setLocation(DEFAULT_CENTER);
+    setPinToConfirm(true);
+    setCity(undefined);
   }
 
   function movePin(next: LatLng) {
-    setLocation(next);
-    setCity(undefined);
+    void placePin(next);
   }
 
-  const blocker = saveBlocker({ name, location, rating });
+  const blocker = saveBlocker({ name, location, rating, pinToConfirm });
 
   async function handleSave(confirmedFar = false) {
     if (blocker || !location) return;
@@ -572,7 +601,7 @@ export default function SaveScreen() {
                 returnKeyType="search"
                 accessibilityLabel="Busca el restaurante"
               />
-              {searching && <ActivityIndicator size="small" color={colors['text-secondary']} />}
+              {searching && <ActivityIndicator testID="buscando" size="small" color={colors['text-secondary']} />}
             </View>
             <SuggestionList
               items={suggestions}
@@ -594,7 +623,7 @@ export default function SaveScreen() {
           </View>
         ) : (
           <View>
-            {searchDown && <Notice text={SEARCH_DOWN} />}
+            {searchDown && <Notice text={SEARCH_DOWN} action={{ label: 'Volver a buscar', onPress: retrySearch }} />}
 
             {picked && location ? (
               <View style={{ marginBottom: 16, padding: 8, borderRadius: 18, backgroundColor: colors.surface }}>

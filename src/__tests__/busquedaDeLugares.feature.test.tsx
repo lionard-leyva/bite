@@ -62,7 +62,10 @@ defineFeature(feature, (test) => {
   let p: ReturnType<typeof render>;
   beforeEach(() => {
     mockSave.mockClear();
-    mockSearchPlaces.mockClear();
+    mockSearchPlaces.mockReset();
+    mockSearchPlaces.mockImplementation(async () => {
+      throw new Error('places/autocomplete 503');
+    });
     jest.spyOn(console, 'warn').mockImplementation(() => {});
   });
   afterEach(() => jest.restoreAllMocks());
@@ -122,6 +125,19 @@ defineFeature(feature, (test) => {
       await act(async () => {});
       expect(mockSave).not.toHaveBeenCalled();
       expect(p.queryByTestId('pin-del-sitio')).toBeNull();
+    });
+  });
+
+  test('Si el buscador vuelve, Ana puede volver a buscar', ({ given, when, then, and }) => {
+    enMadrid(given);
+    buscadorCaido(when);
+    and(/^el buscador vuelve a funcionar y Ana pulsa "(.*)"$/, (boton: string) => {
+      mockSearchPlaces.mockImplementation(async () => [{ id: 'p1', name: 'Los Horizontes', secondary: 'Madrid' }]);
+      fireEvent.press(p.getByText(boton));
+    });
+    then(/^ve la sugerencia "(.*)" para "(.*)"$/, async (nombre: string, texto: string) => {
+      expect(await p.findByText(nombre)).toBeTruthy();
+      expect(mockSearchPlaces.mock.calls.at(-1)?.[0]).toBe(texto);
     });
   });
 });

@@ -27,3 +27,10 @@ Característica: Guardar un restaurante aunque el buscador de sitios no responda
     Cuando escribe "Los horiz" y el buscador de sitios no responde
     Y lo valora con 4 estrellas
     Entonces no puede guardar y ve "Marca dónde está para poder guardar"
+
+  @ADD-03
+  Escenario: Si el buscador vuelve, Ana puede volver a buscar
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Cuando escribe "Los horiz" y el buscador de sitios no responde
+    Y el buscador vuelve a funcionar y Ana pulsa "Volver a buscar"
+    Entonces ve la sugerencia "Los Horizontes" para "Los horiz"

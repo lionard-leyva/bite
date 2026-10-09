@@ -7,7 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useAuth } from '../hooks/useAuth';
 import { useListMembers } from '../hooks/useListMembers';
-import { savedByLabel } from '../utils/savedBy';
+import { savedByLabel, nameOf } from '../utils/savedBy';
 import SearchBar from '../components/SearchBar';
 import FilterButtons, { type FilterValue } from '../components/FilterButtons';
 import RestaurantCard from '../components/RestaurantCard';
@@ -64,12 +64,31 @@ export default function ListScreen() {
       {pendingCount > 0 && (
         <MatchEntryCard
           pendingCount={pendingCount}
-          avatarNames={shared ? members.map((m) => m.displayName || m.email || '') : []}
+          avatarNames={shared ? members.map(nameOf) : []}
           onPress={() => navigation.navigate('Match')}
         />
       )}
       <SearchBar value={search} onChangeText={setSearch} />
       <FilterButtons active={filter} onSelect={setFilter} />
+    </View>
+  );
+
+  const empty = (
+    <View className="flex-1 items-center justify-center gap-3" style={{ paddingVertical: 48 }}>
+      <Ionicons
+        name={restaurants.length === 0 ? 'restaurant-outline' : 'search-outline'}
+        size={40}
+        color={colors['text-tertiary']}
+      />
+      {restaurants.length === 0 && (
+        <Text className="text-subtitle font-display text-text-primary">Aquí aparecerán vuestros sitios</Text>
+      )}
+      <Text className="text-body text-text-tertiary">
+        {restaurants.length === 0 ? 'No tienes restaurantes guardados' : 'Sin resultados'}
+      </Text>
+      {restaurants.length === 0 && (
+        <Text className="text-caption text-text-tertiary">Toca + en el mapa para agregar uno</Text>
+      )}
     </View>
   );
 
@@ -91,37 +110,16 @@ export default function ListScreen() {
             Error cargando restaurantes. Revisa tu conexion o reinicia la app.
           </Text>
         </View>
-      ) : filtered.length === 0 ? (
-        <View className="flex-1">
-        {header}
-        <View className="flex-1 items-center justify-center gap-3">
-          <Ionicons
-            name={restaurants.length === 0 ? 'restaurant-outline' : 'search-outline'}
-            size={40}
-            color={colors["text-tertiary"]}
-          />
-          {restaurants.length === 0 && (
-            <Text className="text-subtitle font-display text-text-primary">Aquí aparecerán vuestros sitios</Text>
-          )}
-          <Text className="text-body text-text-tertiary">
-            {restaurants.length === 0
-              ? 'No tienes restaurantes guardados'
-              : 'Sin resultados'}
-          </Text>
-          {restaurants.length === 0 && (
-            <Text className="text-caption text-text-tertiary">
-              Toca + en el mapa para agregar uno
-            </Text>
-          )}
-        </View>
-        </View>
       ) : (
         <FlatList
           data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
+          // Siempre la misma FlatList: si el vacio fuera otra vista, el buscador se volveria a montar y cerraria el teclado.
           ListHeaderComponent={header}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          ListEmptyComponent={empty}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
             if (hasMore && !loadingMore) {

@@ -22,11 +22,6 @@ export async function setSkipMode(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(KEYS.SKIP_MODE, JSON.stringify(enabled));
 }
 
-export async function getSkipMode(): Promise<boolean> {
-  const val = await AsyncStorage.getItem(KEYS.SKIP_MODE);
-  return val ? JSON.parse(val) : false;
-}
-
 export async function getLocalRestaurants(): Promise<Restaurant[]> {
   if (_cache !== null) return _cache;
   const raw = await AsyncStorage.getItem(KEYS.RESTAURANTS);

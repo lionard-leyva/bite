@@ -24,7 +24,7 @@ import type { Restaurant } from '../types';
 import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
 import { useTheme } from '../theme/ThemeProvider';
 import { matchesQuery } from '../utils/searchMatch';
-import { savedByLabel } from '../utils/savedBy';
+import { savedByLabel, nameOf } from '../utils/savedBy';
 import { priceSymbols } from '../utils/price';
 import { focusTargets, newRestaurantToFocus } from '../utils/mapFocus';
 import { mapStyle } from '../theme/mapStyle';
@@ -656,7 +656,7 @@ export default function HomeScreen() {
 
   // Botones flotantes abajo a la derecha: guardar (+) y, encima, volver a mi ubicacion.
   const fabBottom = FAB_BOTTOM_OFFSET + 8;
-  const avatarNames = members.length > 1 ? members.map((m) => m.displayName || m.email || '') : [];
+  const avatarNames = members.length > 1 ? members.map(nameOf) : [];
 
   return (
     <View style={layoutStyles.mapFull}>
