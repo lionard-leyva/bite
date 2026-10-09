@@ -29,6 +29,9 @@ jobs:
             exit 1
           fi
       - run: npm ci
+      # Lo que llega al movil pasa antes las mismas pruebas que la puerta de CI (MAP-09 renderiza el Mapa con datos del movil).
+      - run: npm run typecheck
+      - run: npm test
       - name: Publicar actualizacion
         run: npx eas-cli@latest update --branch preview --platform ios --message "Vista previa ${GITHUB_SHA::7}" --non-interactive | tee eas-out.txt
       - name: Resumen
