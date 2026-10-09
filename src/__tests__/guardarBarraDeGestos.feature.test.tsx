@@ -11,7 +11,7 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
 jest.mock('expo-location', () => ({}));
-jest.mock('expo-constants', () => ({ expoConfig: { extra: { GOOGLE_MAPS_API_KEY: '' } } }));
+jest.mock('expo-constants', () => ({ expoConfig: { extra: {} } }));
 jest.mock('firebase/firestore', () => ({ doc: jest.fn(), getDoc: jest.fn() }));
 jest.mock('../config/firebase', () => ({ db: {} }));
 jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ userId: 'ana', listId: 'L1', skipMode: false }) }));
@@ -27,8 +27,10 @@ jest.mock('../services/localStorageService', () => ({
   getLocalRestaurants: jest.fn(async () => []),
 }));
 jest.mock('../components/PhotoPicker', () => () => null);
-jest.mock('../components/PriceSlider', () => () => null);
-jest.mock('react-native-google-places-autocomplete', () => ({ GooglePlacesAutocomplete: () => null }));
+jest.mock('react-native-maps', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: (props: any) => <View {...props} />, Marker: (props: any) => <View {...props} /> };
+});
 
 jest.setTimeout(30000);
 

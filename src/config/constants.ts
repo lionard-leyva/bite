@@ -8,7 +8,9 @@ export const PHOTO_MAX_COUNT = 3;
 export const RATING_MIN = 1;
 export const RATING_MAX = 5;
 
-export const PLACES_API_DEBOUNCE_MS = 400;
+export const PLACES_API_DEBOUNCE_MS = 300;
+export const PLACES_MIN_QUERY_LENGTH = 3;
+export const PLACES_FETCH_TIMEOUT_MS = 6_000;
 
 // Map markers — Airbnb drop-pin style
 export const MARKER_PIN_SIZE = 48;

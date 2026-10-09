@@ -41,7 +41,7 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
 ├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService
+├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService, placesService (buscar sitios via nuestro servidor)
 ├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession, useReducedMotion
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
 ├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, locationNotice, shareParser
@@ -112,7 +112,6 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
   "expo-location": "auto-detectar ubicacion",
   "@react-native-async-storage/async-storage": "modo skip login",
   "nativewind": "Tailwind para React Native",
-  "react-native-google-places-autocomplete": "buscar restaurantes por nombre",
   "expo-font": "carga Young Serif y Figtree (@expo-google-fonts/*)",
   "expo-haptics": "toque tactil al guardar, votar y hacer match"
 }
@@ -141,8 +140,9 @@ FIREBASE_PROJECT_ID=
 FIREBASE_STORAGE_BUCKET=
 FIREBASE_MESSAGING_SENDER_ID=
 FIREBASE_APP_ID=
-GOOGLE_MAPS_API_KEY=
+GOOGLE_MAPS_API_KEY=          # solo el mapa nativo (Android/iOS); el JS no la lee (ADD-11)
 DIRECTIONS_PROXY_URL=http://localhost:3001/api/directions
+API_BASE_URL=                 # opcional: base del servidor (/places/autocomplete, /places/details); por defecto la de DIRECTIONS_PROXY_URL sin /directions
 ```
 
 Server (`server/.env`):
@@ -167,14 +167,14 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 
 - **Firebase `getReactNativePersistence` type warning**: La funcion existe en runtime pero carece de declaracion de tipos en Firebase v12. Resuelto con `@ts-ignore` en `src/config/firebase.ts`. No afecta funcionalidad.
 - Si Firebase falla en emulador → usar dispositivo real
-- Si Google Places excede cuota → fallback automatico a input manual (detectado en `SaveScreen` via `onFail`)
+- Si el buscador de sitios falla (sin red, sin cuota o sin servidor desplegado) → `SaveScreen` pasa a mano, avisa sin tecnicismos y pone el pin donde esta Ana para arrastrarlo (ADD-03). Hasta desplegar `functions/` (PR B) el buscador falla siempre en el movil: `DIRECTIONS_PROXY_URL` es localhost.
 - Si fotos saturan Storage → reducir compresion a quality 0.6 en `src/config/constants.ts`
 - **Migracion de fotos locales**: `migrateLocalData()` pasa las `photoURLs` locales a `saveRestaurant`, que las sube en segundo plano con el UID nuevo. Si el archivo local ya no existe, la subida falla y solo se registra en consola.
 - **Toggle visitado en skip mode**: en modo sin cuenta `DetailScreen` lo guarda en AsyncStorage (`updateLocalRestaurantVisited`).
 - **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Esta versionado en `firestore.indexes.json` (desplegar con `firebase deploy --only firestore:indexes`). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
 - **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. `firestore.rules` (propuesta, no desplegada) limita `decisionSessions` y `decisionVotes` a miembros de la lista; `subscribeVotes` filtra por `listId` + `roundId` para que la regla acepte la query. Minimo si no se despliegan: `request.auth != null`.
 - **Mapa en iOS**: `react-native-maps` usa Apple Maps en iOS (sin `provider` Google), que ignora `customMapStyle`: el estilo Terracota del mapa solo se ve en Android. En iOS se pide `mapType: mutedStandard`, `userInterfaceStyle: light` y sin puntos de interes, lo mas cerca del mapa crema del diseno. Con Expo Go el boton azul de engranaje flotante es del menu de desarrollo de Expo, no de Bite (se oculta desde ese menu).
-- **Geocodificar por nombre**: `SaveScreen` geocodifica el nombre si no hay coordenadas (`Location.geocodeAsync`) y puede ubicar el sitio en otra ciudad o continente; el mapa ya no se aleja por eso (`mapFocus`), pero el pin quedaria lejos. Elegir el sitio en el buscador de Places da coordenadas exactas.
+- **Guardar en el sitio correcto** (`features/guardar-restaurante.feature`, ADD-05..ADD-11): buscar desde 3 letras cerca de Ana (300 ms), elegir rellena nombre, direccion y pin; a mano hay que elegir direccion sugerida, "Usar mi ubicación" o "Marcar en el mapa" (pin arrastrable). Nunca se geocodifica el nombre (era el pin en Japon). A mas de 150 km (`NEAR_RADIUS_KM`) se pide confirmar. Reglas puras en `utils/saveRules`.
 - **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
 - **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
 
@@ -247,7 +247,8 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
 | `distancia-sin-proxy.feature` | MAP-05 | `useNavigationETA` + `navigationService` reales con `fetch` simulado (proxy caido, con error, colgado, recuperado, cambio de sitio) | components |
 | `fotos.feature` | ADD-04 | `imageService` real con manipulador de imagenes, Storage y `fetch` simulados (800 px, JPEG, calidad 0,7 antes de subir) | unit |
-| `busqueda-de-lugares.feature` | ADD-03 | `SaveScreen` real con el buscador de Google simulado (se le provoca `onFail`; pasa a entrada manual, avisa y conserva el nombre) | components |
+| `busqueda-de-lugares.feature` | ADD-03 | `SaveScreen` real con `placesService` fallando (pasa a mano, avisa, conserva el nombre y pone el pin donde esta Ana) | components |
+| `guardar-restaurante.feature` | ADD-05..ADD-11 | `SaveScreen` real con `placesService`, mapa y ubicacion simulados (buscar desde 3 letras, elegir, a mano con pin obligatorio, aviso a mas de 150 km, Pendiente y precio en chips, sin clave de Google en el movil) | components |
 | `detalle-inexistente.feature` | DET-03 | `DetailScreen` real con la lista de restaurantes simulada ("Restaurante no encontrado") | components |
 | `campos-de-texto.feature` | KBD-03 | regla estatica sobre el codigo (`src/__tests__/helpers/textInputAudit.ts`): ningun `TextInput` con `height` menor que su interlineado | unit |
 | `encuadre-del-mapa.feature` | MAP-07, MAP-08 | `utils/mapFocus` (encuadre en torno a donde estas, ignorando sitios a mas de 150 km, y enfoque del restaurante recien guardado) | unit |

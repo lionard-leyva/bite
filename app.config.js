@@ -67,7 +67,8 @@ export default ({ config }) => ({
     FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET || "bite-ba28f.firebasestorage.app",
     FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID || "161393276832",
     FIREBASE_APP_ID: process.env.FIREBASE_APP_ID || "1:161393276832:web:ba8edf81428a051079d6c5",
-    GOOGLE_MAPS_API_KEY: MAPS_KEY,
+    // Sin clave de Google en el JS: los sitios se buscan en nuestro servidor (API_BASE_URL). La del mapa nativo va arriba.
+    API_BASE_URL: process.env.API_BASE_URL,
     DIRECTIONS_PROXY_URL: process.env.DIRECTIONS_PROXY_URL,
   },
   plugins: [

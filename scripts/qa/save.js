@@ -1,9 +1,10 @@
-// QA: alta manual (ADD-01/02). FAB > "Ingresar manualmente" > nombre, direccion, rating, estado, nota > Guardar > aparece en Lista con su estado.
+// QA: alta manual (ADD-01/02). FAB > "¿No aparece? Añádelo a mano" > nombre, direccion, "Marcar en el mapa", rating, estado, nota > Guardar
+// > aparece en Lista con su estado. Sin marcar donde esta, Guardar no se habilita (ADD-07).
 // Uso: npm run qa:save -- --name "Bar Visitado" [--address "Calle Mayor 1, Madrid"] [--state visitado|pendiente] [--note "gjpqy"]
 //      npm run qa:save -- --empty   (Guardar con el formulario vacio no debe guardar nada)
 const q = require('./adb');
 
-const MANUAL = /Ingresar manualmente/i;
+const MANUAL = /Añádelo a mano/i;
 
 async function fill(hint, value) {
   await q.tapLabel(hint, 8000);
@@ -35,6 +36,7 @@ async function inList(name, filter) {
     await q.sleep(2000);
     const xml = await q.dumpUi();
     checks.push({ name: 'sigue en "Guardar restaurante" (no guarda vacio)', ok: !!q.findNode(xml, 'Guardar restaurante') && !!q.findNode(xml, 'Guardar') });
+    checks.push({ name: 'explica que falta el nombre', ok: !!q.findNode(xml, 'Escribe el nombre del restaurante') });
   } else {
     const name = typeof args.name === 'string' ? args.name : 'QA Manual';
     const visited = String(args.state || 'pendiente').toLowerCase().startsWith('v');
@@ -44,6 +46,10 @@ async function inList(name, filter) {
     await fill('Direccion del restaurante', typeof args.address === 'string' ? args.address : 'Calle Mayor 1, Madrid');
     q.hideKeyboard();
     await q.sleep(500);
+    // Sin buscador de direcciones en el emulador: el pin se pone en el mapa (donde esta el emulador, Madrid)
+    await q.tapLabel('Marcar en el mapa', 8000);
+    await q.sleep(1000);
+    await q.revealLabel('4 estrellas');
     await q.tapLabel('4 estrellas', 8000);
     await q.tapLabel(visited ? 'Visitado' : 'Pendiente', 8000);
     if (typeof args.note === 'string') {

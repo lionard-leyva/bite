@@ -46,7 +46,7 @@ async function checkField(checks, screen, hint) {
 
   await q.openTab('Mapa');
   await q.tapLabel('Guardar restaurante', 10000);
-  await q.tapLabel(/Ingresar manualmente/i, 15000);
+  await q.tapLabel(/Añádelo a mano/i, 15000);
   await q.sleep(800);
   await checkField(checks, 'Guardar', 'Nombre del restaurante');
   await checkField(checks, 'Guardar', 'Direccion del restaurante');
