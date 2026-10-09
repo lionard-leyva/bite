@@ -1,7 +1,11 @@
 name: QA E2E (Android emulator)
 
-# No bloquea PRs: necesita secretos y depende de un emulador.
-# Corre de noche sobre master y a demanda (Actions > QA E2E > Run workflow).
+# No bloquea PRs: necesita un emulador y es lento (~50 min con la compilacion). Tres alcances segun el cambio:
+#   - PR que toca algo visible o nativo (paths de abajo): solo los casos P0, como aviso temprano y en paralelo a ci.yml.
+#   - De noche sobre master: la suite entera (P0, P1 y P2).
+#   - A demanda (Actions > QA E2E > Run workflow): `scope` full o p0.
+# Un PR que solo toca docs, tests, features o workflows ajenos no lo dispara. Un push nuevo cancela el run anterior de
+# su misma rama.
 #
 # Dos jobs a proposito: compilar (Gradle/Kotlin dejan JVMs vivas) y emular en el mismo runner de 2 CPU ahogaba al
 # emulador (ANR "Pixel Launcher isn't responding") y llenaba el disco. Ademas el APK se cachea: si no cambia el codigo
@@ -10,9 +14,32 @@ on:
   schedule:
     - cron: '17 3 * * *'
   workflow_dispatch:
+    inputs:
+      scope:
+        description: 'full = P0+P1+P2, p0 = solo los bloqueantes (mas rapido)'
+        type: choice
+        options: [full, p0]
+        default: full
+  pull_request:
+    paths:
+      - 'src/**'
+      - '!src/__tests__/**'
+      - 'modules/**'
+      - 'assets/**'
+      - 'scripts/qa/**'
+      - 'app.config.js'
+      - 'App.tsx'
+      - 'index.ts'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - 'tailwind.config.js'
+      - 'global.css'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/qa-e2e.yml'
 
 concurrency:
-  group: qa-e2e
+  group: qa-e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -82,6 +109,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
+      # PR = solo P0; manual = lo que se elija; noche = todo.
+      E2E_SCOPE: ${{ github.event_name == 'pull_request' && 'p0' || inputs.scope || 'full' }}
       # Build release standalone: sin dev-client ni Metro, y es la unica donde Compartir en frio funciona.
       BITE_RELEASE: '1'
     steps:
@@ -128,7 +157,7 @@ jobs:
             adb install -r bite.apk
             adb shell settings put global hide_error_dialogs 1
             for i in $(seq 1 30); do adb shell dumpsys window | grep -q "mCurrentFocus.*[Ll]auncher" && break; sleep 2; done
-            mkdir -p qa-out && (free -m > qa-out/resources.txt; BITE_INSET_TOP=136 BITE_INSET_BOTTOM=63 npm run qa:all -- --release --keep-going --skip LOC-01,MAP-01,X-01,X-02,X-03; rc=$?; adb logcat -d > qa-out/logcat.txt; adb shell dumpsys window > qa-out/dumpsys-window.txt; adb exec-out screencap -p > qa-out/final.png; exit $rc)
+            mkdir -p qa-out && (free -m > qa-out/resources.txt; BITE_INSET_TOP=136 BITE_INSET_BOTTOM=63 npm run qa:all -- --release --keep-going $([ "$E2E_SCOPE" = p0 ] && echo --p0) --skip LOC-01,MAP-01,X-01,X-02,X-03; rc=$?; adb logcat -d > qa-out/logcat.txt; adb shell dumpsys window > qa-out/dumpsys-window.txt; adb exec-out screencap -p > qa-out/final.png; exit $rc)
 
       - name: Capturas y logs
         if: always()

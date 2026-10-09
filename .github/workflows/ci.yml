@@ -1,5 +1,7 @@
 name: CI
 
+# Estrategia (CLAUDE.md §10): comprobaciones rapidas y baratas en cada PR, en paralelo; el unico check que se exige para
+# fusionar es "CI ok" (job `gate`), que depende de todos los demas. El E2E con emulador (qa-e2e.yml) es aparte y no bloquea.
 on:
   pull_request:
   push:
@@ -10,25 +12,72 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static:
-    name: typecheck + jest + server + bundle
+  typecheck:
+    name: typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            server/package-lock.json
       - run: npm ci
+      - run: npm run typecheck
+
+  jest:
+    name: jest (unit + components)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # qaScripts.test.ts tarda ~90 s (casi todo lo que tarda Jest): corre en su propio job.
+      - run: npm test -- --testPathIgnorePatterns qaScripts
+
+  jest-qa-scripts:
+    name: jest (scripts de QA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx jest --selectProjects unit -- qaScripts
+
+  server:
+    name: server (directions, resolveLink)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
       - run: npm ci
         working-directory: server
-      - run: npm run typecheck
-      - run: npm test
       - run: npm run server:test
+
+  bundle:
+    name: bundle Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       # Atrapa imports rotos y errores de Metro que typecheck/Jest no ven.
       - name: Bundle Android (sin emitir el resultado)
         run: npx expo export --platform android --output-dir "$RUNNER_TEMP/export"
@@ -51,3 +100,19 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npm run test:emulator
+
+  # Puerta unica: es el check que se marca como obligatorio en la proteccion de rama. Corre aunque otro job falle y
+  # falla si alguno no termino en success (un job saltado o cancelado tambien cuenta como fallo).
+  gate:
+    name: CI ok
+    if: always()
+    needs: [typecheck, jest, jest-qa-scripts, server, bundle, firestore-rules]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Todos los jobs en success
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          bad=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key): \(.value.result)"' <<<"$NEEDS")
+          if [ -n "$bad" ]; then echo "$bad"; exit 1; fi
