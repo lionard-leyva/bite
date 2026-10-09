@@ -11,6 +11,8 @@ import type { Restaurant } from '../types';
 interface RestaurantCardProps {
   restaurant: Restaurant;
   onPress: () => void;
+  /** Nombre de quien lo guardo, solo si es otra persona de la lista. */
+  author?: string | null;
 }
 
 function MiniStars({ rating }: { rating: number }) {
@@ -35,6 +37,7 @@ function MiniStars({ rating }: { rating: number }) {
 export default memo(function RestaurantCard({
   restaurant,
   onPress,
+  author,
 }: RestaurantCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { colors } = useTheme();
@@ -120,7 +123,7 @@ export default memo(function RestaurantCard({
               ) : null}
             </View>
             <Text className="text-caption text-text-tertiary">
-              {timeAgo(restaurant.createdAt)}
+              {author ? `${author} · ${timeAgo(restaurant.createdAt)}` : timeAgo(restaurant.createdAt)}
             </Text>
           </View>
 
