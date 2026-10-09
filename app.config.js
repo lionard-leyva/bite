@@ -11,6 +11,12 @@ export default ({ config }) => ({
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
+  // Vistas previas en Expo Go (workflow expo-preview.yml). Apagado: las builds propias (E2E, release) no descargan nada solas.
+  runtimeVersion: { policy: "appVersion" },
+  updates: {
+    url: "https://u.expo.dev/56a33e34-71eb-4068-ade3-42d358c1d0ef",
+    enabled: false,
+  },
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",

@@ -100,6 +100,7 @@
     "expo-linear-gradient": "~57.0.2",
     "expo-location": "~57.0.20",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.24",
     "firebase": "^12.9.0",
     "nativewind": "^4",
     "react": "19.2.3",

@@ -185,6 +185,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | EMP-01 | P2 | Lista sin restaurantes | "Aqui apareceran vuestros sitios" + el texto de siempre | Jest (`ListScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | ✅ |
 | CEL-01 | P2 | Match con y sin "reducir movimiento" | Confeti solo si el movimiento esta permitido | Jest (`MatchScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | 🟡 (verlo en el movil) |
 | AVA-01 | P2 | Pantalla de match | Iniciales "T" y "B" superpuestas | Jest (`MatchScreen` real) + [Gherkin](../../features/detalles-de-diseno.feature) | 🟡 |
+| PRE-01 | P2 | Leer la configuracion de actualizaciones | URL del proyecto Expo, `runtimeVersion` por version de la app y descarga automatica apagada | Jest + [Gherkin](../../features/vista-previa.feature) | ✅ (el enlace de Expo Go se prueba en el iPhone) |
 | EDG-01 | P2 | Inicial del marcador con nombre que empieza por emoji, espacios o vacio | Emoji entero, mayuscula, `B` si no hay nombre | Jest + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-02 | P1 | Buscar `cafe` con un sitio llamado `Café Comercial` (y al reves) | Ignora tildes y mayusculas | Jest (`utils/searchMatch`) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-03 | P2 | Nota de 200 caracteres en el detalle | Se lee entera | Jest (`DetailScreen` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
