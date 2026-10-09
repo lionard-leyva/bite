@@ -220,7 +220,7 @@ export default function DetailScreen() {
           {restaurant.note ? (
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
               <Ionicons name="chatbubble-outline" size={14} color={colors['text-secondary']} style={{ marginTop: 2 }} />
-              <Text numberOfLines={3} className="flex-1 text-sm text-text-secondary">
+              <Text className="flex-1 text-sm text-text-secondary">
                 {restaurant.note}
               </Text>
             </View>

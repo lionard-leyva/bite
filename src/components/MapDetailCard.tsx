@@ -93,7 +93,16 @@ export default function MapDetailCard({
         </Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <Text style={{ fontSize: 13 }}>{'\u{2B50}'.repeat(restaurant.rating)}</Text>
+          <View style={{ flexDirection: 'row' }}>
+            {[0, 1, 2, 3, 4].map((k) => (
+              <Ionicons
+                key={`star-${k}`}
+                name={k < restaurant.rating ? 'star' : 'star-outline'}
+                size={14}
+                color={k < restaurant.rating ? colors.star : colors.border}
+              />
+            ))}
+          </View>
           <View style={{ backgroundColor: restaurant.visited ? colors['visited-light'] : colors['primary-light'], paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
             <Text style={{ fontSize: 11, fontWeight: '600', color: restaurant.visited ? colors.visited : colors['text-secondary'] }}>
               {restaurant.visited ? 'Visitado' : 'Pendiente'}

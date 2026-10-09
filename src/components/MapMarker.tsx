@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Text, View, Platform, Image, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
+import { initialOf } from '../utils/initialOf';
 import { MARKER_SHADOW_RADIUS, MARKER_SHADOW_OPACITY } from '../config/constants';
 
 interface MapMarkerProps {
@@ -41,7 +42,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
     },
   });
 
-  const initial = name.trim().charAt(0).toUpperCase() || 'B';
+  const initial = initialOf(name);
 
   return (
     <View

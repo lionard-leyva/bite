@@ -22,7 +22,7 @@ export default function MatchEntryCard({ pendingCount, onPress, bottomOffset }: 
       ]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`¿Dónde cenamos hoy? ${pendingCount} pendientes`}
+      accessibilityLabel={`¿Dónde cenamos hoy? ${pendingCount} ${pendingCount === 1 ? 'pendiente' : 'pendientes'}`}
     >
       <View style={[styles.icon, { backgroundColor: colors['primary-light'] }]}>
         <Text style={styles.emoji}>🍽</Text>

@@ -20,12 +20,9 @@ Spec completa en `SPEC.md`.
 
 **Compresion de fotos**: `expo-image-manipulator`, resize max 800px, quality 0.7. Resultado < 200KB tipico. Siempre ANTES de subir a Storage. Si storage > 4GB, reducir a quality 0.6.
 
-**Busqueda local**: Filtro en cliente sobre array cacheado, no Firestore queries (no soporta full-text search). Funciona offline:
+**Busqueda local**: Filtro en cliente sobre array cacheado, no Firestore queries (no soporta full-text search). Funciona offline y ignora mayusculas y tildes (`utils/searchMatch.matchesQuery`: "cafe" encuentra "Café"):
 ```typescript
-restaurants.filter(r =>
-  r.name.toLowerCase().includes(query) ||
-  r.address.toLowerCase().includes(query)
-)
+restaurants.filter(r => matchesQuery(r, query))
 ```
 
 **No editar restaurantes en v1**: Si se equivoca, eliminar y re-guardar. Evita conflictos de edicion concurrente entre pareja. Editar es post-MVP.
