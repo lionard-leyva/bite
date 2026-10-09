@@ -160,6 +160,7 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
       <MapMarker
         name={restaurant.name}
         visited={restaurant.visited}
+        rating={restaurant.rating}
         isSelected={isSelected}
         photoUri={getPrimaryPhoto(restaurant)}
       />
@@ -173,6 +174,7 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
   prev.coord.longitude === next.coord.longitude &&
   prev.restaurant.name === next.restaurant.name &&
   prev.restaurant.visited === next.restaurant.visited &&
+  prev.restaurant.rating === next.restaurant.rating &&
   getPrimaryPhoto(prev.restaurant) === getPrimaryPhoto(next.restaurant),
 );
 
