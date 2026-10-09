@@ -8,9 +8,18 @@ const SAMPLE = 'gjpqy Gyoza';
 // Margen en px: el nodo del campo incluye padding/sombra y el frame del IME puede ir unos px por delante.
 const TOL = 24;
 
+const box = (n) => (n ? `[${n.y1}-${n.y2}]` : 'no esta');
+
 async function checkField(checks, screen, hint) {
+  // Diagnostico (KBD-01 fallo en CI con el margen inferior nuevo): donde esta el campo antes de tocarlo y cual queda enfocado.
+  const pre = q.parseNodes(await q.dumpUi());
+  const preField = q.findNode(await q.dumpUi(), hint);
+  const scroller = pre.find((n) => /ScrollView/.test(n.cls));
   await q.tapLabel(hint, 8000);
   await q.sleep(600);
+  const post = q.parseNodes(await q.dumpUi());
+  const enfocado = post.find((n) => n.focused && /EditText/.test(n.cls));
+  console.log(`diag ${screen}/${hint}: campo ${box(preField)} scroll ${box(scroller)} enfocado tras tocar ${box(enfocado)} texto="${enfocado ? enfocado.text : ''}"`);
   q.typeText(SAMPLE);
   await q.sleep(1200);
   const xml = await q.dumpUi();

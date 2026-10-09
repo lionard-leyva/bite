@@ -213,6 +213,7 @@ export default function SaveScreen() {
   const nameManualRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
   const noteRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
   const {
@@ -637,7 +638,7 @@ export default function SaveScreen() {
           avoid={false}
           scrollRef={scrollRef}
           scrollClassName="flex-1 px-5"
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
         >
 
         {/* Address with GPS button */}

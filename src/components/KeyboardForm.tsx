@@ -29,6 +29,9 @@ export default function KeyboardForm({
 
   const innerScrollRef = useRef<ScrollView | null>(null);
   const scrollToEndOnResize = useRef(false);
+  // Posicion antes de abrir el teclado: al cerrarlo se vuelve a ella para que los primeros campos no queden fuera de pantalla.
+  const scrollOffset = useRef(0);
+  const offsetBeforeKeyboard = useRef<number | null>(null);
   const [keyboardSpacer, setKeyboardSpacer] = useState(0);
 
   // Con edge-to-edge en Android <= 14 la ventana no se redimensiona al abrir el teclado y este tapa el final del
@@ -36,13 +39,20 @@ export default function KeyboardForm({
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     const show = Keyboard.addListener('keyboardDidShow', (e) => {
-      innerScrollRef.current?.getNativeScrollRef()?.measureInWindow((_x, y, _width, height) => {
+      if (offsetBeforeKeyboard.current === null) offsetBeforeKeyboard.current = scrollOffset.current;
+      innerScrollRef.current?.getNativeScrollRef?.()?.measureInWindow((_x, y, _width, height) => {
         const overlap = keyboardOverlap(y + height, e.endCoordinates.screenY);
         scrollToEndOnResize.current = overlap > 0;
         setKeyboardSpacer(overlap);
       });
     });
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardSpacer(0));
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardSpacer(0);
+      if (offsetBeforeKeyboard.current !== null) {
+        innerScrollRef.current?.scrollTo({ y: offsetBeforeKeyboard.current, animated: false });
+        offsetBeforeKeyboard.current = null;
+      }
+    });
     return () => {
       show.remove();
       hide.remove();
@@ -63,6 +73,11 @@ export default function KeyboardForm({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       {...scrollProps}
+      scrollEventThrottle={16}
+      onScroll={(e) => {
+        scrollOffset.current = e.nativeEvent.contentOffset.y;
+        scrollProps.onScroll?.(e);
+      }}
       onContentSizeChange={(width, height) => {
         if (scrollToEndOnResize.current) {
           scrollToEndOnResize.current = false;

@@ -156,13 +156,15 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | KBD-01 | P1 | Escribir `gjpqy Gyoza` en Nombre, Direccion, Nota, Buscar, codigo de invitacion | Descendentes no recortados | `npm run qa:keyboard` (texto llega al campo + screenshot por campo; recorte de descendentes lo juzga `qa-visual-triage`) | 🟡 (visual) |
 | KBD-02 | P1 | Teclado abierto en Guardar | El campo enfocado y "Guardar" quedan visibles (KeyboardForm) | `npm run qa:keyboard` (bounds del campo enfocado <= top del `ime` en `dumpsys window`) | ✅ |
 | KBD-03 | P2 | Regla estatica | `TextInput` sin `height` fija menor que `lineHeight` | Jest sobre el codigo fuente + [Gherkin](../../features/campos-de-texto.feature) | ✅ (revisa `<TextInput>`, su `style` por referencia, `className` `h-N`/`text-body` y los estilos `textInput:` de Places) |
+| KBD-04 | P1 | Abrir y cerrar el teclado en un formulario largo | El formulario vuelve a donde estaba (no queda desplazado ocultando el primer campo) | Jest (`KeyboardForm` real, teclado simulado) + [Gherkin](../../features/formulario-con-teclado.feature) | ✅ (visto en CI como fallo de KBD-01 y `qa:save`: con el margen inferior el campo Direccion quedaba fuera de pantalla) |
 
 ### 2.12 Safe areas
 
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | SAF-01 | P1 | Home, Lista, Detalle, Match, Guardar, Perfil | Ningun elemento interactivo dentro de status bar ni barra de gestos | `npm run qa:safearea -- --restaurant X` (insets de `dumpsys window` vs bounds de nodos de Bite) | ✅ |
-| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01 | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia) | 🟡 (ejecucion 21: Mapa, Lista y Perfil OK con barra de 126 px; en Guardar "Elegir foto de galeria" [2145-2308] solapa la barra [2274-2400]. Probable falso positivo: es contenido desplazable y la regla solo exime lo cortado por el borde de la pantalla, no por la barra; pendiente de decidir si medir la pantalla desplazada al final. La rotacion no esta automatizada) |
+| SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01; en Guardar se mide al llegar al final del scroll | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia; en Guardar baja hasta el final antes de medir) | 🟡 (ejecucion 22: "Elegir foto de galeria" [2145-2308] solapaba la barra [2274-2400] a mitad de scroll; SAF-03 deja margen bajo el formulario y el script ya mide al final. Pendiente de confirmar en una ejecucion E2E. La rotacion no esta automatizada) |
+| SAF-03 | P2 | Guardar con barra inferior de 126 px, hasta el final del formulario | El final deja un margen >= la barra | Jest (`SaveScreen` real) + [Gherkin](../../features/guardar-barra-de-gestos.feature) | ✅ |
 
 ### 2.13 Transversales
 
