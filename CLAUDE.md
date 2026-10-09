@@ -180,7 +180,12 @@ No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `p
 
 Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
 
-CI (`.github/workflows`): `ci.yml` en cada PR (typecheck, Jest, server, bundle Android, reglas con Firebase Emulator). `qa-e2e.yml` de noche y a demanda: build release x86_64 (el APK se cachea) + `qa:all -- --release` en emulador sin repetir typecheck/Jest/server (X-01..X-03 ya corren en `ci.yml`), sube `qa-out/`; no bloquea PRs y los casos visuales se revisan en las capturas.
+CI (`.github/workflows`), estrategia por niveles: lo barato y determinista bloquea, lo lento avisa.
+- **Puerta de fusion** (`ci.yml`, ~3 min, en cada PR): jobs en paralelo (typecheck, Jest, Jest de `qaScripts` aparte porque tarda ~90 s, server, bundle Android, reglas con Firebase Emulator) y un job final `CI ok` que depende de todos. Solo `CI ok` se marca como obligatorio en la proteccion de rama. `src/__tests__/ciWorkflow.test.ts` falla si se anade un job sin meterlo en la puerta.
+- **Aviso temprano** (`qa-e2e.yml`, ~50 min, no bloquea): en PR solo corre si el cambio toca algo visible o nativo (`src/` salvo tests, `modules/`, `assets/`, `scripts/qa/`, `app.config.js`, dependencias...) y solo con los casos P0 (`E2E_SCOPE=p0`). Un push nuevo cancela el run anterior de la misma rama.
+- **Suite entera**: de noche sobre master (P0, P1 y P2) y a demanda con `scope` full o p0. Sube `qa-out/`; los casos visuales se revisan en las capturas.
+- Regla de trabajo: se fusiona con `CI ok` en verde; el E2E se mira cuando termina, no se espera. Si falla en master, se arregla en un PR aparte.
+- Un fallo del E2E nunca se arregla saltando o desactivando el caso: se corrige el codigo o el script.
 
 Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
 
