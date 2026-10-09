@@ -619,6 +619,7 @@ export default function SaveScreen() {
               ref={nameManualRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre del restaurante"
+              maxLength={120}
               placeholderTextColor={colors['text-tertiary']}
               value={name}
               onFocus={() => setIsSearching(false)}
@@ -654,6 +655,7 @@ export default function SaveScreen() {
               ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
+              maxLength={200}
               placeholderTextColor={colors['text-tertiary']}
               value={address}
               editable={false}
@@ -692,6 +694,7 @@ export default function SaveScreen() {
               ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
+              maxLength={200}
               placeholderTextColor={colors['text-tertiary']}
               value={address}
               onChangeText={(text) => {

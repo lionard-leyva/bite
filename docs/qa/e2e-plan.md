@@ -179,6 +179,12 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | UI-07 | P1 | Leer la configuracion de la app | `userInterfaceStyle` automatico (sigue claro/oscuro del telefono) | Jest + [Gherkin](../../features/tema-activo.feature) | 🟡 (cambio nativo: pide rebuild; revisar el oscuro en emulador con `adb shell cmd uimode night yes`) |
 | UI-08 | P1 | Buscar botones de solo icono sin etiqueta | Ninguno | Jest estatico sobre `src/` + [Gherkin](../../features/botones-con-nombre.feature) | 🟡 (revisar con TalkBack) |
 | UI-09 | P1 | Pulsar tarjeta y boton + con "reducir movimiento" | No se encogen ni rebotan | Jest (componentes reales) + [Gherkin](../../features/movimiento-reducido.feature) | 🟡 (revisar en emulador con `adb shell settings put global animator_duration_scale 0`) |
+| EDG-01 | P2 | Inicial del marcador con nombre que empieza por emoji, espacios o vacio | Emoji entero, mayuscula, `B` si no hay nombre | Jest + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| EDG-02 | P1 | Buscar `cafe` con un sitio llamado `Café Comercial` (y al reves) | Ignora tildes y mayusculas | Jest (`utils/searchMatch`) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| EDG-03 | P2 | Nota de 200 caracteres en el detalle | Se lee entera | Jest (`DetailScreen` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| EDG-04 | P2 | Etiquetas de accesibilidad con 1 estrella / 1 pendiente | Singular | Jest + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| EDG-05 | P2 | Tarjeta del mapa con rating -1, 0, 3, 9 | No lanza error; entre 0 y 5 estrellas | Jest (`MapDetailCard` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| EDG-06 | P2 | Formulario de guardar: longitud de nombre y direccion | Max 120 y 200 caracteres | Jest (`SaveScreen` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 
 ### 2.13 Transversales
 

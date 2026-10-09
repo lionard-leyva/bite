@@ -22,6 +22,7 @@ import { getPrimaryPhoto, type Restaurant } from '../types';
 import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
 import { timeAgo } from '../utils/timeAgo';
 import { useTheme } from '../theme/ThemeProvider';
+import { matchesQuery } from '../utils/searchMatch';
 import { mapStyle } from '../theme/mapStyle';
 import type { Colors } from '../theme/palette';
 import { locationNotice, locationButtonState } from '../utils/locationNotice';
@@ -277,11 +278,7 @@ export default function HomeScreen() {
     }
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(r =>
-        r.name.toLowerCase().includes(q) ||
-        r.address?.toLowerCase().includes(q)
-      );
+      filtered = filtered.filter(r => matchesQuery(r, searchQuery));
     }
 
     return filtered;

@@ -11,6 +11,7 @@ import RestaurantCard from '../components/RestaurantCard';
 import type { RootStackParamList } from '../navigation/types';
 import type { Restaurant } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
+import { matchesQuery } from '../utils/searchMatch';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -29,12 +30,7 @@ export default function ListScreen() {
     else if (filter === 'pending') list = list.filter((r) => !r.visited);
 
     if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          r.address.toLowerCase().includes(q),
-      );
+      list = list.filter((r) => matchesQuery(r, search));
     }
 
     return list;

@@ -63,7 +63,7 @@ export default memo(function RestaurantCard({
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         accessibilityRole="button"
-        accessibilityLabel={`${restaurant.name}, ${restaurant.rating} estrellas${restaurant.visited ? ', visitado' : ', pendiente'}`}
+        accessibilityLabel={`${restaurant.name}, ${restaurant.rating} ${restaurant.rating === 1 ? 'estrella' : 'estrellas'}${restaurant.visited ? ', visitado' : ', pendiente'}`}
       >
         {/* Photo hero */}
         <View className="relative">
