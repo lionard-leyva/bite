@@ -166,6 +166,20 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | SAF-02 | P2 | Rotacion / modo navegacion 3 botones | Igual que SAF-01; en Guardar se mide al llegar al final del scroll | `npm run qa:safearea -- --nav3` (activa la navegacion de 3 botones con `cmd overlay`, mide la barra real con dumpsys y restaura el modo que habia; en Guardar baja hasta el final antes de medir) | 🟡 (ejecucion 22: "Elegir foto de galeria" [2145-2308] solapaba la barra [2274-2400] a mitad de scroll; SAF-03 deja margen bajo el formulario y el script ya mide al final. Pendiente de confirmar en una ejecucion E2E. La rotacion no esta automatizada) |
 | SAF-03 | P2 | Guardar con barra inferior de 126 px, hasta el final del formulario | El final deja un margen >= la barra | Jest (`SaveScreen` real) + [Gherkin](../../features/guardar-barra-de-gestos.feature) | ✅ |
 
+### 2.14 Diseño y tema
+
+| ID | P | Pasos | Esperado | Mecanismo | Estado |
+|---|---|---|---|---|---|
+| UI-01 | P1 | Medir el contraste de la paleta (claro y oscuro) | Texto >= 4,5:1 y gráficos >= 3:1 | Jest sobre `src/theme/palette.js` + [Gherkin](../../features/tema.feature) | 🟡 (la paleta cumple; falta migrar las pantallas, que aún usan colores sueltos) |
+| UI-02 | P1 | Comparar tema claro y oscuro | Mismos colores en los dos y no un invertido | Jest + [Gherkin](../../features/tema.feature) | 🟡 |
+| UI-03 | P1 | Compilar clases de Tailwind | Leen las variables del tema y admiten opacidad | Jest (Tailwind + PostCSS reales) + [Gherkin](../../features/tema.feature) | 🟡 |
+| UI-04 | P1 | Montar el tema con el teléfono en oscuro | Variables y colores sueltos de la paleta oscura | Jest `ThemeProvider` + [Gherkin](../../features/tema-activo.feature) | 🟡 (no se ve en pantalla: revisar en emulador/dispositivo) |
+| UI-05 | P1 | Buscar colores escritos a mano en toda la interfaz | Ninguno: todo sale del tema | Jest estatico sobre todo `src/` (salvo pruebas y `src/theme`) + [Gherkin](../../features/tema-migrado.feature) | 🟡 (toda la interfaz migrada; falta verla en emulador y activar el tema oscuro) |
+| UI-06 | P1 | Construir el estilo del mapa en claro y oscuro | Solo colores de la paleta; terreno = fondo; agua y parques propios | Jest + [Gherkin](../../features/tema-mapa.feature) | 🟡 (revisar sobre el mapa real en emulador) |
+| UI-07 | P1 | Leer la configuracion de la app | `userInterfaceStyle` automatico (sigue claro/oscuro del telefono) | Jest + [Gherkin](../../features/tema-activo.feature) | 🟡 (cambio nativo: pide rebuild; revisar el oscuro en emulador con `adb shell cmd uimode night yes`) |
+| UI-08 | P1 | Buscar botones de solo icono sin etiqueta | Ninguno | Jest estatico sobre `src/` + [Gherkin](../../features/botones-con-nombre.feature) | 🟡 (revisar con TalkBack) |
+| UI-09 | P1 | Pulsar tarjeta y boton + con "reducir movimiento" | No se encogen ni rebotan | Jest (componentes reales) + [Gherkin](../../features/movimiento-reducido.feature) | 🟡 (revisar en emulador con `adb shell settings put global animator_duration_scale 0`) |
+
 ### 2.13 Transversales
 
 | ID | P | Mecanismo | Estado |

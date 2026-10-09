@@ -9,12 +9,12 @@ export default ({ config }) => ({
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
-  userInterfaceStyle: "light",
+  userInterfaceStyle: "automatic",
   newArchEnabled: true,
   splash: {
     image: "./assets/splash-icon.png",
     resizeMode: "contain",
-    backgroundColor: "#ef4444",
+    backgroundColor: "#B84A33",
   },
   ios: {
     supportsTablet: false,
@@ -26,7 +26,7 @@ export default ({ config }) => ({
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ef4444",
+      backgroundColor: "#B84A33",
     },
     edgeToEdgeEnabled: true,
     package: "com.lionardleyva.bite",

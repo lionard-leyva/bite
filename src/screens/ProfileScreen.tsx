@@ -16,6 +16,7 @@ import KeyboardForm from '../components/KeyboardForm';
 import { auth, db } from '../config/firebase';
 import { pickImage, uploadAvatar } from '../services/imageService';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import { useTheme } from '../theme/ThemeProvider';
 
 const MAPS_KEY =
   Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
@@ -23,6 +24,7 @@ const MAPS_KEY =
   '';
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
   const {
     user,
     userId,
@@ -277,7 +279,7 @@ export default function ProfileScreen() {
   if (state.loadingProfile) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#FF5A5F" />
+        <ActivityIndicator size="large" color={colors['primary']} />
       </View>
     );
   }
@@ -293,7 +295,7 @@ export default function ProfileScreen() {
           />
         ) : (
           <View className="mb-3 h-20 w-20 items-center justify-center rounded-full bg-primary/15">
-            <Ionicons name="person" size={36} color="#FF5A5F" />
+            <Ionicons name="person" size={36} color={colors['primary']} />
           </View>
         )}
         {skipMode ? (
@@ -345,7 +347,7 @@ export default function ProfileScreen() {
             {isShared ? (
               <View className="gap-2">
                 <View className="flex-row items-center gap-2">
-                  <Ionicons name="people" size={14} color="#00A699" />
+                  <Ionicons name="people" size={14} color={colors['visited']} />
                   <Text className="text-sm text-success">Compartiendo con:</Text>
                 </View>
                 {otherMembers.map((m) => (
@@ -374,8 +376,8 @@ export default function ProfileScreen() {
                 onPress={() => dispatch({ type: 'patch', payload: { shareModalVisible: true } })}
                 style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
               >
-              <Ionicons name="people-outline" size={16} color="white" />
-              <Text className="text-sm font-semibold text-white">
+              <Ionicons name="people-outline" size={16} color={colors['on-primary']} />
+              <Text className="text-sm font-semibold text-on-primary">
                 {isShared ? 'Gestionar lista compartida' : 'Compartir con pareja o grupo'}
               </Text>
             </Pressable>
@@ -394,7 +396,7 @@ export default function ProfileScreen() {
         {/* Skip mode info */}
         {skipMode && (
           <View className="mb-6 flex-row gap-3 rounded-modal bg-warning/10 border border-warning/30 p-4">
-            <Ionicons name="alert-circle-outline" size={20} color="#FFB400" style={{ marginTop: 2 }} />
+            <Ionicons name="alert-circle-outline" size={20} color={colors['warning']} style={{ marginTop: 2 }} />
             <View className="flex-1">
               <Text className="mb-1 text-sm font-medium text-text-primary">
                 Modo sin cuenta
@@ -409,7 +411,7 @@ export default function ProfileScreen() {
                 onPress={() => dispatch({ type: 'patch', payload: { createAccountModalVisible: true } })}
                 style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
               >
-                <Text className="text-sm font-semibold text-white">
+                <Text className="text-sm font-semibold text-on-primary">
                   Crear cuenta
                 </Text>
               </Pressable>
@@ -424,7 +426,7 @@ export default function ProfileScreen() {
             onPress={() => dispatch({ type: 'patch', payload: { logoutModalVisible: true } })}
             style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           >
-            <Ionicons name="log-out-outline" size={18} color="#717171" />
+            <Ionicons name="log-out-outline" size={18} color={colors['text-secondary']} />
             <Text className="text-sm font-medium text-text-secondary">
               Cerrar sesion
             </Text>
@@ -441,11 +443,11 @@ export default function ProfileScreen() {
         >
             <View className="mb-6 flex-row items-center justify-between">
               <Text className="text-title font-bold text-text-primary">Editar perfil</Text>
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}
                 className="h-8 w-8 items-center justify-center rounded-full bg-border"
                 onPress={() => setEditVisible(false)}
               >
-                <Ionicons name="close" size={18} color="#222222" />
+                <Ionicons name="close" size={18} color={colors['text-primary']} />
               </Pressable>
             </View>
 
@@ -457,7 +459,7 @@ export default function ProfileScreen() {
                   <Image source={{ uri: state.photoURL }} style={{ width: 84, height: 84, borderRadius: 42 }} />
                 ) : (
                   <View className="h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                    <Ionicons name="person" size={32} color="#FF5A5F" />
+                    <Ionicons name="person" size={32} color={colors['primary']} />
                   </View>
                 )}
                 <Text className="mt-2 text-xs text-text-tertiary">
@@ -470,7 +472,7 @@ export default function ProfileScreen() {
               ref={nameRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={editName}
               onChangeText={setEditName}
               autoCapitalize="words"
@@ -500,7 +502,7 @@ export default function ProfileScreen() {
                     }
                   }}
                 >
-                  <Ionicons name="locate" size={14} color="#9CA3AF" />
+                  <Ionicons name="locate" size={14} color={colors['text-secondary']} />
                   <Text className="text-xs text-text-tertiary">Usar ubicacion actual</Text>
                 </Pressable>
               </View>
@@ -508,7 +510,7 @@ export default function ProfileScreen() {
               <TextInput
                 className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
                 placeholder="Ciudad"
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor={colors['text-tertiary']}
                 value={editCity}
                 onChangeText={(text) => {
                   setEditCity(text);
@@ -525,7 +527,7 @@ export default function ProfileScreen() {
               ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={editAddress}
               onChangeText={(text) => {
                 setEditAddress(text);
@@ -550,8 +552,8 @@ export default function ProfileScreen() {
                   height: 32,
                   borderRadius: 16,
                   borderWidth: addressGpsState === 'filled' ? 0 : 1.5,
-                  borderColor: '#D1D5DB',
-                  backgroundColor: addressGpsState === 'filled' ? '#00A699' : 'transparent',
+                  borderColor: colors['text-tertiary'],
+                  backgroundColor: addressGpsState === 'filled' ? colors['visited'] : 'transparent',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -559,12 +561,12 @@ export default function ProfileScreen() {
                 accessibilityLabel="Rellenar direccion con GPS"
               >
                 {addressGpsState === 'loading' ? (
-                  <ActivityIndicator size={14} color="#6B7280" />
+                  <ActivityIndicator size={14} color={colors['text-secondary']} />
                 ) : (
                   <Ionicons
                     name="locate"
                     size={16}
-                    color={addressGpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                    color={addressGpsState === 'filled' ? colors['on-visited'] : colors['text-secondary']}
                   />
                 )}
               </Pressable>
@@ -574,7 +576,7 @@ export default function ProfileScreen() {
               ref={birthdayRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Cumpleaños (DD/MM/AAAA)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={editBirthday}
               onChangeText={setEditBirthday}
               keyboardType="numbers-and-punctuation"
@@ -587,7 +589,7 @@ export default function ProfileScreen() {
               ref={bioRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Bio (opcional)"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={editBio}
               onChangeText={setEditBio}
               multiline
@@ -605,9 +607,9 @@ export default function ProfileScreen() {
               style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             >
               {savingProfile ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={colors['text-secondary']} />
               ) : (
-                <Text className="text-body font-semibold text-white">Guardar cambios</Text>
+                <Text className="text-body font-semibold text-on-primary">Guardar cambios</Text>
               )}
             </Pressable>
         </KeyboardForm>
@@ -629,11 +631,11 @@ export default function ProfileScreen() {
           <View className="flex-1 px-6 pt-6">
             <View className="mb-4 flex-row items-center justify-between">
               <Text className="text-title font-bold text-text-primary">Selecciona ciudad</Text>
-              <Pressable
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}
                 className="h-8 w-8 items-center justify-center rounded-full bg-border"
                 onPress={() => setCityModalVisible(false)}
               >
-                <Ionicons name="close" size={18} color="#222222" />
+                <Ionicons name="close" size={18} color={colors['text-primary']} />
               </Pressable>
             </View>
 
@@ -675,30 +677,30 @@ export default function ProfileScreen() {
                 container: { flex: 0 },
                 textInput: {
                   borderWidth: 1,
-                  borderColor: '#F0EDED',
+                  borderColor: colors['border'],
                   borderRadius: 12,
                   paddingHorizontal: 16,
                   minHeight: 48,
                   fontSize: 16,
                   lineHeight: 24,
-                  backgroundColor: '#FFFFFF',
-                  color: '#2D2D2D',
+                  backgroundColor: colors['surface'],
+                  color: colors['text-primary'],
                   textAlignVertical: 'center',
                 },
                 listView: {
                   marginTop: 8,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: colors['surface'],
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: '#EFEFEF',
+                  borderColor: colors['border'],
                   overflow: 'hidden',
                 },
-                row: { paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#FFFFFF' },
-                separator: { height: 1, backgroundColor: '#F2F2F2' },
-                description: { color: '#1F2937', fontSize: 14 },
+                row: { paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors['surface'] },
+                separator: { height: 1, backgroundColor: colors['border'] },
+                description: { color: colors['text-primary'], fontSize: 14 },
                 poweredContainer: { display: 'none' },
               }}
-              textInputProps={{ placeholderTextColor: '#A0A0A0' }}
+              textInputProps={{ placeholderTextColor: colors['text-tertiary'] }}
             />
           </View>
         </KeyboardAvoidingView>

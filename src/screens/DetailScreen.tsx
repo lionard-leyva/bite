@@ -14,6 +14,8 @@ import ConfirmModal from '../components/ConfirmModal';
 import { timeAgo } from '../utils/timeAgo';
 import { PRICE_VALUES, PRICE_LABELS } from '../config/constants';
 import type { RootStackParamList } from '../navigation/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { withAlpha } from '../theme/color';
 
 type DetailRoute = RouteProp<RootStackParamList, 'Detail'>;
 type DetailNav = NativeStackNavigationProp<RootStackParamList, 'Detail'>;
@@ -21,6 +23,7 @@ type DetailNav = NativeStackNavigationProp<RootStackParamList, 'Detail'>;
 const noop = () => {};
 
 export default function DetailScreen() {
+  const { colors } = useTheme();
   const navigation = useNavigation<DetailNav>();
   const route = useRoute<DetailRoute>();
   const { restaurantId } = route.params;
@@ -106,7 +109,7 @@ export default function DetailScreen() {
               />
             ))}
           </ScrollView>
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, backgroundColor: 'rgba(0,0,0,0.1)' }} />
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, backgroundColor: withAlpha(colors['text-primary'], 0.12) }} />
           {photos.length > 1 && (
             <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
               {photos.map((uri, i) => (
@@ -116,7 +119,7 @@ export default function DetailScreen() {
                     width: 8,
                     height: 8,
                     borderRadius: 4,
-                    backgroundColor: i === activePhotoIndex ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+                    backgroundColor: i === activePhotoIndex ? colors.surface : withAlpha(colors.surface, 0.55),
                   }}
                 />
               ))}
@@ -125,7 +128,7 @@ export default function DetailScreen() {
         </View>
       ) : (
         <View className="h-56 w-full items-center justify-center bg-primary-light">
-          <Ionicons name="restaurant-outline" size={56} color="#FF5A5F" />
+          <Ionicons name="restaurant-outline" size={56} color={colors.primary} />
         </View>
       )}
 
@@ -142,9 +145,9 @@ export default function DetailScreen() {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: pressed ? '#F3F4F6' : '#FFFFFF',
+              backgroundColor: pressed ? colors['primary-light'] : colors.surface,
               borderWidth: 1,
-              borderColor: '#E5E7EB',
+              borderColor: colors.border,
               alignItems: 'center',
               justifyContent: 'center',
               marginTop: 2,
@@ -152,13 +155,13 @@ export default function DetailScreen() {
             accessibilityRole="button"
             accessibilityLabel="Editar restaurante"
           >
-            <Ionicons name="pencil-outline" size={16} color="#484848" />
+            <Ionicons name="pencil-outline" size={16} color={colors['text-primary']} />
           </Pressable>
         </View>
 
         {/* Rating */}
         <View className="mt-2 flex-row items-center gap-2">
-          <Ionicons name="star" size={16} color="#FFB400" />
+          <Ionicons name="star" size={16} color={colors.star} />
           <Text className="text-sm font-semibold text-text-primary">
             {restaurant.rating}/5
           </Text>
@@ -177,7 +180,7 @@ export default function DetailScreen() {
                       height: 72,
                       borderRadius: 10,
                       borderWidth: i === activePhotoIndex ? 2 : 1,
-                      borderColor: i === activePhotoIndex ? '#FF5A5F' : '#E5E7EB',
+                      borderColor: i === activePhotoIndex ? colors.primary : colors.border,
                     }}
                     contentFit="cover"
                     cachePolicy="memory-disk"
@@ -196,7 +199,7 @@ export default function DetailScreen() {
           {/* Price */}
           {restaurant.pricePerPerson ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="wallet-outline" size={14} color="#EA580C" />
+              <Ionicons name="wallet-outline" size={14} color={colors['text-secondary']} />
               <Text className="text-sm text-text-secondary">
                 {'\u20AC'}{restaurant.pricePerPerson} por persona · {PRICE_VALUES.indexOf(restaurant.pricePerPerson as (typeof PRICE_VALUES)[number]) >= 0 ? PRICE_LABELS[PRICE_VALUES.indexOf(restaurant.pricePerPerson as (typeof PRICE_VALUES)[number])] : ''}
               </Text>
@@ -206,7 +209,7 @@ export default function DetailScreen() {
           {/* Address */}
           {restaurant.address ? (
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-              <Ionicons name="location-outline" size={14} color="#717171" style={{ marginTop: 2 }} />
+              <Ionicons name="location-outline" size={14} color={colors['text-secondary']} style={{ marginTop: 2 }} />
               <Text className="flex-1 text-sm text-text-secondary">
                 {restaurant.address}
               </Text>
@@ -216,7 +219,7 @@ export default function DetailScreen() {
           {/* Note */}
           {restaurant.note ? (
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-              <Ionicons name="chatbubble-outline" size={14} color="#717171" style={{ marginTop: 2 }} />
+              <Ionicons name="chatbubble-outline" size={14} color={colors['text-secondary']} style={{ marginTop: 2 }} />
               <Text numberOfLines={3} className="flex-1 text-sm text-text-secondary">
                 {restaurant.note}
               </Text>
@@ -229,7 +232,7 @@ export default function DetailScreen() {
           {timeAgo(restaurant.createdAt)}
         </Text>
 
-        <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' }} />
+        <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: colors.border }} />
         <Text className="mt-3 text-caption font-semibold uppercase tracking-wider text-text-tertiary">
           Acciones
         </Text>
@@ -239,7 +242,7 @@ export default function DetailScreen() {
           className={`mt-3 flex-row items-center justify-center gap-2 rounded-button border py-2.5 ${
             restaurant.visited
               ? 'border-visited bg-visited/10'
-              : 'border-warning bg-warning/10'
+              : 'border-primary bg-primary/10'
           }`}
           onPress={handleToggleVisited}
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
@@ -247,11 +250,11 @@ export default function DetailScreen() {
           <Ionicons
             name={restaurant.visited ? 'checkmark-circle' : 'time-outline'}
             size={18}
-            color={restaurant.visited ? '#66BB6A' : '#FFB400'}
+            color={restaurant.visited ? colors.visited : colors.primary}
           />
           <Text
             className={`text-sm font-medium ${
-              restaurant.visited ? 'text-visited' : 'text-warning'
+              restaurant.visited ? 'text-visited' : 'text-text-secondary'
             }`}
           >
             {restaurant.visited ? 'Visitado' : 'Pendiente de ir'}
@@ -266,7 +269,7 @@ export default function DetailScreen() {
           }
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <Ionicons name="navigate-outline" size={18} color="#111827" />
+          <Ionicons name="navigate-outline" size={18} color={colors['text-primary']} />
           <Text className="text-sm font-semibold text-text-primary">
             Como llegar
           </Text>
@@ -278,8 +281,8 @@ export default function DetailScreen() {
           onPress={() => setShowDeleteModal(true)}
           style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
         >
-          <Ionicons name="trash-outline" size={16} color="#B91C1C" />
-          <Text className="text-sm font-medium text-red-700">Eliminar</Text>
+          <Ionicons name="trash-outline" size={16} color={colors.danger} />
+          <Text className="text-sm font-medium text-danger">Eliminar</Text>
         </Pressable>
       </View>
 

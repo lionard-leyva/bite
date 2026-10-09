@@ -1,5 +1,6 @@
 import { View, Pressable, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeProvider';
 
 export type FilterValue = 'all' | 'visited' | 'pending';
 
@@ -18,6 +19,7 @@ export default function FilterButtons({
   active,
   onSelect,
 }: FilterButtonsProps) {
+  const { colors } = useTheme();
   return (
     <View className="flex-row gap-2">
       {FILTERS.map((f) => {
@@ -35,10 +37,10 @@ export default function FilterButtons({
             <Ionicons
               name={f.icon}
               size={14}
-              color={isActive ? 'white' : '#6B6B6B'}
+              color={isActive ? colors['on-primary'] : colors['text-secondary']}
             />
             <Text
-              className={`text-sm font-medium ${isActive ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${isActive ? 'text-on-primary' : 'text-text-secondary'}`}
             >
               {f.label}
             </Text>

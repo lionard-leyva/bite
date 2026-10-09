@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import { Marker } from 'react-native-maps';
+import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import {
-  USER_DOT_COLOR,
   USER_DOT_OUTER_SIZE,
   USER_DOT_INNER_SIZE,
   USER_DOT_PULSE_SCALE,
@@ -16,6 +17,8 @@ interface UserLocationMarkerProps {
 }
 
 export default function UserLocationMarker({ latitude, longitude }: UserLocationMarkerProps) {
+  const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.4)).current;
   const [trackChanges, setTrackChanges] = useState(true);
@@ -27,6 +30,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
   }, []);
 
   useEffect(() => {
+    if (reducedMotion) return;
     const pulse = Animated.loop(
       Animated.parallel([
         Animated.sequence([
@@ -61,7 +65,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
     );
     pulse.start();
     return () => pulse.stop();
-  }, [pulseAnim, opacityAnim]);
+  }, [pulseAnim, opacityAnim, reducedMotion]);
 
   return (
     <Marker
@@ -85,7 +89,7 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
             width: USER_DOT_OUTER_SIZE,
             height: USER_DOT_OUTER_SIZE,
             borderRadius: USER_DOT_OUTER_SIZE / 2,
-            backgroundColor: USER_DOT_COLOR,
+            backgroundColor: colors.location,
             opacity: opacityAnim,
             transform: [{ scale: pulseAnim }],
           }}
@@ -96,10 +100,10 @@ export default function UserLocationMarker({ latitude, longitude }: UserLocation
             width: USER_DOT_INNER_SIZE,
             height: USER_DOT_INNER_SIZE,
             borderRadius: USER_DOT_INNER_SIZE / 2,
-            backgroundColor: USER_DOT_COLOR,
+            backgroundColor: colors.location,
             borderWidth: 2,
-            borderColor: '#FFFFFF',
-            shadowColor: '#000',
+            borderColor: colors.surface,
+            shadowColor: colors['text-primary'],
             shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.2,
             shadowRadius: 2,

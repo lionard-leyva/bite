@@ -45,9 +45,10 @@ features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por
 ├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
 ├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
 ├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService
-├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession
+├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession, useReducedMotion
 ├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
 ├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, locationNotice, shareParser
+├── theme/          # palette.js (unica fuente de colores, claro/oscuro), ThemeProvider (useTheme), mapStyle, color (withAlpha)
 └── config/         # firebase.ts, constants.ts
 ```
 
@@ -234,6 +235,7 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 | `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
 | `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
 | `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
+| `tema*.feature`, `botones-con-nombre.feature`, `movimiento-reducido.feature` | UI-01..UI-09 (paleta y contraste, tema activo, mapa, sin colores sueltos, botones con nombre, reducir movimiento) | Jest (paleta, Tailwind, `ThemeProvider`, reglas estaticas, componentes) | unit / components |
 | `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` + reglas del aviso (`utils/locationNotice`) + `LocationNotice` reales con `expo-location` y `Linking.openSettings` simulados | components |
 | `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
 | `distancia-sin-proxy.feature` | MAP-05 | `useNavigationETA` + `navigationService` reales con `fetch` simulado (proxy caido, con error, colgado, recuperado, cambio de sitio) | components |
@@ -247,6 +249,12 @@ Los comportamientos de negocio se definen en `.feature` en espanol (`# language:
 - `featureLinks.test.ts` exige que cada `@ID` este enlazado desde `docs/qa/e2e-plan.md`.
 - **Regla: un comportamiento nuevo se describe primero en un `.feature`** (con su ID del plan), se ve fallar por falta de pasos/comportamiento y solo entonces se implementa. Despues, una mutacion a proposito del codigo (o de las reglas) debe romper el escenario; si sobrevive, el escenario es decorativo.
 - Limites: el estado "Pendiente" y la nota "Visto en X" los fija `SaveScreen` (UI) y no estan cubiertos; MCH-06 comprueba que la sesion no lleva votos ni revela match prematuro, no lo que pinta `MatchScreen`. La migracion skip a cuenta vive en `services/migrationService` (la llama `AuthContext.migrateLocalData`, que conserva la comprobacion de sesion).
+
+### Tema y diseno (Terracota)
+
+- Los colores salen **solo** de `src/theme/palette.js` (claro y oscuro). Las clases de Tailwind (`bg-primary`, `text-text-secondary`) leen variables CSS que pone `ThemeProvider`; para iconos, sombras y estilos en linea usa `const { colors } = useTheme()`. Nada de hex, `rgba()`, `'white'` ni `text-red-600` en la interfaz: `temaMigrado.feature.test.ts` (UI-05) lo vigila en todo `src/`.
+- `userInterfaceStyle: automatic` (UI-07): la app sigue el claro/oscuro del telefono. Es un cambio nativo (rebuild). Probar el oscuro: `adb shell cmd uimode night yes`.
+- Todo boton de solo icono lleva `accessibilityLabel` (UI-08). Las animaciones de pulsacion, el pulso del punto de ubicacion y el match respetan "reducir movimiento" con `useReducedMotion` (UI-09).
 
 ### Manual (solo flujos no automatizados)
 

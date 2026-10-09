@@ -39,6 +39,8 @@ const MAPS_KEY =
   '';
 console.log('[SaveScreen] MAPS_KEY length', MAPS_KEY?.length ?? 0);
 
+import { useTheme } from '../theme/ThemeProvider';
+
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
 function SectionLabel({ children }: { children: string }) {
@@ -52,6 +54,7 @@ function SectionLabel({ children }: { children: string }) {
 function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) {
   // El modal de Android dibuja bajo la barra de estado (edge-to-edge): sin esto la X queda sobre el reloj.
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   return (
     <View style={{ paddingTop: Platform.OS === 'android' ? insets.top : 0 }}>
       <DragHandle />
@@ -63,19 +66,19 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
           paddingBottom: 8,
         }}
       >
-        <Pressable
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
           onPress={onClose}
           hitSlop={12}
           style={{
             width: 32,
             height: 32,
             borderRadius: 16,
-            backgroundColor: '#F0F0F0',
+            backgroundColor: colors.border,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Ionicons name="close" size={18} color="#222222" />
+          <Ionicons name="close" size={18} color={colors['text-primary']} />
         </Pressable>
         <Text
           style={{
@@ -83,7 +86,7 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
             textAlign: 'center',
             fontSize: 17,
             fontWeight: '600',
-            color: '#1F2937',
+            color: colors['text-primary'],
           }}
         >
           {title}
@@ -97,6 +100,7 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
 type ShareBanner = { loading: boolean; source: ShareSource; located: boolean; hasName: boolean };
 
 function SharedFromBanner({ banner }: { banner: ShareBanner }) {
+  const { colors } = useTheme();
   const from = sourceLabel(banner.source);
   const message = banner.loading
     ? `Leyendo enlace de ${from}...`
@@ -116,16 +120,16 @@ function SharedFromBanner({ banner }: { banner: ShareBanner }) {
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 12,
-        backgroundColor: '#FFF1F1',
+        backgroundColor: colors['primary-light'],
       }}
       accessibilityLiveRegion="polite"
     >
       {banner.loading ? (
-        <ActivityIndicator size={14} color="#FF5A5F" />
+        <ActivityIndicator size={14} color={colors.primary} />
       ) : (
-        <Ionicons name="share-social" size={16} color="#FF5A5F" />
+        <Ionicons name="share-social" size={16} color={colors.primary} />
       )}
-      <Text style={{ flex: 1, fontSize: 13, color: '#4B5563' }}>{message}</Text>
+      <Text style={{ flex: 1, fontSize: 13, color: colors['text-secondary'] }}>{message}</Text>
     </View>
   );
 }
@@ -154,6 +158,7 @@ function PhotoSection({
 }
 
 export default function SaveScreen() {
+  const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute<SaveRoute>();
   const { userId, listId, skipMode } = useAuth();
@@ -536,24 +541,24 @@ export default function SaveScreen() {
                 container: { flex: 0 },
                 textInput: {
                   borderWidth: 1,
-                  borderColor: '#F0EDED',
+                  borderColor: colors.border,
                   borderRadius: 12,
                   paddingHorizontal: 16,
                   minHeight: 48,
                   fontSize: 16,
                   lineHeight: 24,
-                  backgroundColor: '#FFFFFF',
-                  color: '#2D2D2D',
+                  backgroundColor: colors.surface,
+                  color: colors['text-primary'],
                   textAlignVertical: 'center',
                 },
                 listView: {
                   marginTop: 8,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: colors.surface,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: '#EFEFEF',
+                  borderColor: colors.border,
                   overflow: 'hidden',
-                  shadowColor: '#000',
+                  shadowColor: colors['text-primary'],
                   shadowOffset: { width: 0, height: 6 },
                   shadowOpacity: 0.08,
                   shadowRadius: 12,
@@ -562,14 +567,14 @@ export default function SaveScreen() {
                 row: {
                   paddingHorizontal: 14,
                   paddingVertical: 12,
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: colors.surface,
                 },
                 separator: {
                   height: 1,
-                  backgroundColor: '#F2F2F2',
+                  backgroundColor: colors.border,
                 },
                 description: {
-                  color: '#1F2937',
+                  color: colors['text-primary'],
                   fontSize: 14,
                 },
                 poweredContainer: { display: 'none' },
@@ -589,13 +594,13 @@ export default function SaveScreen() {
                     dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
                   }
                 },
-                placeholderTextColor: '#A0A0A0',
+                placeholderTextColor: colors['text-tertiary'],
                 returnKeyType: 'next',
                 onSubmitEditing: () => addressRef.current?.focus(),
               }}
             />
             {!!placesError && (
-              <Text className="mt-2 text-xs text-red-600">
+              <Text className="mt-2 text-xs text-danger">
                 {placesError}
               </Text>
             )}
@@ -614,7 +619,7 @@ export default function SaveScreen() {
               ref={nameManualRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Nombre del restaurante"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={name}
               onFocus={() => setIsSearching(false)}
               onChangeText={(text) => {
@@ -628,7 +633,7 @@ export default function SaveScreen() {
               onSubmitEditing={() => addressRef.current?.focus()}
               style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
             />
-            {!!placesError && <Text className="mt-2 text-xs text-red-600">{placesError}</Text>}
+            {!!placesError && <Text className="mt-2 text-xs text-danger">{placesError}</Text>}
           </View>
         )}
       </View>
@@ -649,7 +654,7 @@ export default function SaveScreen() {
               ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={address}
               editable={false}
               returnKeyType="next"
@@ -670,7 +675,7 @@ export default function SaveScreen() {
                 height: 32,
                 borderRadius: 16,
                 borderWidth: 1.5,
-                borderColor: '#D1D5DB',
+                borderColor: colors['text-tertiary'],
                 backgroundColor: 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -678,7 +683,7 @@ export default function SaveScreen() {
               accessibilityRole="button"
               accessibilityLabel="Editar direccion"
             >
-              <Ionicons name="pencil-outline" size={16} color="#9CA3AF" />
+              <Ionicons name="pencil-outline" size={16} color={colors['text-secondary']} />
             </Pressable>
           </View>
         ) : (
@@ -687,7 +692,7 @@ export default function SaveScreen() {
               ref={addressRef}
               className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
               placeholder="Direccion del restaurante"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={address}
               onChangeText={(text) => {
                 dispatchForm({ type: 'patch', payload: { address: text } });
@@ -709,8 +714,8 @@ export default function SaveScreen() {
                 height: 32,
                 borderRadius: 16,
                 borderWidth: gpsState === 'filled' ? 0 : 1.5,
-                borderColor: '#D1D5DB',
-                backgroundColor: gpsState === 'filled' ? '#00A699' : 'transparent',
+                borderColor: colors['text-tertiary'],
+                backgroundColor: gpsState === 'filled' ? colors.visited : 'transparent',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
@@ -718,12 +723,12 @@ export default function SaveScreen() {
               accessibilityLabel="Rellenar direccion con GPS"
             >
               {gpsState === 'loading' ? (
-                <ActivityIndicator size={14} color="#6B7280" />
+                <ActivityIndicator size={14} color={colors['text-secondary']} />
               ) : (
                 <Ionicons
                   name="locate"
                   size={16}
-                  color={gpsState === 'filled' ? '#FFFFFF' : '#9CA3AF'}
+                  color={gpsState === 'filled' ? colors['on-visited'] : colors['text-secondary']}
                 />
               )}
             </Pressable>
@@ -746,7 +751,7 @@ export default function SaveScreen() {
             <Ionicons
               name={visited ? 'checkmark-circle' : 'checkmark-circle-outline'}
               size={16}
-              color={visited ? '#66BB6A' : '#A0A0A0'}
+              color={visited ? colors.visited : colors['text-tertiary']}
             />
             <Text
               className={`text-sm font-medium ${visited ? 'text-visited' : 'text-text-tertiary'}`}
@@ -761,7 +766,7 @@ export default function SaveScreen() {
             <Ionicons
               name={!visited ? 'time' : 'time-outline'}
               size={16}
-              color={!visited ? '#FF5A5F' : '#B0B0B0'}
+              color={!visited ? colors.primary : colors['text-tertiary']}
             />
             <Text
               className={`text-sm font-medium ${!visited ? 'text-primary' : 'text-text-tertiary'}`}
@@ -783,7 +788,7 @@ export default function SaveScreen() {
           ref={noteRef}
           className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
           placeholder="Ej: La pasta increible"
-          placeholderTextColor="#A0A0A0"
+          placeholderTextColor={colors['text-tertiary']}
           value={note}
           onChangeText={(text) => dispatchForm({ type: 'patch', payload: { note: text } })}
           multiline
@@ -810,9 +815,9 @@ export default function SaveScreen() {
             style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
           >
             {saving ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors['text-secondary']} />
             ) : (
-              <Text className="text-body font-semibold text-white">
+              <Text className={`text-body font-semibold ${canSave ? 'text-on-primary' : 'text-text-secondary'}`}>
                 {isEditMode ? 'Actualizar' : 'Guardar'}
               </Text>
             )}

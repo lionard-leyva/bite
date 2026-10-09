@@ -16,6 +16,7 @@ import { useAuth } from '../hooks/useAuth';
 import { joinListByCode } from '../services/listService';
 import InviteCodeDisplay from './InviteCodeDisplay';
 import DragHandle from './DragHandle';
+import { useTheme } from '../theme/ThemeProvider';
 
 type Tab = 'create' | 'join';
 
@@ -33,6 +34,7 @@ export default function ShareListModal({
   onJoined,
 }: ShareListModalProps) {
   const { userId } = useAuth();
+  const { colors } = useTheme();
   const [tab, setTab] = useState<Tab>('create');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -74,12 +76,12 @@ export default function ShareListModal({
           <Text className="text-title font-bold text-text-primary">
             Compartir lista
           </Text>
-          <Pressable
+          <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
             className="h-8 w-8 items-center justify-center rounded-full bg-border"
             onPress={onClose}
             hitSlop={12}
           >
-            <Ionicons name="close" size={18} color="#222222" />
+            <Ionicons name="close" size={18} color={colors['text-primary']} />
           </Pressable>
         </View>
 
@@ -90,7 +92,7 @@ export default function ShareListModal({
             onPress={() => setTab('create')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'create' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${tab === 'create' ? 'text-background' : 'text-text-secondary'}`}
             >
               Mi codigo
             </Text>
@@ -100,7 +102,7 @@ export default function ShareListModal({
             onPress={() => setTab('join')}
           >
             <Text
-              className={`text-sm font-medium ${tab === 'join' ? 'text-white' : 'text-text-secondary'}`}
+              className={`text-sm font-medium ${tab === 'join' ? 'text-background' : 'text-text-secondary'}`}
             >
               Unirme con codigo
             </Text>
@@ -131,7 +133,7 @@ export default function ShareListModal({
             <TextInput
               className="mb-4 rounded-input border border-border px-4 py-3 text-center text-xl font-bold tracking-widest text-text-primary"
               placeholder="ABC-123"
-              placeholderTextColor="#A0A0A0"
+              placeholderTextColor={colors['text-tertiary']}
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
@@ -144,9 +146,9 @@ export default function ShareListModal({
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={colors['text-secondary']} />
               ) : (
-                <Text className="text-body font-semibold text-white">
+                <Text className="text-body font-semibold text-on-primary">
                   Unirme
                 </Text>
               )}

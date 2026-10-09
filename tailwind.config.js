@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const { palette } = require("./src/theme/palette");
+
 module.exports = {
   content: [
     "./App.{js,jsx,ts,tsx}",
@@ -7,19 +9,13 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      // Los colores salen de src/theme/palette.js como variables que ThemeProvider cambia con el tema.
       colors: {
-        primary: '#FF5A5F',
-        'primary-light': '#FFF0F0',
-        background: '#FBF8F6',
-        surface: '#FFFFFF',
-        'text-primary': '#2D2D2D',
-        'text-secondary': '#6B6B6B',
-        'text-tertiary': '#A0A0A0',
-        border: '#F0EDED',
-        success: '#00A699',
-        visited: '#66BB6A',
-        warning: '#FFB400',
-        star: '#FFB400',
+        ...Object.fromEntries(
+          Object.keys(palette.light).map((name) => [name, `rgb(var(--color-${name}) / <alpha-value>)`]),
+        ),
+        // Alias de nombres antiguos: success es el verde de Visitado.
+        success: 'rgb(var(--color-visited) / <alpha-value>)',
       },
       borderRadius: {
         card: '16px',

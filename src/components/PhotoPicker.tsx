@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { pickImage } from '../services/imageService';
 import { PHOTO_MAX_COUNT } from '../config/constants';
+import { useTheme } from '../theme/ThemeProvider';
 
 interface PhotoPickerProps {
   photoUris: string[];
@@ -16,6 +17,7 @@ export default function PhotoPicker({
   onPhotoRemoved,
 }: PhotoPickerProps) {
   const [picking, setPicking] = useState(false);
+  const { colors } = useTheme();
 
   async function handlePick(source: 'camera' | 'gallery') {
     if (picking) return;
@@ -37,7 +39,7 @@ export default function PhotoPicker({
       {/* Counter */}
       {photoUris.length > 0 && (
         <Text
-          style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}
+          style={{ fontSize: 12, color: colors['text-secondary'], marginBottom: 6 }}
         >
           {photoUris.length}/{PHOTO_MAX_COUNT}
         </Text>
@@ -67,14 +69,14 @@ export default function PhotoPicker({
                   width: 22,
                   height: 22,
                   borderRadius: 11,
-                  backgroundColor: '#FF5A5F',
+                  backgroundColor: colors.primary,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Quitar foto ${index + 1}`}
               >
-                <Ionicons name="close" size={14} color="white" />
+                <Ionicons name="close" size={14} color={colors['on-primary']} />
               </Pressable>
             </View>
           ))}
@@ -95,7 +97,7 @@ export default function PhotoPicker({
               borderRadius: 12,
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: '#E0E0E0',
+              borderColor: colors.border,
               paddingVertical: 12,
               paddingHorizontal: 14,
               opacity: disabled ? 0.6 : 1,
@@ -110,16 +112,16 @@ export default function PhotoPicker({
                 width: 36,
                 height: 36,
                 borderRadius: 18,
-                backgroundColor: '#FFF1F2',
+                backgroundColor: colors['primary-light'],
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="camera-outline" size={20} color="#FF5A5F" />
+              <Ionicons name="camera-outline" size={20} color={colors.primary} />
             </View>
             <View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Tomar foto</Text>
-              <Text style={{ fontSize: 12, color: '#6B7280' }}>Abre la camara</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors['text-primary'] }}>Tomar foto</Text>
+              <Text style={{ fontSize: 12, color: colors['text-secondary'] }}>Abre la camara</Text>
             </View>
           </Pressable>
 
@@ -131,7 +133,7 @@ export default function PhotoPicker({
               borderRadius: 12,
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: '#E0E0E0',
+              borderColor: colors.border,
               paddingVertical: 12,
               paddingHorizontal: 14,
               opacity: disabled ? 0.6 : 1,
@@ -146,16 +148,16 @@ export default function PhotoPicker({
                 width: 36,
                 height: 36,
                 borderRadius: 18,
-                backgroundColor: '#EEF2FF',
+                backgroundColor: colors['visited-light'],
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Ionicons name="images-outline" size={20} color="#6366F1" />
+              <Ionicons name="images-outline" size={20} color={colors.visited} />
             </View>
             <View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>Elegir de galeria</Text>
-              <Text style={{ fontSize: 12, color: '#6B7280' }}>Fotos guardadas</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors['text-primary'] }}>Elegir de galeria</Text>
+              <Text style={{ fontSize: 12, color: colors['text-secondary'] }}>Fotos guardadas</Text>
             </View>
           </Pressable>
         </View>

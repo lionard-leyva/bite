@@ -32,13 +32,21 @@ import {
 import { canPlayMatch, needsPartner } from '../utils/matchAccess';
 import { getPrimaryPhoto, type Restaurant, type Vote } from '../types';
 import type { RootStackParamList } from '../navigation/types';
+import { useTheme } from '../theme/ThemeProvider';
+import { useReducedMotion } from '../hooks/useReducedMotion';
+import type { Colors } from '../theme/palette';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const SWIPE_THRESHOLD = 110;
-const ACCENT = '#FF4D67';
+
+function useStyles() {
+  const { colors } = useTheme();
+  return useMemo(() => makeStyles(colors), [colors]);
+}
 
 function TravelLine({ distanceKm, eta }: { distanceKm: number | null; eta: ETAResult | null }) {
+  const styles = useStyles();
   if (distanceKm == null) return null;
   return (
     <View style={styles.travelRow}>
@@ -56,6 +64,8 @@ interface SwipeCardProps {
 }
 
 function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const pan = useRef(new Animated.ValueXY()).current;
   const votedRef = useRef(false);
@@ -101,14 +111,14 @@ function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
           <Image source={{ uri: photo }} style={styles.cardPhoto} contentFit="cover" />
         ) : (
           <View style={[styles.cardPhoto, styles.cardPhotoPlaceholder]}>
-            <Ionicons name="restaurant-outline" size={48} color="#475569" />
+            <Ionicons name="restaurant-outline" size={48} color={colors.primary} />
           </View>
         )}
         <Animated.View style={[styles.stamp, styles.stampLike, { opacity: likeOpacity }]}>
-          <Text style={[styles.stampText, { color: '#22C55E' }]}>IRÍA</Text>
+          <Text style={[styles.stampText, { color: colors.visited }]}>IRÍA</Text>
         </Animated.View>
         <Animated.View style={[styles.stamp, styles.stampPass, { opacity: passOpacity }]}>
-          <Text style={[styles.stampText, { color: '#F87171' }]}>PASO</Text>
+          <Text style={[styles.stampText, { color: colors.danger }]}>PASO</Text>
         </Animated.View>
         <View style={styles.cardBody}>
           <Text style={styles.cardTitle} numberOfLines={2}>{restaurant.name}</Text>
@@ -125,7 +135,7 @@ function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
           accessibilityRole="button"
           accessibilityLabel={`Paso de ${restaurant.name}`}
         >
-          <Ionicons name="close" size={32} color="#F87171" />
+          <Ionicons name="close" size={32} color={colors.danger} />
           <Text style={styles.voteLabel}>Paso</Text>
         </Pressable>
         <Pressable
@@ -134,8 +144,8 @@ function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
           accessibilityRole="button"
           accessibilityLabel={`Iría a ${restaurant.name}`}
         >
-          <Ionicons name="heart" size={32} color="#FFFFFF" />
-          <Text style={[styles.voteLabel, { color: '#FFFFFF' }]}>Iría</Text>
+          <Ionicons name="heart" size={32} color={colors['on-primary']} />
+          <Text style={[styles.voteLabel, { color: colors['on-primary'] }]}>Iría</Text>
         </Pressable>
       </View>
     </View>
@@ -152,10 +162,16 @@ interface MatchViewProps {
 }
 
 function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRestart }: MatchViewProps) {
+  const styles = useStyles();
+  const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
+    if (reducedMotion) {
+      scale.setValue(1);
+      return;
+    }
     Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
-  }, [scale]);
+  }, [scale, reducedMotion]);
 
   return (
     <View style={styles.centered}>
@@ -195,9 +211,11 @@ function Notice({
   action?: string;
   onAction?: () => void;
 }) {
+  const styles = useStyles();
+  const { colors } = useTheme();
   return (
     <View style={styles.centered}>
-      <Ionicons name={icon} size={48} color={ACCENT} />
+      <Ionicons name={icon} size={48} color={colors.primary} />
       <Text style={styles.noticeTitle}>{title}</Text>
       {subtitle && <Text style={styles.noticeSubtitle}>{subtitle}</Text>}
       {action && onAction && (
@@ -210,6 +228,8 @@ function Notice({
 }
 
 export default function MatchScreen() {
+  const styles = useStyles();
+  const { colors } = useTheme();
   const navigation = useNavigation<Nav>();
   const { user, userId, listId, skipMode } = useAuth();
   const { restaurants, loading: restaurantsLoading } = useRestaurants({ mode: 'all' });
@@ -301,7 +321,7 @@ export default function MatchScreen() {
   } else if (restaurantsLoading || location.loading || (loading && !session)) {
     content = (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={ACCENT} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   } else if (!session) {
@@ -390,7 +410,7 @@ export default function MatchScreen() {
           accessibilityRole="button"
           accessibilityLabel="Cerrar"
         >
-          <Ionicons name="close" size={18} color="#E5E7EB" />
+          <Ionicons name="close" size={18} color={colors['text-primary']} />
         </Pressable>
         <View style={{ alignItems: 'center' }}>
           <Text style={styles.headerTitle}>¿Dónde cenamos? 🍽</Text>
@@ -407,95 +427,97 @@ export default function MatchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#070B14' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  headerTitle: { color: '#F9FAFB', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#9CA3AF', fontSize: 13, marginTop: 2 },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deck: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
-  card: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#0F172A',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  cardPhoto: { width: '100%', flex: 1, minHeight: 200 },
-  cardPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111827' },
-  cardBody: { padding: 18, gap: 6 },
-  cardTitle: { color: '#F9FAFB', fontSize: 24, fontWeight: '800' },
-  cardRating: { color: '#FBBF24', fontSize: 16, fontWeight: '700' },
-  cardNote: { color: '#CBD5E1', fontSize: 14 },
-  travelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 2 },
-  travelText: { color: '#E5E7EB', fontSize: 15 },
-  stamp: {
-    position: 'absolute',
-    top: 24,
-    borderWidth: 3,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  stampLike: { left: 20, borderColor: '#22C55E', transform: [{ rotate: '-14deg' }] },
-  stampPass: { right: 20, borderColor: '#F87171', transform: [{ rotate: '14deg' }] },
-  stampText: { fontSize: 28, fontWeight: '900' },
-  voteRow: { flexDirection: 'row', justifyContent: 'center', gap: 48, paddingVertical: 20 },
-  voteButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  passButton: { backgroundColor: '#1F2937', borderWidth: 1, borderColor: 'rgba(248,113,113,0.5)' },
-  likeButton: { backgroundColor: ACCENT },
-  voteLabel: { color: '#F87171', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  progress: { color: '#9CA3AF', textAlign: 'center', paddingBottom: 12 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 8 },
-  noticeTitle: { color: '#F9FAFB', fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 8 },
-  noticeSubtitle: { color: '#CBD5E1', fontSize: 15, textAlign: 'center' },
-  matchEmoji: { fontSize: 64 },
-  matchTitle: { color: '#F9FAFB', fontSize: 30, fontWeight: '900' },
-  matchSubtitle: { color: '#CBD5E1', fontSize: 15, marginTop: 8 },
-  matchName: { color: '#F9FAFB', fontSize: 26, fontWeight: '800', textAlign: 'center' },
-  matchPair: { color: ACCENT, fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  primaryButton: {
-    marginTop: 20,
-    alignSelf: 'stretch',
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: ACCENT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  secondaryButton: {
-    alignSelf: 'stretch',
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: { color: '#F9FAFB', fontSize: 16, fontWeight: '700' },
-  linkButton: { paddingVertical: 12 },
-  linkText: { color: '#9CA3AF', fontSize: 14, textDecorationLine: 'underline' },
-});
+function makeStyles(c: Colors) {
+  // Una sola elevacion: sombra suave, sin borde.
+  const float = {
+    backgroundColor: c.surface,
+    shadowColor: c['text-primary'],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  } as const;
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: c.background },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    headerTitle: { color: c['text-primary'], fontSize: 18, fontWeight: '800' },
+    headerSubtitle: { color: c['text-secondary'], fontSize: 13, marginTop: 2 },
+    closeButton: {
+      ...float,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    deck: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
+    card: { ...float, flex: 1, borderRadius: 20, overflow: 'hidden' },
+    cardPhoto: { width: '100%', flex: 1, minHeight: 200 },
+    cardPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: c['primary-light'] },
+    cardBody: { padding: 18, gap: 6 },
+    cardTitle: { color: c['text-primary'], fontSize: 24, fontWeight: '800' },
+    cardRating: { color: c['text-secondary'], fontSize: 16, fontWeight: '700' },
+    cardNote: { color: c['text-secondary'], fontSize: 14 },
+    travelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 2 },
+    travelText: { color: c['text-primary'], fontSize: 15 },
+    stamp: {
+      position: 'absolute',
+      top: 24,
+      borderWidth: 3,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      backgroundColor: c.surface,
+    },
+    stampLike: { left: 20, borderColor: c.visited, transform: [{ rotate: '-14deg' }] },
+    stampPass: { right: 20, borderColor: c.danger, transform: [{ rotate: '14deg' }] },
+    stampText: { fontSize: 28, fontWeight: '900' },
+    voteRow: { flexDirection: 'row', justifyContent: 'center', gap: 48, paddingVertical: 20 },
+    voteButton: {
+      width: 76,
+      height: 76,
+      borderRadius: 38,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    passButton: { ...float },
+    likeButton: { ...float, backgroundColor: c.primary, shadowColor: c.primary },
+    voteLabel: { color: c.danger, fontSize: 11, fontWeight: '700', marginTop: 2 },
+    progress: { color: c['text-secondary'], textAlign: 'center', paddingBottom: 12 },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 8 },
+    noticeTitle: { color: c['text-primary'], fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 8 },
+    noticeSubtitle: { color: c['text-secondary'], fontSize: 15, textAlign: 'center' },
+    matchEmoji: { fontSize: 64 },
+    matchTitle: { color: c['text-primary'], fontSize: 30, fontWeight: '900' },
+    matchSubtitle: { color: c['text-secondary'], fontSize: 15, marginTop: 8 },
+    matchName: { color: c['text-primary'], fontSize: 26, fontWeight: '800', textAlign: 'center' },
+    matchPair: { color: c.primary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
+    primaryButton: {
+      marginTop: 20,
+      alignSelf: 'stretch',
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: c.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    primaryButtonText: { color: c['on-primary'], fontSize: 16, fontWeight: '800' },
+    secondaryButton: {
+      ...float,
+      alignSelf: 'stretch',
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    secondaryButtonText: { color: c['text-primary'], fontSize: 16, fontWeight: '700' },
+    linkButton: { paddingVertical: 12 },
+    linkText: { color: c['text-secondary'], fontSize: 14, textDecorationLine: 'underline' },
+  });
+}

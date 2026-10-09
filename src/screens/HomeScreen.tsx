@@ -21,10 +21,12 @@ import type { RootStackParamList, TabParamList } from '../navigation/types';
 import { getPrimaryPhoto, type Restaurant } from '../types';
 import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
 import { timeAgo } from '../utils/timeAgo';
+import { useTheme } from '../theme/ThemeProvider';
+import { mapStyle } from '../theme/mapStyle';
+import type { Colors } from '../theme/palette';
 import { locationNotice, locationButtonState } from '../utils/locationNotice';
 import {
   CLUSTER_RADIUS,
-  CLUSTER_COLOR,
   CLUSTER_FONT_SIZE,
   FAB_BOTTOM_OFFSET,
   Z_MARKER,
@@ -123,16 +125,6 @@ const IG_FILTERS: { label: string; value: FilterValue; icon: keyof typeof Ionico
   { label: 'Pendientes', value: 'pending', icon: 'time-outline' },
 ];
 
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#0f1524' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa3b2' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f1524' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1b2740' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0f1524' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a101c' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-];
 
 // =============================================================
 
@@ -184,6 +176,9 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
 );
 
 export default function HomeScreen() {
+  const { colors } = useTheme();
+  const layoutStyles = useMemo(() => makeStyles(colors), [colors]);
+  const styleOfMap = useMemo(() => mapStyle(colors), [colors]);
   const navigation = useNavigation<Nav>();
   const route = useRoute<HomeRoute>();
   const focusRestaurantId = route.params?.focusRestaurantId;
@@ -562,13 +557,11 @@ export default function HomeScreen() {
             height: 58,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: 'rgba(255, 77, 103, 0.22)',
+            backgroundColor: colors['primary-light'],
             borderRadius: 29,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.18)',
             ...Platform.select({
               ios: {
-                shadowColor: '#000',
+                shadowColor: colors['text-primary'],
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.25,
                 shadowRadius: 12,
@@ -582,21 +575,21 @@ export default function HomeScreen() {
               width: 46,
               height: 46,
               borderRadius: 23,
-              backgroundColor: '#0B1324',
+              backgroundColor: colors.surface,
               borderWidth: 2,
-              borderColor: '#FF4D67',
+              borderColor: colors.primary,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: CLUSTER_FONT_SIZE }}>
+            <Text style={{ color: colors['text-primary'], fontWeight: '900', fontSize: CLUSTER_FONT_SIZE }}>
               {displayCount}
             </Text>
           </View>
         </View>
         </Marker>
       );
-  }, []);
+  }, [colors]);
 
   const hasSelection = selectedId != null;
 
@@ -611,7 +604,7 @@ export default function HomeScreen() {
     rotateEnabled: false,
     pitchEnabled: false,
     mapPadding,
-    clusterColor: CLUSTER_COLOR,
+    clusterColor: colors.primary,
     radius: CLUSTER_RADIUS,
     extent: 512,
     minZoom: 0,
@@ -654,7 +647,7 @@ export default function HomeScreen() {
   ]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#070B14' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {!mapExpanded && (
         <View style={layoutStyles.mapFull}>
           <ClusteredMapView
@@ -662,7 +655,7 @@ export default function HomeScreen() {
             style={{ flex: 1 }}
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
-            customMapStyle={DARK_MAP_STYLE}
+            customMapStyle={styleOfMap}
           >
             {markers}
           </ClusteredMapView>
@@ -675,16 +668,16 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Perfil"
               >
-                <Ionicons name="person-outline" size={18} color="#E5E7EB" />
+                <Ionicons name="person-outline" size={18} color={colors['text-primary']} />
               </Pressable>
 
               <View style={layoutStyles.searchPill}>
-                <Ionicons name="search" size={16} color="#9CA3AF" />
+                <Ionicons name="search" size={16} color={colors['text-secondary']} />
                 <TextInput
                   value={searchQuery}
                   onChangeText={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
                   placeholder="Buscar en esta zona"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors['text-secondary']}
                   style={layoutStyles.searchInput}
                 />
               </View>
@@ -695,7 +688,7 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={locationButton.label}
               >
-                <Ionicons name="navigate" size={18} color={locationButton.dimmed ? '#6B7280' : '#E5E7EB'} />
+                <Ionicons name="navigate" size={18} color={locationButton.dimmed ? colors['text-tertiary'] : colors['text-primary']} />
               </Pressable>
             </View>
 
@@ -718,7 +711,7 @@ export default function HomeScreen() {
                       })
                     }
                   >
-                    <Ionicons name={f.icon} size={14} color={active ? '#FFFFFF' : '#D1D5DB'} />
+                    <Ionicons name={f.icon} size={14} color={active ? colors['on-primary'] : colors['text-secondary']} />
                     <Text style={[layoutStyles.filterText, active && layoutStyles.filterTextActive]}>{f.label}</Text>
                   </Pressable>
                 );
@@ -736,12 +729,12 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Expandir mapa"
           >
-            <Ionicons name="expand-outline" size={18} color="#E5E7EB" />
+            <Ionicons name="expand-outline" size={18} color={colors['text-primary']} />
           </Pressable>
 
           {loading && (
             <View style={layoutStyles.loadingOverlay}>
-              <ActivityIndicator size="large" color="#FF5A5F" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           )}
 
@@ -794,10 +787,10 @@ export default function HomeScreen() {
         statusBarTranslucent
         onRequestClose={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#070B14' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={layoutStyles.modalHeader}>
-            <Pressable style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
-              <Ionicons name="close" size={18} color="#E5E7EB" />
+            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar mapa" hitSlop={8} style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
+              <Ionicons name="close" size={18} color={colors['text-primary']} />
             </Pressable>
             <Text style={layoutStyles.modalTitle}>Explorar mapa</Text>
             <View style={{ width: 36 }} />
@@ -807,7 +800,7 @@ export default function HomeScreen() {
             style={{ flex: 1 }}
             {...mapProps}
             initialRegion={mapRegion ?? initialRegion}
-            customMapStyle={DARK_MAP_STYLE}
+            customMapStyle={styleOfMap}
           >
             {markers}
           </ClusteredMapView>
@@ -817,158 +810,104 @@ export default function HomeScreen() {
   );
 }
 
-const layoutStyles = StyleSheet.create({
-  mapFull: {
-    flex: 1,
-    backgroundColor: '#070B14',
-  },
-  topOverlay: {
-    position: 'absolute',
-    top: 8,
-    left: 12,
-    right: 12,
-    gap: 10,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  searchPill: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    height: 44,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  searchInput: {
-    flex: 1,
-    color: '#F3F4F6',
-    fontSize: 15,
-    paddingVertical: 0,
-  },
-  circleControl: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  circleControlDim: {
-    opacity: 0.55,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 34,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  filterPillActive: {
-    backgroundColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  filterText: {
-    color: '#D1D5DB',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expandButton: {
-    position: 'absolute',
-    top: 118,
-    right: 12,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  emptyOverlay: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 110,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  emptyTitle: {
-    color: '#F9FAFB',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    color: '#CBD5E1',
-    fontSize: 13,
-  },
-  errorBanner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 110,
-    borderRadius: 14,
-    backgroundColor: 'rgba(127, 29, 29, 0.92)',
-    borderWidth: 1,
-    borderColor: '#ef4444',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  errorText: {
-    color: '#FEE2E2',
-    fontSize: 13,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#070B14',
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F9FAFB',
-  },
-});
+function makeStyles(c: Colors) {
+  // Una sola elevacion para todo lo que flota sobre el mapa: sombra suave, sin borde.
+  const float = {
+    backgroundColor: c.surface,
+    shadowColor: c['text-primary'],
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 4,
+  } as const;
+  return StyleSheet.create({
+    mapFull: { flex: 1, backgroundColor: c.background },
+    topOverlay: { position: 'absolute', top: 8, left: 12, right: 12, gap: 10 },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    searchPill: {
+      ...float,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderRadius: 22,
+      paddingHorizontal: 14,
+      height: 44,
+    },
+    searchInput: { flex: 1, color: c['text-primary'], fontSize: 15, paddingVertical: 0 },
+    circleControl: {
+      ...float,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    circleControlDim: { opacity: 0.6 },
+    filterRow: { flexDirection: 'row', gap: 8 },
+    filterPill: {
+      ...float,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 34,
+      paddingHorizontal: 12,
+      borderRadius: 18,
+    },
+    filterPillActive: { backgroundColor: c.primary },
+    filterText: { color: c['text-secondary'], fontSize: 13, fontWeight: '600' },
+    filterTextActive: { color: c['on-primary'] },
+    loadingOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+    expandButton: {
+      ...float,
+      position: 'absolute',
+      top: 118,
+      right: 12,
+      width: 42,
+      height: 42,
+      borderRadius: 21,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyOverlay: {
+      ...float,
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 110,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+    },
+    emptyTitle: { color: c['text-primary'], fontSize: 16, fontWeight: '700', marginBottom: 4 },
+    emptySubtitle: { color: c['text-secondary'], fontSize: 13 },
+    errorBanner: {
+      position: 'absolute',
+      left: 16,
+      right: 16,
+      bottom: 110,
+      borderRadius: 14,
+      backgroundColor: c.danger,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    errorText: { color: c['on-danger'], fontSize: 13 },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      backgroundColor: c.background,
+    },
+    closeButton: {
+      ...float,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modalTitle: { fontSize: 16, fontWeight: '700', color: c['text-primary'] },
+  });
+}
