@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
@@ -21,6 +22,7 @@ type Tab = 'login' | 'register';
 
 export default function AuthScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { login, register, skipLogin } = useAuth();
 
   interface AuthFormState {
@@ -189,7 +191,7 @@ export default function AuthScreen() {
         avoid={false}
         containerClassName="flex-1 bg-background"
         scrollClassName="px-6"
-        contentContainerStyle={{ flexGrow: 1, paddingTop: 24, paddingBottom: 32 }}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 24 + insets.top, paddingBottom: 32 }}
       >
         {/* Brand icon */}
         <View className="items-center mb-3">
