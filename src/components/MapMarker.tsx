@@ -9,10 +9,12 @@ interface MapMarkerProps {
   visited: boolean;
   isSelected: boolean;
   photoUri?: string | null;
+  rating?: number;
 }
 
 const MARKER_SIZE_BASE = 30;
 const MARKER_SIZE_SELECTED = 42;
+const PILL_WIDTH = 58;
 const LABEL_HEIGHT = 40;
 const LABEL_GAP = 4;
 const LABEL_WIDTH = 150;
@@ -24,11 +26,9 @@ export function markerAnchorY(isSelected: boolean) {
   const total = size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0);
   return (size + PAD) / total;
 }
-function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps) {
+function MapMarkerInner({ name, visited, isSelected, photoUri, rating = 0 }: MapMarkerProps) {
   const { colors } = useTheme();
   const size = isSelected ? MARKER_SIZE_SELECTED : MARKER_SIZE_BASE;
-  // Visitado en salvia, pendiente en terracota; el seleccionado lleva el aro grueso de la marca.
-  const ringColor = visited ? colors.visited : colors.primary;
 
   const shadow = Platform.select({
     ios: {
@@ -50,7 +50,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
       style={[
         styles.container,
         {
-          width: isSelected ? LABEL_WIDTH + PAD * 2 : size + PAD * 2,
+          width: isSelected ? LABEL_WIDTH + PAD * 2 : PILL_WIDTH + PAD * 2,
           height: size + PAD * 2 + (isSelected ? LABEL_GAP + LABEL_HEIGHT : 0),
         },
       ]}
@@ -58,7 +58,7 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
       <View collapsable={false} style={[styles.inner, { marginTop: PAD }]}>
         <View
           style={{
-            width: size,
+            width: isSelected ? size : PILL_WIDTH,
             height: size,
             borderRadius: size / 2,
             alignItems: 'center',
@@ -92,44 +92,40 @@ function MapMarkerInner({ name, visited, isSelected, photoUri }: MapMarkerProps)
               )}
             </View>
           ) : (
+            // Pildora: emoji de estado + estrellas. Visitado en salvia, pendiente en terracota.
             <View
               style={{
-                width: size,
+                width: PILL_WIDTH,
                 height: size,
                 borderRadius: size / 2,
-                backgroundColor: colors.surface,
-                borderWidth: 2,
-                borderColor: ringColor,
+                backgroundColor: visited ? colors.visited : colors.primary,
+                flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 4,
               }}
             >
-              {photoUri ? (
-                <Image
-                  source={{ uri: photoUri }}
-                  style={{ width: size - 7, height: size - 7, borderRadius: (size - 7) / 2 }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={{ color: colors['text-primary'], fontWeight: '800', fontSize: 11 }}>
-                  {initial}
-                </Text>
-              )}
+              <Text style={{ fontSize: 14 }}>{visited ? '✅' : '🍽'}</Text>
+              <Text style={{ color: visited ? colors['on-visited'] : colors['on-primary'], fontWeight: '800', fontSize: 13 }}>
+                {rating}
+              </Text>
             </View>
           )}
-          <View
-            style={{
-              position: 'absolute',
-              right: 0,
-              bottom: 0,
-              width: 11,
-              height: 11,
-              borderRadius: 5.5,
-              backgroundColor: visited ? colors.visited : colors.primary,
-              borderWidth: 1.5,
-              borderColor: colors.surface,
-            }}
-          />
+          {isSelected && (
+            <View
+              style={{
+                position: 'absolute',
+                right: 0,
+                bottom: 0,
+                width: 11,
+                height: 11,
+                borderRadius: 5.5,
+                backgroundColor: visited ? colors.visited : colors.primary,
+                borderWidth: 1.5,
+                borderColor: colors.surface,
+              }}
+            />
+          )}
         </View>
 
         {isSelected && (
@@ -154,7 +150,8 @@ export default memo(MapMarkerInner, (prev, next) =>
   prev.name === next.name &&
   prev.visited === next.visited &&
   prev.isSelected === next.isSelected &&
-  prev.photoUri === next.photoUri,
+  prev.photoUri === next.photoUri &&
+  prev.rating === next.rating,
 );
 
 const styles = StyleSheet.create({

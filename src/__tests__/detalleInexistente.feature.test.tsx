@@ -22,6 +22,7 @@ jest.mock('../services/localStorageService', () => ({
   updateLocalRestaurantVisited: jest.fn(),
 }));
 jest.mock('../services/navigationService', () => ({ openNativeNavigation: jest.fn() }));
+jest.mock('../services/listService', () => ({ getListMembers: async () => [] }));
 
 jest.setTimeout(30000);
 

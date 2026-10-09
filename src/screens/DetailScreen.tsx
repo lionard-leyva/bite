@@ -6,6 +6,8 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
 import { useAuth } from '../hooks/useAuth';
+import { useListMembers } from '../hooks/useListMembers';
+import { savedByLabel } from '../utils/savedBy';
 import { toggleVisited, deleteRestaurant } from '../services/restaurantService';
 import { deleteLocalRestaurant, updateLocalRestaurantVisited } from '../services/localStorageService';
 import { openNativeNavigation } from '../services/navigationService';
@@ -28,7 +30,8 @@ export default function DetailScreen() {
   const route = useRoute<DetailRoute>();
   const { restaurantId } = route.params;
   const { restaurants, refreshLocal } = useRestaurants({ mode: 'all' });
-  const { skipMode } = useAuth();
+  const { skipMode, userId, listId } = useAuth();
+  const members = useListMembers(listId, !skipMode);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const { width: screenWidth } = useWindowDimensions();
@@ -57,6 +60,8 @@ export default function DetailScreen() {
       </View>
     );
   }
+
+  const savedBy = savedByLabel(restaurant.createdBy, members, userId);
 
   async function handleToggleVisited() {
     if (skipMode) {
@@ -166,6 +171,10 @@ export default function DetailScreen() {
             {restaurant.rating}/5
           </Text>
         </View>
+
+        {savedBy ? (
+          <Text className="mt-1 text-caption text-text-secondary">{savedBy}</Text>
+        ) : null}
 
         {/* Mini gallery (if multiple photos) */}
         {photos.length > 1 && (

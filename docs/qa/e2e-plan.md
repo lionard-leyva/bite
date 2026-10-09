@@ -185,6 +185,11 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | EDG-04 | P2 | Etiquetas de accesibilidad con 1 estrella / 1 pendiente | Singular | Jest + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-05 | P2 | Tarjeta del mapa con rating -1, 0, 3, 9 | No lanza error; entre 0 y 5 estrellas | Jest (`MapDetailCard` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
 | EDG-06 | P2 | Formulario de guardar: longitud de nombre y direccion | Max 120 y 200 caracteres | Jest (`SaveScreen` real) + [Gherkin](../../features/datos-extremos.feature) | ✅ |
+| SAV-01 | P2 | Etiqueta "Guardado por ..." segun miembros y autor | Nombre, "ti", correo sin nombre, y nada si la lista es personal o el autor se desconoce | Jest (`utils/savedBy`) + [Gherkin](../../features/guardado-por.feature) | ✅ |
+| SAV-02 | P2 | Abrir el detalle de un sitio de la pareja | Dice "Guardado por Bea" | Jest (`DetailScreen` real, miembros simulados) + [Gherkin](../../features/guardado-por.feature) | ✅ |
+| SAV-03 | P2 | Tarjeta de la Lista con sitio de la pareja / propio / sin autor | "Bea · Hace ..." solo si lo guardo otra persona | Jest (`RestaurantCard` real) + [Gherkin](../../features/guardado-por.feature) | ✅ |
+| PIN-01 | P2 | Pin sin elegir de un sitio pendiente / visitado | Pildora con emoji de estado y estrellas, sin nombre | Jest (`MapMarker` real) + [Gherkin](../../features/pines-del-mapa.feature) | 🟡 (revisar sobre el mapa real en emulador) |
+| PIN-02 | P2 | Pin elegido | Enseña el nombre | Jest (`MapMarker` real) + [Gherkin](../../features/pines-del-mapa.feature) | 🟡 |
 
 ### 2.13 Transversales
 

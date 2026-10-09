@@ -5,6 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useRestaurants } from '../hooks/useRestaurants';
+import { useAuth } from '../hooks/useAuth';
+import { useListMembers } from '../hooks/useListMembers';
+import { otherAuthorName } from '../utils/savedBy';
 import SearchBar from '../components/SearchBar';
 import FilterButtons, { type FilterValue } from '../components/FilterButtons';
 import RestaurantCard from '../components/RestaurantCard';
@@ -19,6 +22,8 @@ export default function ListScreen() {
   const navigation = useNavigation<Nav>();
   const { restaurants, loading, error, loadMore, loadingMore, hasMore } = useRestaurants({ mode: 'paged' });
   const insets = useSafeAreaInsets();
+  const { skipMode, userId, listId } = useAuth();
+  const members = useListMembers(listId, !skipMode);
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -41,11 +46,12 @@ export default function ListScreen() {
       <View className="px-5 mb-4">
         <RestaurantCard
           restaurant={item}
+          author={otherAuthorName(item.createdBy, members, userId)}
           onPress={() => navigation.navigate('Detail', { restaurantId: item.id })}
         />
       </View>
     );
-  }, [navigation]);
+  }, [navigation, members, userId]);
 
   if (loading) {
     return (
