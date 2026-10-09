@@ -140,7 +140,7 @@ export default function DetailScreen() {
       <View className="px-5 pt-4 pb-8">
         {/* Name + Edit icon */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <Text className="text-title font-bold text-text-primary" style={{ flex: 1, marginRight: 8 }}>
+          <Text className="text-title font-display text-text-primary" style={{ flex: 1, marginRight: 8 }}>
             {restaurant.name}
           </Text>
           <Pressable

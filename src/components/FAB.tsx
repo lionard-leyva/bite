@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FAB_SIZE } from '../config/constants';
 import { useTheme } from '../theme/ThemeProvider';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { tapLight } from '../utils/haptics';
 
 interface FABProps {
   onPress: () => void;
@@ -53,7 +54,10 @@ export default function FAB({ onPress, bottomOffset = 32 }: FABProps) {
           shadowRadius: 12,
           elevation: 8,
         }}
-        onPress={onPress}
+        onPress={() => {
+          tapLight();
+          onPress();
+        }}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         accessibilityRole="button"

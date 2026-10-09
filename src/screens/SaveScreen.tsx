@@ -85,7 +85,7 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
             flex: 1,
             textAlign: 'center',
             fontSize: 17,
-            fontWeight: '600',
+            fontFamily: 'YoungSerif_400Regular',
             color: colors['text-primary'],
           }}
         >

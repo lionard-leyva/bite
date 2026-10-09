@@ -34,6 +34,9 @@ import { getPrimaryPhoto, type Restaurant, type Vote } from '../types';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme } from '../theme/ThemeProvider';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { tapMedium, tapSuccess } from '../utils/haptics';
+import Confetti from '../components/Confetti';
+import AvatarStack from '../components/AvatarStack';
 import type { Colors } from '../theme/palette';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -75,6 +78,7 @@ function SwipeCard({ candidate, eta, onVote }: SwipeCardProps) {
   const fly = (vote: Vote) => {
     if (votedRef.current) return;
     votedRef.current = true;
+    tapMedium();
     Animated.timing(pan, {
       toValue: { x: (vote === 'LIKE' ? 1 : -1) * width * 1.5, y: 0 },
       duration: 220,
@@ -166,6 +170,9 @@ function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRest
   const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
+    tapSuccess();
+  }, []);
+  useEffect(() => {
     if (reducedMotion) {
       scale.setValue(1);
       return;
@@ -175,10 +182,12 @@ function MatchView({ restaurant, partnerName, distanceKm, eta, onShowMap, onRest
 
   return (
     <View style={styles.centered}>
+      <Confetti />
       <Animated.Text style={[styles.matchEmoji, { transform: [{ scale }] }]}>🎉</Animated.Text>
       <Text style={styles.matchTitle}>¡Es un match!</Text>
       <Text style={styles.matchSubtitle}>Los dos queréis ir a</Text>
       <Text style={styles.matchName}>{restaurant.name}</Text>
+      <AvatarStack names={['Tú', partnerName]} />
       <Text style={styles.matchPair}>❤ Tú + {partnerName}</Text>
       <TravelLine distanceKm={distanceKm} eta={eta} />
       <Pressable style={styles.primaryButton} onPress={onShowMap} accessibilityRole="button">
@@ -446,7 +455,7 @@ function makeStyles(c: Colors) {
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
-    headerTitle: { color: c['text-primary'], fontSize: 18, fontWeight: '800' },
+    headerTitle: { color: c['text-primary'], fontSize: 18, fontFamily: 'YoungSerif_400Regular' },
     headerSubtitle: { color: c['text-secondary'], fontSize: 13, marginTop: 2 },
     closeButton: {
       ...float,
@@ -461,7 +470,7 @@ function makeStyles(c: Colors) {
     cardPhoto: { width: '100%', flex: 1, minHeight: 200 },
     cardPhotoPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: c['primary-light'] },
     cardBody: { padding: 18, gap: 6 },
-    cardTitle: { color: c['text-primary'], fontSize: 24, fontWeight: '800' },
+    cardTitle: { color: c['text-primary'], fontSize: 24, fontFamily: 'YoungSerif_400Regular' },
     cardRating: { color: c['text-secondary'], fontSize: 16, fontWeight: '700' },
     cardNote: { color: c['text-secondary'], fontSize: 14 },
     travelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 2 },
@@ -491,12 +500,12 @@ function makeStyles(c: Colors) {
     voteLabel: { color: c.danger, fontSize: 11, fontWeight: '700', marginTop: 2 },
     progress: { color: c['text-secondary'], textAlign: 'center', paddingBottom: 12 },
     centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 8 },
-    noticeTitle: { color: c['text-primary'], fontSize: 20, fontWeight: '800', textAlign: 'center', marginTop: 8 },
+    noticeTitle: { color: c['text-primary'], fontSize: 20, fontFamily: 'YoungSerif_400Regular', textAlign: 'center', marginTop: 8 },
     noticeSubtitle: { color: c['text-secondary'], fontSize: 15, textAlign: 'center' },
     matchEmoji: { fontSize: 64 },
-    matchTitle: { color: c['text-primary'], fontSize: 30, fontWeight: '900' },
+    matchTitle: { color: c['text-primary'], fontSize: 30, fontFamily: 'YoungSerif_400Regular' },
     matchSubtitle: { color: c['text-secondary'], fontSize: 15, marginTop: 8 },
-    matchName: { color: c['text-primary'], fontSize: 26, fontWeight: '800', textAlign: 'center' },
+    matchName: { color: c['text-primary'], fontSize: 26, fontFamily: 'YoungSerif_400Regular', textAlign: 'center' },
     matchPair: { color: c.primary, fontSize: 15, fontWeight: '700', marginBottom: 4 },
     primaryButton: {
       marginTop: 20,
