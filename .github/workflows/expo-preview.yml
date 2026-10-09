@@ -1,0 +1,44 @@
+name: Vista previa (Expo Go)
+
+# Publica la app en EAS Update (canal "preview") para abrirla en Expo Go desde el movil, sin PC.
+# Requiere el secreto EXPO_TOKEN (expo.dev > Account settings > Access tokens).
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: expo-preview
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Comprobar secreto
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Falta el secreto EXPO_TOKEN (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+      - run: npm ci
+      - name: Publicar actualizacion
+        run: npx eas-cli@latest update --branch preview --platform ios --message "Vista previa ${GITHUB_SHA::7}" --non-interactive | tee eas-out.txt
+      - name: Resumen
+        run: |
+          {
+            echo "## Vista previa publicada"
+            echo
+            echo "Abre **Expo Go** en el iPhone (con la misma cuenta de Expo) > pestaña de proyectos > Bite > rama \`preview\`."
+            echo
+            echo '```'
+            tail -n 15 eas-out.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
