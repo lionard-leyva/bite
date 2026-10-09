@@ -16,6 +16,7 @@ import { db } from '../config/firebase';
 import { useAuth } from './useAuth';
 import { getLocalRestaurants } from '../services/localStorageService';
 import type { Restaurant } from '../types';
+import { friendlyMessage } from '../utils/userError';
 
 type RestaurantsMode = 'all' | 'paged';
 
@@ -146,7 +147,7 @@ export function useRestaurants(options: UseRestaurantsOptions = {}): UseRestaura
       },
       (err) => {
         console.error('[useRestaurants] onSnapshot ERROR:', err.message);
-        setError(err.message);
+        setError(friendlyMessage(err, 'No pudimos cargar tus restaurantes.'));
         setLoading(false);
       },
     );

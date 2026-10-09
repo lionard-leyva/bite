@@ -63,7 +63,7 @@ function abrirGuardar(claveDeGoogle: string) {
 
 const NOMBRE_MANUAL = 'Nombre del restaurante';
 const DIRECCION = 'Direccion del restaurante';
-const AVISO = 'No se pudo cargar sugerencias. Revisa tu conexion o la API key.';
+const AVISO = 'Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está.';
 
 defineFeature(feature, (test) => {
   let sesion: ReturnType<typeof abrirGuardar>;
@@ -106,8 +106,9 @@ defineFeature(feature, (test) => {
       expect(sesion.pantalla.getByPlaceholderText(NOMBRE_MANUAL)).toBeTruthy();
       expect(sesion.pantalla.queryByTestId('buscador-google')).toBeNull();
     });
-    and('ve un aviso de que las sugerencias no se pudieron cargar', () => {
+    and('ve el aviso "Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está."', () => {
       expect(sesion.pantalla.getByText(AVISO)).toBeTruthy();
+      expect(sesion.pantalla.queryByText(/API|clave/i)).toBeNull();
     });
   });
 

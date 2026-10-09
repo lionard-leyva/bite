@@ -715,7 +715,7 @@ export default function HomeScreen() {
 
       {error && (
         <View style={layoutStyles.errorBanner}>
-          <Text style={layoutStyles.errorText}>Error cargando restaurantes: {error}</Text>
+          <Text style={layoutStyles.errorText}>No pudimos cargar tus restaurantes. Revisa tu conexión.</Text>
         </View>
       )}
 

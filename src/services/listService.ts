@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { INVITE_CODE_LENGTH } from '../config/constants';
+import { UserError } from '../utils/userError';
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -150,7 +151,7 @@ export async function joinListByCode(
   const snap = await getDocs(q);
 
   if (snap.empty) {
-    throw new Error('Codigo no encontrado');
+    throw new UserError('Codigo no encontrado');
   }
 
   const listDoc = snap.docs[0];
@@ -159,7 +160,7 @@ export async function joinListByCode(
   const members: string[] = data.members ?? [];
 
   if (members.includes(userId)) {
-    throw new Error('Ya eres miembro de esta lista');
+    throw new UserError('Ya eres miembro de esta lista');
   }
 
   // Add user to list members

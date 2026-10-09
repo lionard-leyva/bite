@@ -68,6 +68,9 @@ Prioridad: **P0** bloquea release, **P1** importante, **P2** pulido. Estado: ✅
 | ADD-02 | P0 | Guardar sin nombre | Boton deshabilitado o error de validacion | `npm run qa:save -- --empty` (Guardar con formulario vacio no sale de la pantalla) | ✅ |
 | ADD-03 | P1 | Places sin cuota/sin red | Fallback a input manual | Jest de SaveScreen con `onFail` simulado + [Gherkin](../../features/busqueda-de-lugares.feature) | ✅ (con `onFail` pasa a escribir a mano, avisa, conserva lo escrito y deja el resto del formulario a la vista; sin clave arranca en manual) |
 | ADD-04 | P2 | Foto de galeria | Thumbnail visible; comprimida <200KB | Jest `imageService` (mock manipulator: 800px, q 0.7) + manual galeria + [Gherkin](../../features/fotos.feature) | 🟡 (se reduce a 800 px, JPEG, calidad 0,7 antes de subir, se sube la reducida, rutas por foto y fallo sin subir nada; que pese <200 KB y el selector de galería no se pueden comprobar aqui) |
+| UX-01 | P1 | Revisar todos los textos de la app | Ninguno menciona claves ni la API | Jest estatico sobre `src/` (salvo pruebas, configuracion y consola) + [Gherkin](../../features/mensajes-sin-jerga.feature) | ✅ |
+| UX-02 | P1 | Un error al guardar, unirse o entrar | Los errores inesperados (Firebase, red) se cambian por un texto claro; los pensados para el usuario (`UserError`) se muestran tal cual | Jest (`utils/userError`) + [Gherkin](../../features/mensajes-sin-jerga.feature) | ✅ |
+| UX-03 | P1 | Fallan los restaurantes al abrir el Mapa | "No pudimos cargar tus restaurantes. Revisa tu conexión." sin el error tecnico | Jest (`HomeScreen` real) + [Gherkin](../../features/mensajes-sin-jerga.feature) | ✅ |
 
 ### 2.4 Compartir hacia Bite (Android)
 

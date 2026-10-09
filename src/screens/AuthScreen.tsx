@@ -174,7 +174,7 @@ export default function AuthScreen() {
                   ? 'Usuario deshabilitado'
                   : e.code === 'auth/network-request-failed'
                     ? 'Sin conexion. Revisa tu internet.'
-                    : e.message ?? 'Error de autenticacion';
+                    : 'No pudimos entrar. Inténtalo de nuevo en un momento.';
       Alert.alert('Error', msg);
       dispatch({ type: 'patch', payload: { loading: false } });
     }

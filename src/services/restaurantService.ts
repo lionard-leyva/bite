@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { uploadPhotos } from './imageService';
+import { UserError } from '../utils/userError';
 
 interface SaveRestaurantInput {
   id?: string;
@@ -31,7 +32,7 @@ export async function saveRestaurant(
   console.warn('[saveRestaurant] Saving with listId:', input.listId, 'userId:', input.userId);
 
   if (!input.listId || input.listId === 'local') {
-    throw new Error(
+    throw new UserError(
       'No se pudo determinar tu lista. Cierra sesion y vuelve a iniciar.',
     );
   }

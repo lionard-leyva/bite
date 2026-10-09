@@ -19,7 +19,7 @@ Característica: Buscar el restaurante al guardarlo
     Y que Ana ha abierto la pantalla de guardar un restaurante
     Cuando Google no responde por falta de red o de cuota
     Entonces Ana puede escribir el nombre del restaurante a mano
-    Y ve un aviso de que las sugerencias no se pudieron cargar
+    Y ve el aviso "Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está."
 
   @ADD-03
   Escenario: Lo que Ana ya había escrito no se pierde al pasar a mano

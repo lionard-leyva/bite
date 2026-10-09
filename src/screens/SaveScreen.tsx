@@ -40,6 +40,7 @@ const MAPS_KEY =
 console.log('[SaveScreen] MAPS_KEY length', MAPS_KEY?.length ?? 0);
 
 import { useTheme } from '../theme/ThemeProvider';
+import { friendlyMessage } from '../utils/userError';
 
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
@@ -483,7 +484,7 @@ export default function SaveScreen() {
       }
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo guardar');
+      Alert.alert('No se pudo guardar', friendlyMessage(e, 'Inténtalo de nuevo en un momento.'));
     } finally {
       setSaving(false);
     }
@@ -520,7 +521,7 @@ export default function SaveScreen() {
               }}
               onFail={(err) => {
                 console.warn('[SaveScreen] Places autocomplete failed:', err);
-                setPlacesError('No se pudo cargar sugerencias. Revisa tu conexion o la API key.');
+                setPlacesError('Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está.');
                 setIsSearching(false);
                 setManualMode(true);
               }}
