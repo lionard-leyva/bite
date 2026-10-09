@@ -310,3 +310,22 @@ describe('MAP-02 qa:map --open-detail', () => {
     expect(r.out).toContain('PASS qa:map');
   });
 });
+
+// En la Lista la tarjeta de la cena dice "N pendientes": un selector /pendientes/i sin anclar la pulsaba en vez del filtro
+// (E2E del PR #30: qa:share acababa en la pantalla de decision). Los filtros se pulsan por su texto exacto.
+describe('filtros por texto exacto en los scripts de QA', () => {
+  test('ningun script busca Todos/Pendientes/Visitados con un patron sin anclar', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(__dirname, '../../scripts/qa');
+    const culpables: string[] = [];
+    for (const f of fs.readdirSync(dir).filter((n: string) => n.endsWith('.js'))) {
+      fs.readFileSync(path.join(dir, f), 'utf8').split('\n').forEach((linea: string, i: number) => {
+        if (/\/(?!\^)[^/\n]*(todos|pendientes|visitados)[^/\n]*\/i?/i.test(linea) && !/\/\^(todos|pendientes|visitados)\$\/i?/i.test(linea)) {
+          culpables.push(`${f}:${i + 1}: ${linea.trim()}`);
+        }
+      });
+    }
+    expect(culpables).toEqual([]);
+  });
+});

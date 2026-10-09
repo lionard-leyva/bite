@@ -60,8 +60,8 @@ async function inList(name, filter) {
     await q.tapLabel('Lista', 10000);
     await q.sleep(1500);
     checks.push({ name: `"${name}" aparece en Lista`, ok: await inList(name, /^todos$/i) });
-    const inV = await inList(name, /visitados/i);
-    const inP = await inList(name, /pendientes/i);
+    const inV = await inList(name, /^visitados$/i);
+    const inP = await inList(name, /^pendientes$/i);
     checks.push({ name: `queda ${visited ? 'Visitado' : 'Pendiente'}`, ok: visited ? inV && !inP : inP && !inV });
   }
 
