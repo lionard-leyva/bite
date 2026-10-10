@@ -161,7 +161,7 @@ Auto = `npm run test:emulator` (`src/__tests__/sharedLists.emulator.test.ts`, se
 | ID | P | Pasos | Esperado | Mecanismo | Estado |
 |---|---|---|---|---|---|
 | PRF-01 | P1 | Perfil sin cuenta | "Crear cuenta" visible; compartir no se ofrece sin cuenta | `npm run qa:profile -- --count N` (comprueba tambien que el aviso de "Crear cuenta" se cancela sin pulsar "Continuar", que cerraria la sesion) | ✅ (validado en el emulador de CI, ejecucion 21: paso en el reintento; el primer intento miro el Perfil antes de que cargara y ahora espera) |
-| PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos | **Manual con cuenta** | ❌ no automatizable sin cuenta: "Editar perfil" solo existe con sesion iniciada (`ProfileScreen` lo oculta en modo sin cuenta); haria falta una cuenta de prueba o el Auth Emulator en el dispositivo |
+| PRF-02 | P1 | "Editar perfil" > ciudad > "Guardar cambios" | Datos persistidos; al escribir otra ciudad a mano no quedan las coordenadas de la anterior | **Manual con cuenta** + Jest (`buildProfilePayload`) + [Gherkin](../../features/perfil-coordenadas.feature) | 🟡 la logica (coordenadas que se borran o se guardan) esta cubierta; que Firestore guarde y reabra bien sigue siendo manual con cuenta (`ProfileScreen` solo existe con sesion iniciada) |
 | PRF-03 | P1 | Migracion skip > cuenta | Modal "Migrar X restaurantes" | Jest `AuthContext`/`localStorageService` + manual + [Gherkin](../../features/migracion.feature) | 🟡 (datos cubiertos: copia, fotos, no pierde nada ni duplica si falla a medias y se reintenta; el aviso "Migrar?" y la comprobación de sesión de AuthContext, no) |
 
 ### 2.11 Teclado y descendentes (g j p q y)

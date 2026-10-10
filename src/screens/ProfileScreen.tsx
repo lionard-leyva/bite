@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../hooks/useAuth';
+import { buildProfilePayload } from '../utils/profilePayload';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { getListInviteCode, getListMembers, leaveSharedList } from '../services/listService';
 import { getLocalRestaurantCount } from '../services/localStorageService';
@@ -176,22 +177,18 @@ export default function ProfileScreen() {
       if (editAvatarUri) {
         photoURL = await uploadAvatar(editAvatarUri, userId);
       }
-      const payload: Record<string, unknown> = {
+      const payload = buildProfilePayload({
         displayName: editName.trim(),
         bio: editBio.trim(),
         birthday: editBirthday.trim(),
         city: editCity.trim(),
         address: editAddress.trim(),
         photoURL,
-      };
-      if (editCityLat != null && editCityLng != null) {
-        payload.cityLat = editCityLat;
-        payload.cityLng = editCityLng;
-      }
-      if (editAddressLat != null && editAddressLng != null) {
-        payload.addressLat = editAddressLat;
-        payload.addressLng = editAddressLng;
-      }
+        cityLat: editCityLat,
+        cityLng: editCityLng,
+        addressLat: editAddressLat,
+        addressLng: editAddressLng,
+      });
       await setDoc(doc(db, 'users', userId), payload, { merge: true });
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {

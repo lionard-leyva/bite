@@ -47,3 +47,9 @@ Característica: El Mapa y la Lista se ven como el diseño Terracota elegido
     Cuando abre la lista y busca "zzz"
     Entonces ve "Sin resultados"
     Y sigue escribiendo en el mismo buscador, sin que se cierre el teclado
+
+  @UI-13
+  Escenario: Con más de 200 pendientes, la tarjeta cuenta todos y no solo los cargados
+    Dado que Ana y Bea comparten una lista con 230 pendientes, de los que solo 200 están cargados
+    Cuando Ana abre la lista
+    Entonces arriba está "¿Dónde cenamos hoy?" con "230 pendientes · votad sin ver lo del otro"

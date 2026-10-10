@@ -39,6 +39,11 @@ jest.mock('../hooks/useRestaurants', () => ({
 }));
 let mockMiembros: any[] = [];
 jest.mock('../services/listService', () => ({ getListMembers: async () => mockMiembros }));
+// Contador de pendientes en el servidor (la Lista solo carga 200 restaurantes). Sin valor fijado, cuenta los cargados.
+let mockContadorServidor: number | null = null;
+jest.mock('../services/restaurantService', () => ({
+  countPendingRestaurants: async () => mockContadorServidor ?? mockRestaurantes.filter((r) => !r.visited).length,
+}));
 jest.mock('../hooks/useLocation', () => ({
   useLocation: () => ({ latitude: null, longitude: null, loading: false, error: null, errorKind: null, refresh: jest.fn() }),
 }));
@@ -87,6 +92,9 @@ const abrir = async (ui: React.ReactElement) => {
 const fondo = (label: string) => StyleSheet.flatten(screen.getByLabelText(label).props.style)?.backgroundColor;
 
 defineFeature(feature, (test) => {
+  beforeEach(() => {
+    mockContadorServidor = null;
+  });
   test('El mapa solo lleva el buscador, los filtros, guardar y mi ubicación', ({ given, when, then, and }) => {
     sinCuenta(given);
     when('abre el mapa', () => abrir(<HomeScreen />));
@@ -167,6 +175,23 @@ defineFeature(feature, (test) => {
     and('sigue escribiendo en el mismo buscador, sin que se cierre el teclado', () => {
       // Si la pantalla cambia de lista a "vacio" y vuelve a montar el campo, el teclado se cierra a mitad de palabra.
       expect(screen.getByPlaceholderText('Buscar...')).toBe(buscador);
+    });
+  });
+
+  test('Con más de 200 pendientes, la tarjeta cuenta todos y no solo los cargados', ({ given, when, then }) => {
+    given('que Ana y Bea comparten una lista con 230 pendientes, de los que solo 200 están cargados', () => {
+      mockAuth = { user: { uid: 'ana' }, userId: 'ana', listId: 'L1', skipMode: false };
+      mockMiembros = [
+        { userId: 'ana', email: 'ana@x.com', displayName: 'Ana' },
+        { userId: 'bea', email: 'bea@x.com', displayName: 'Bea' },
+      ];
+      mockRestaurantes = Array.from({ length: 200 }, (_, i) => sitio(`p${i}`, `Sitio ${i}`, false, 'ana'));
+      mockContadorServidor = 230;
+    });
+    when('Ana abre la lista', () => abrir(<ListScreen />));
+    then('arriba está "¿Dónde cenamos hoy?" con "230 pendientes · votad sin ver lo del otro"', async () => {
+      // El total llega del servidor en otro ciclo: se espera a que aparezca.
+      expect(await screen.findByText('230 pendientes · votad sin ver lo del otro')).toBeTruthy();
     });
   });
 });

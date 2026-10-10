@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, FlatList, Text, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { Restaurant } from '../types';
 import { useTheme } from '../theme/ThemeProvider';
 import { matchesQuery } from '../utils/searchMatch';
+import { countPendingRestaurants } from '../services/restaurantService';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -55,7 +56,18 @@ export default function ListScreen() {
   }, [navigation, members, userId]);
 
   const shared = members.length > 1;
-  const pendingCount = useMemo(() => restaurants.filter((r) => !r.visited).length, [restaurants]);
+  const loadedPending = useMemo(() => restaurants.filter((r) => !r.visited).length, [restaurants]);
+  // Con cuenta, la lista puede tener mas de una pagina: se pregunta el total al servidor. Sin cuenta, todo esta cargado.
+  const [serverPending, setServerPending] = useState<number | null>(null);
+  useEffect(() => {
+    if (skipMode || !listId) return;
+    let cancelled = false;
+    countPendingRestaurants(listId)
+      .then((n) => { if (!cancelled) setServerPending(n); })
+      .catch(() => { if (!cancelled) setServerPending(null); });
+    return () => { cancelled = true; };
+  }, [listId, skipMode, restaurants.length]);
+  const pendingCount = serverPending ?? loadedPending;
   const header = (
     <View style={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 14, gap: 12 }}>
       <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 30, color: colors['text-primary'] }}>
