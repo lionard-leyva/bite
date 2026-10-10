@@ -347,26 +347,48 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test('Sin saber dónde está Ana, el pin del mapa hay que moverlo antes de guardar', ({ given, when, then, and }) => {
+  const sinUbicacionConPin = (given: any, and: any) => {
     given('que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante', () => {
       mockSinUbicacion = true;
       p = render(<SaveScreen />);
     });
     aManoConNombre(and);
-    when('pulsa "Marcar en el mapa"', () => {
+    and('pulsa "Marcar en el mapa"', () => {
       fireEvent.press(p.getByText('Marcar en el mapa'));
     });
-    then(/^no puede guardar y ve "(.*)"$/, async (aviso: string) => {
-      expect(p.getByTestId('pin-del-sitio')).toBeTruthy();
-      expect(p.getAllByText(aviso).length).toBeGreaterThan(0);
-      guardar();
-      await esperar(50);
+  };
+
+  test('Sin saber dónde está Ana, Guardar pregunta si el pin está bien puesto', ({ given, and, when, then }) => {
+    sinUbicacionConPin(given, and);
+    when('pulsa Guardar', () => guardar());
+    then(/^ve la pregunta "(.*)" con "(.*)" y "(.*)"$/, async (titulo: string, si: string, cambiar: string) => {
+      expect(await p.findByText(titulo)).toBeTruthy();
+      expect(p.getByText(si)).toBeTruthy();
+      expect(p.getByText(cambiar)).toBeTruthy();
       expect(mockSave).not.toHaveBeenCalled();
     });
-    and('si arrastra el pin, se guarda donde lo dejó', async () => {
-      act(() => p.getByTestId('pin-del-sitio').props.onDragEnd({ nativeEvent: { coordinate: { latitude: 41.39, longitude: 2.17 } } }));
+  });
+
+  test('Si Ana confirma el pin, se guarda en ese punto', ({ given, and, when, then }) => {
+    sinUbicacionConPin(given, and);
+    when(/^pulsa Guardar y confirma "(.*)"$/, async (boton: string) => {
       guardar();
-      expect(await guardado()).toMatchObject({ latitude: 41.39, longitude: 2.17 });
+      fireEvent.press(await p.findByText(boton));
+    });
+    then(/^se guarda "(.*)" en ese punto$/, async (nombre: string) => {
+      expect(await guardado()).toMatchObject({ name: nombre, latitude: 40.4168, longitude: -3.7038 });
+    });
+  });
+
+  test('Si Ana cambia la ubicación, no se guarda nada', ({ given, and, when, then }) => {
+    sinUbicacionConPin(given, and);
+    when(/^pulsa Guardar y elige "(.*)"$/, async (boton: string) => {
+      guardar();
+      fireEvent.press(await p.findByText(boton));
+    });
+    then('no se guarda nada', async () => {
+      await esperar(50);
+      expect(mockSave).not.toHaveBeenCalled();
     });
   });
 

@@ -12,11 +12,9 @@ export function shouldSearch(query: string): boolean {
 }
 
 // Lo que falta para poder guardar, en el orden en que se rellena el formulario (null = se puede guardar).
-// pinToConfirm: el pin salio en un punto por defecto (no sabemos donde esta Ana) y aun no se ha movido.
-export function saveBlocker(f: { name: string; location: LatLng | null; rating: number; pinToConfirm?: boolean }): string | null {
+export function saveBlocker(f: { name: string; location: LatLng | null; rating: number }): string | null {
   if (!f.name.trim()) return 'Escribe el nombre del restaurante';
   if (!f.location) return 'Marca dónde está para poder guardar';
-  if (f.pinToConfirm) return 'Arrastra el pin hasta el sitio';
   if (f.rating < 1) return 'Elige una valoración';
   return null;
 }

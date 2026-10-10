@@ -254,6 +254,8 @@ export default function SaveScreen() {
   const [pricePerPerson, setPricePerPerson] = useState<number>(PRICE_DEFAULT);
   const [saving, setSaving] = useState(false);
   const [farAway, setFarAway] = useState<number | null>(null);
+  // Sin ubicacion de Ana, el pin va a Sol: antes de guardar hay que confirmar que es ahi (ADD-08).
+  const [askPinConfirm, setAskPinConfirm] = useState(false);
 
   const near: LatLng | null =
     userLocation.latitude != null && userLocation.longitude != null
@@ -498,7 +500,7 @@ export default function SaveScreen() {
     void placePin(next);
   }
 
-  const blocker = saveBlocker({ name, location, rating, pinToConfirm });
+  const blocker = saveBlocker({ name, location, rating });
 
   async function handleSave(confirmedFar = false) {
     if (blocker || !location) return;
@@ -508,8 +510,13 @@ export default function SaveScreen() {
         setFarAway(km);
         return;
       }
+      if (pinToConfirm) {
+        setAskPinConfirm(true);
+        return;
+      }
     }
     setFarAway(null);
+    setAskPinConfirm(false);
     setSaving(true);
     const finalName = name.trim();
     try {
@@ -562,12 +569,14 @@ export default function SaveScreen() {
 
   function changeLocationAfterWarning() {
     setFarAway(null);
+    setAskPinConfirm(false);
     // El sitio elegido pasa a editarse a mano: el pin se puede arrastrar o elegir otra direccion
     setPicked(false);
   }
 
   const title = isEditMode ? 'Editar restaurante' : 'Guardar restaurante';
-  const farTitle = farAway != null ? `Este sitio está ${city ? `en ${city}, ` : ''}a ${formatKm(farAway)} de ti` : '';
+  const farTitle = farAway != null ? `Este sitio está ${city ? `en ${city}, ` : ''}a ${formatKm(farAway)} de ti` : '¿Está aquí?';
+  const sheetOpen = farAway != null || askPinConfirm;
 
   return (
     <KeyboardAvoidingView
@@ -754,7 +763,7 @@ export default function SaveScreen() {
         )}
       </KeyboardForm>
 
-      <Modal visible={farAway != null} transparent animationType="slide" onRequestClose={changeLocationAfterWarning}>
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={changeLocationAfterWarning}>
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: withAlpha(colors['text-primary'], 0.45) }}>
           <View
             accessibilityViewIsModal
@@ -763,7 +772,9 @@ export default function SaveScreen() {
             {location && <MiniMap location={location} label={name} height={150} />}
             <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 22, lineHeight: 28, color: colors['text-primary'] }}>{farTitle}</Text>
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors['text-secondary'] }}>
-              ¿Es correcto? Si no, cambia la dirección o mueve el pin antes de guardar.
+              {farAway != null
+                ? '¿Es correcto? Si no, cambia la dirección o mueve el pin antes de guardar.'
+                : 'No sabemos dónde estás. El pin está en Sol: si el restaurante está ahí, guárdalo; si no, cambia la ubicación y mueve el pin.'}
             </Text>
             <Pressable
               onPress={changeLocationAfterWarning}

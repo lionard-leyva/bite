@@ -106,12 +106,28 @@ Característica: Guardar un restaurante en el sitio correcto
     Entonces no se queda buscando
 
   @ADD-08
-  Escenario: Sin saber dónde está Ana, el pin del mapa hay que moverlo antes de guardar
+  Escenario: Sin saber dónde está Ana, Guardar pregunta si el pin está bien puesto
     Dado que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante
     Y elige añadirlo a mano con el nombre "Casa Lu" y 4 estrellas
-    Cuando pulsa "Marcar en el mapa"
-    Entonces no puede guardar y ve "Arrastra el pin hasta el sitio"
-    Y si arrastra el pin, se guarda donde lo dejó
+    Y pulsa "Marcar en el mapa"
+    Cuando pulsa Guardar
+    Entonces ve la pregunta "¿Está aquí?" con "Sí, guardar aquí" y "Cambiar ubicación"
+
+  @ADD-08
+  Escenario: Si Ana confirma el pin, se guarda en ese punto
+    Dado que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante
+    Y elige añadirlo a mano con el nombre "Casa Lu" y 4 estrellas
+    Y pulsa "Marcar en el mapa"
+    Cuando pulsa Guardar y confirma "Sí, guardar aquí"
+    Entonces se guarda "Casa Lu" en ese punto
+
+  @ADD-08
+  Escenario: Si Ana cambia la ubicación, no se guarda nada
+    Dado que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante
+    Y elige añadirlo a mano con el nombre "Casa Lu" y 4 estrellas
+    Y pulsa "Marcar en el mapa"
+    Cuando pulsa Guardar y elige "Cambiar ubicación"
+    Entonces no se guarda nada
 
   @ADD-08
   Escenario: Al mover el pin, la dirección pasa a ser la del nuevo sitio

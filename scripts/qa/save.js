@@ -60,6 +60,9 @@ async function inList(name, filter) {
     for (let i = 0; i < 3 && !q.findNode(await q.dumpUi(), 'Guardar'); i++) q.swipeUp();
     q.screenshot('save-form');
     await q.tapLabel('Guardar', 8000);
+    // Sin ubicacion (emulador), Guardar pregunta si el pin de Sol es el sitio (ADD-08): se confirma.
+    await q.sleep(800);
+    if (q.findNode(await q.dumpUi(), 'Sí, guardar aquí')) await q.tapLabel('Sí, guardar aquí', 8000);
 
     const back = await q.waitFor(['Lista', 'Mapa'], 20000);
     checks.push({ name: 'vuelve de la pantalla Guardar', ok: !!back });
