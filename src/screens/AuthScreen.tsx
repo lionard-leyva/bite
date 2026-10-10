@@ -188,7 +188,6 @@ export default function AuthScreen() {
   return (
     <>
       <KeyboardForm
-        avoid={false}
         containerClassName="flex-1 bg-background"
         scrollClassName="px-6"
         contentContainerStyle={{ flexGrow: 1, paddingTop: 24 + insets.top, paddingBottom: 32 }}

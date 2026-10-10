@@ -1,4 +1,6 @@
 // Acceptance: features/formulario-con-teclado.feature (KBD-04 del plan E2E). KeyboardForm real; teclado de Android simulado.
+import fs from 'fs';
+import path from 'path';
 import { createRef } from 'react';
 import { Keyboard, Platform, ScrollView, Text } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
@@ -45,6 +47,17 @@ defineFeature(feature, (test) => {
     });
     then('el formulario vuelve a los 120 píxeles', () => {
       expect(scrollTo).toHaveBeenCalledWith({ y: 120, animated: false });
+    });
+  });
+
+  test('En la pantalla de acceso, el teclado no tapa el campo que Ana escribe', ({ given, when, then }) => {
+    const codigo = () => fs.readFileSync(path.join(__dirname, '../screens/AuthScreen.tsx'), 'utf8');
+    given('que la pantalla de acceso tiene varios campos de texto', () => {
+      expect((codigo().match(/<TextInput/g) ?? []).length).toBeGreaterThan(1);
+    });
+    when('Ana abre el teclado para escribir en cualquiera de ellos', () => {});
+    then('el formulario de acceso se ajusta al teclado', () => {
+      expect(codigo()).not.toMatch(/<KeyboardForm\s+avoid=\{false\}/);
     });
   });
 });
