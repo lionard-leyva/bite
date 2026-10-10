@@ -21,7 +21,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: require('react-native').View }));
 jest.mock('expo-location', () => ({}));
-jest.mock('expo-constants', () => ({ expoConfig: { extra: { GOOGLE_MAPS_API_KEY: '' } } }));
+jest.mock('expo-constants', () => ({ expoConfig: { extra: {} } }));
 jest.mock('firebase/firestore', () => ({ doc: jest.fn(), getDoc: jest.fn() }));
 jest.mock('../config/firebase', () => ({ db: {} }));
 jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ userId: 'ana', listId: 'L1', skipMode: false }) }));
@@ -44,8 +44,10 @@ jest.mock('../services/localStorageService', () => ({
 }));
 jest.mock('../services/navigationService', () => ({ openNativeNavigation: jest.fn() }));
 jest.mock('../components/PhotoPicker', () => () => null);
-jest.mock('../components/PriceSlider', () => () => null);
-jest.mock('react-native-google-places-autocomplete', () => ({ GooglePlacesAutocomplete: () => null }));
+jest.mock('react-native-maps', () => {
+  const { View } = require('react-native');
+  return { __esModule: true, default: (props: any) => <View {...props} />, Marker: (props: any) => <View {...props} /> };
+});
 
 jest.setTimeout(30000);
 
@@ -108,7 +110,7 @@ defineFeature(feature, (test) => {
       if (tarjeta) {
         pantalla = render(<RestaurantCard restaurant={restaurante({ rating: Number(tarjeta[1]) })} onPress={() => {}} />);
       } else if (hoy) {
-        pantalla = render(<MatchEntryCard pendingCount={Number(hoy[1])} onPress={() => {}} bottomOffset={40} />);
+        pantalla = render(<MatchEntryCard pendingCount={Number(hoy[1])} onPress={() => {}} />);
       } else {
         throw new Error(`situación desconocida: ${situacion}`);
       }
@@ -138,8 +140,9 @@ defineFeature(feature, (test) => {
         />,
       );
     });
-    then(/^ve (\d) estrellas$/, (n: string) => {
-      expect(pantalla.queryAllByText('star')).toHaveLength(Number(n));
+    then(/^la valoración dice "★ (\d)"$/, (n: string) => {
+      // "★ " y el numero van en textos anidados: se compara el texto completo de la linea.
+      expect(pantalla.getByText(new RegExp(`^★ ${n}( ·|$)`))).toBeTruthy();
     });
   });
 

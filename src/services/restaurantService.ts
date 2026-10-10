@@ -6,9 +6,13 @@ import {
   doc,
   setDoc,
   serverTimestamp,
+  getCountFromServer,
+  query,
+  where,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { uploadPhotos } from './imageService';
+import { UserError } from '../utils/userError';
 
 interface SaveRestaurantInput {
   id?: string;
@@ -31,7 +35,7 @@ export async function saveRestaurant(
   console.warn('[saveRestaurant] Saving with listId:', input.listId, 'userId:', input.userId);
 
   if (!input.listId || input.listId === 'local') {
-    throw new Error(
+    throw new UserError(
       'No se pudo determinar tu lista. Cierra sesion y vuelve a iniciar.',
     );
   }
@@ -116,4 +120,11 @@ export async function toggleVisited(
 
 export async function deleteRestaurant(restaurantId: string): Promise<void> {
   await deleteDoc(doc(db, 'restaurants', restaurantId));
+}
+
+// Pendientes de toda la lista, no solo de la pagina cargada (la Lista carga de 200 en 200).
+export async function countPendingRestaurants(listId: string): Promise<number> {
+  const q = query(collection(db, 'restaurants'), where('listId', '==', listId), where('visited', '==', false));
+  const snap = await getCountFromServer(q);
+  return snap.data().count;
 }

@@ -4,7 +4,7 @@ export interface ListMember {
   displayName: string;
 }
 
-const nameOf = (m: ListMember) => m.displayName || m.email.split('@')[0] || '';
+export const nameOf = (m: ListMember) => m.displayName || m.email.split('@')[0] || '';
 
 // Nombre de quien guardo el sitio cuando es otra persona de la lista; null en listas personales o si no se conoce.
 export function otherAuthorName(createdBy: string, members: ListMember[], currentUserId: string | null): string | null {

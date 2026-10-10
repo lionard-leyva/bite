@@ -1,6 +1,6 @@
 import React, { useReducer, useMemo, useRef, useEffect, useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, Pressable, Platform, Modal, StyleSheet, TextInput, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, ActivityIndicator, Pressable, Platform, StyleSheet, TextInput, Animated } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ClusteredMapView from 'react-native-map-clustering';
 import { Marker, type Region } from 'react-native-maps';
 import MapView from 'react-native-maps';
@@ -13,17 +13,19 @@ import { useLocation } from '../hooks/useLocation';
 import { useNavigationETA } from '../hooks/useNavigationETA';
 import FAB from '../components/FAB';
 import MapDetailCard from '../components/MapDetailCard';
-import MatchEntryCard from '../components/MatchEntryCard';
 import LocationNotice from '../components/LocationNotice';
 import MapMarker, { markerAnchorY } from '../components/MapMarker';
 import UserLocationMarker from '../components/UserLocationMarker';
-import type { FilterValue } from '../components/FilterButtons';
+import FilterButtons, { type FilterValue } from '../components/FilterButtons';
+import AvatarStack from '../components/AvatarStack';
+import { useListMembers } from '../hooks/useListMembers';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
-import { getPrimaryPhoto, type Restaurant } from '../types';
+import type { Restaurant } from '../types';
 import { formatDistance, haversineKm, openNativeNavigation } from '../services/navigationService';
-import { timeAgo } from '../utils/timeAgo';
 import { useTheme } from '../theme/ThemeProvider';
 import { matchesQuery } from '../utils/searchMatch';
+import { savedByLabel, nameOf } from '../utils/savedBy';
+import { priceSymbols } from '../utils/price';
 import { focusTargets, newRestaurantToFocus } from '../utils/mapFocus';
 import { mapStyle } from '../theme/mapStyle';
 import type { Colors } from '../theme/palette';
@@ -32,6 +34,7 @@ import {
   CLUSTER_RADIUS,
   CLUSTER_FONT_SIZE,
   FAB_BOTTOM_OFFSET,
+  FAB_SIZE,
   Z_MARKER,
   Z_MARKER_SELECTED,
   Z_CLUSTER,
@@ -39,8 +42,6 @@ import {
   EDGE_PADDING_RIGHT,
   EDGE_PADDING_BOTTOM,
   EDGE_PADDING_LEFT,
-  PRICE_VALUES,
-  PRICE_LABELS,
   SHEET_SPRING_TENSION,
   SHEET_SPRING_FRICTION,
   SHEET_DISMISS_TRANSLATE,
@@ -106,10 +107,6 @@ function applySpiderOffsets(center: Restaurant, restaurants: Restaurant[], progr
   return offsets;
 }
 
-function getPriceLabel(price: number): string {
-  const idx = PRICE_VALUES.indexOf(price as (typeof PRICE_VALUES)[number]);
-  return idx >= 0 ? PRICE_LABELS[idx] : '';
-}
 
 function dedupeById(restaurants: Restaurant[]): Restaurant[] {
   const seen = new Set<string>();
@@ -122,11 +119,6 @@ function dedupeById(restaurants: Restaurant[]): Restaurant[] {
   return result;
 }
 
-const IG_FILTERS: { label: string; value: FilterValue; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { label: 'Todos', value: 'all', icon: 'grid-outline' },
-  { label: 'Visitados', value: 'visited', icon: 'checkmark-circle-outline' },
-  { label: 'Pendientes', value: 'pending', icon: 'time-outline' },
-];
 
 
 // =============================================================
@@ -159,13 +151,7 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
       stopPropagation
       onPress={() => onPress(restaurant)}
     >
-      <MapMarker
-        name={restaurant.name}
-        visited={restaurant.visited}
-        rating={restaurant.rating}
-        isSelected={isSelected}
-        photoUri={getPrimaryPhoto(restaurant)}
-      />
+      <MapMarker name={restaurant.name} visited={restaurant.visited} isSelected={isSelected} />
     </Marker>
   );
 }, (prev, next) =>
@@ -175,9 +161,7 @@ const RestaurantMarkerMemo = React.memo(function RestaurantMarkerMemo({
   prev.coord.latitude === next.coord.latitude &&
   prev.coord.longitude === next.coord.longitude &&
   prev.restaurant.name === next.restaurant.name &&
-  prev.restaurant.visited === next.restaurant.visited &&
-  prev.restaurant.rating === next.restaurant.rating &&
-  getPrimaryPhoto(prev.restaurant) === getPrimaryPhoto(next.restaurant),
+  prev.restaurant.visited === next.restaurant.visited,
 );
 
 export default function HomeScreen() {
@@ -188,7 +172,9 @@ export default function HomeScreen() {
   const route = useRoute<HomeRoute>();
   const focusRestaurantId = route.params?.focusRestaurantId;
   const { restaurants: rawRestaurants, loading, error } = useRestaurants({ mode: 'all' });
-  const { userId } = useAuth();
+  const { userId, listId, skipMode } = useAuth();
+  const members = useListMembers(listId, !skipMode);
+  const insets = useSafeAreaInsets();
   const location = useLocation();
   // El aviso de ubicacion solo sale tras pulsar el boton (ver utils/locationNotice).
   const [locationAsked, setLocationAsked] = useState(false);
@@ -199,7 +185,6 @@ export default function HomeScreen() {
 
   interface HomeState {
     selectedId: string | null;
-    mapExpanded: boolean;
     searchQuery: string;
     activeFilter: FilterValue;
     mapRegion: Region | null;
@@ -214,7 +199,6 @@ export default function HomeScreen() {
 
   const initialState: HomeState = {
     selectedId: null,
-    mapExpanded: false,
     searchQuery: '',
     activeFilter: 'all',
     mapRegion: null,
@@ -236,11 +220,10 @@ export default function HomeScreen() {
 
   const [state, dispatch] = useReducer(reducer, initialState);
   const [spiderProgress, setSpiderProgress] = useState(0);
-  const { selectedId, mapExpanded, searchQuery, activeFilter, mapRegion, markerTracks, refocusNonce, spiderCenterId } = state;
+  const { selectedId, searchQuery, activeFilter, mapRegion, markerTracks, refocusNonce, spiderCenterId } = state;
   const selectedIdRef = useRef<string | null>(null);
   const cardTranslateY = useRef(new Animated.Value(SHEET_DISMISS_TRANSLATE)).current;
   const suppressMapPressRef = useRef(false);
-  const modalMapRef = useRef<MapView>(null);
   const hasAutoFocusedRef = useRef(false);
   const prevQueryRef = useRef('');
   const prevFilterRef = useRef<FilterValue>('all');
@@ -294,7 +277,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     dispatch({ type: 'patch', payload: { markerTracks: true } });
-  }, [visibleRestaurants.length, mapExpanded, selectedId]);
+  }, [visibleRestaurants.length, selectedId]);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -348,9 +331,10 @@ export default function HomeScreen() {
       (location.latitude != null && location.longitude != null
         ? formatDistance(haversineKm(location.latitude, location.longitude, selectedRestaurant.latitude, selectedRestaurant.longitude))
         : null);
+    // Como en el diseno: "★ 4 · €€ · a 6 min" (la estrella la pone la tarjeta).
+    const price = priceSymbols(selectedRestaurant.pricePerPerson);
+    if (price) parts.push(price);
     if (dist) parts.push(dist);
-    parts.push(timeAgo(selectedRestaurant.createdAt));
-    if (selectedRestaurant.pricePerPerson) parts.push(`\u20AC${selectedRestaurant.pricePerPerson}`);
     return parts.join(' \u00B7 ');
   }, [selectedRestaurant, etaInfoText, location.latitude, location.longitude]);
 
@@ -429,7 +413,7 @@ export default function HomeScreen() {
     prevRefocusNonceRef.current = refocusNonce;
     if (!shouldRefocus) return;
 
-    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    const targetMap = mapRef.current;
     if (!targetMap) return;
 
     // Primer encuadre: la zona donde estas o donde guardaste lo ultimo. Buscar o filtrar: todo lo que coincide.
@@ -465,7 +449,7 @@ export default function HomeScreen() {
     hasAutoFocusedRef.current = true;
 
     return () => clearTimeout(timer);
-  }, [visibleIdsKey, activeFilter, searchQuery, mapExpanded, loading, visibleRestaurants, refocusNonce]);
+  }, [visibleIdsKey, activeFilter, searchQuery, loading, visibleRestaurants, refocusNonce]);
 
   // Al guardar un restaurante y volver al mapa, se enfoca el nuevo aunque quede lejos del resto.
   const knownIdsRef = useRef<Set<string> | null>(null);
@@ -475,12 +459,12 @@ export default function HomeScreen() {
     const target = newRestaurantToFocus(knownIdsRef.current, restaurants.filter((r) => r.createdBy === userId));
     knownIdsRef.current = new Set(restaurants.map((r) => r.id));
     if (!target) return;
-    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    const targetMap = mapRef.current;
     targetMap?.animateToRegion(
       { latitude: target.latitude, longitude: target.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 },
       350,
     );
-  }, [restaurants, loading, mapExpanded, userId]);
+  }, [restaurants, loading, userId]);
 
   const handleMyLocation = useCallback(async () => {
     setLocationAsked(true);
@@ -520,7 +504,7 @@ export default function HomeScreen() {
 
     // Keep the current zoom: only recenter, shifted so the marker sits above the bottom card.
     const selectedCoord = coordOffsets.get(r.id) ?? { latitude: r.latitude, longitude: r.longitude };
-    const targetMap = mapExpanded ? modalMapRef.current : mapRef.current;
+    const targetMap = mapRef.current;
     if (targetMap) {
       const latitudeDelta = (mapRegion ?? initialRegion).latitudeDelta;
       targetMap.animateCamera(
@@ -532,7 +516,7 @@ export default function HomeScreen() {
     setTimeout(() => {
       suppressMapPressRef.current = false;
     }, 260);
-  }, [visibleRestaurants, coordOffsets, mapRegion, initialRegion, mapExpanded]);
+  }, [visibleRestaurants, coordOffsets, mapRegion, initialRegion]);
 
   // "Ver en mapa" from MatchScreen: select the matched restaurant once it is visible.
   const handledFocusRef = useRef<string | null>(null);
@@ -543,8 +527,6 @@ export default function HomeScreen() {
     handledFocusRef.current = focusRestaurantId;
     handleMarkerPress(target);
   }, [focusRestaurantId, restaurantMap, handleMarkerPress]);
-
-  const pendingCount = useMemo(() => restaurants.filter((r) => !r.visited).length, [restaurants]);
 
   const handleMapPress = useCallback(() => {
     if (suppressMapPressRef.current) return;
@@ -619,7 +601,10 @@ export default function HomeScreen() {
 
   const mapProps = {
     initialRegion,
-    mapType: 'standard' as const,
+    // Apple Maps ignora customMapStyle: en iOS se pide claro y apagado, lo mas cerca del mapa crema del diseno.
+    mapType: (Platform.OS === 'ios' ? 'mutedStandard' : 'standard') as 'mutedStandard' | 'standard',
+    userInterfaceStyle: 'light' as const,
+    showsPointsOfInterests: false,
     showsUserLocation: false,
     showsMyLocationButton: false,
     showsCompass: false,
@@ -664,133 +649,84 @@ export default function HomeScreen() {
     coordOffsets,
     spiderOffsets,
     selectedId,
-    mapExpanded,
     hasSelection,
     markerTracks,
     handleMarkerPress,
   ]);
 
+  // Botones flotantes abajo a la derecha: guardar (+) y, encima, volver a mi ubicacion.
+  const fabBottom = FAB_BOTTOM_OFFSET + 8;
+  const avatarNames = members.length > 1 ? members.map(nameOf) : [];
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      {!mapExpanded && (
-        <View style={layoutStyles.mapFull}>
-          <ClusteredMapView
-            ref={mapRef}
-            style={{ flex: 1 }}
-            {...mapProps}
-            initialRegion={mapRegion ?? initialRegion}
-            customMapStyle={styleOfMap}
-          >
-            {markers}
-          </ClusteredMapView>
+    <View style={layoutStyles.mapFull}>
+      {/* Mapa de borde a borde: los controles flotan encima respetando la barra de estado. */}
+      <ClusteredMapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        {...mapProps}
+        initialRegion={mapRegion ?? initialRegion}
+        customMapStyle={styleOfMap}
+      >
+        {markers}
+      </ClusteredMapView>
 
-          <View style={layoutStyles.topOverlay}>
-            <View style={layoutStyles.topRow}>
-              <Pressable
-                style={layoutStyles.circleControl}
-                onPress={() => navigation.navigate('Tabs', { screen: 'Profile' })}
-                accessibilityRole="button"
-                accessibilityLabel="Perfil"
-              >
-                <Ionicons name="person-outline" size={18} color={colors['text-primary']} />
-              </Pressable>
+      <View style={[layoutStyles.topOverlay, { top: insets.top + 8 }]}>
+        <View style={layoutStyles.searchPill}>
+          <Ionicons name="search" size={18} color={colors['text-secondary']} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
+            placeholder="Buscar en esta zona"
+            placeholderTextColor={colors['text-secondary']}
+            style={layoutStyles.searchInput}
+          />
+          {avatarNames.length > 0 && <AvatarStack names={avatarNames} size={24} filled />}
+        </View>
 
-              <View style={layoutStyles.searchPill}>
-                <Ionicons name="search" size={16} color={colors['text-secondary']} />
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={(text) => dispatch({ type: 'patch', payload: { searchQuery: text } })}
-                  placeholder="Buscar en esta zona"
-                  placeholderTextColor={colors['text-secondary']}
-                  style={layoutStyles.searchInput}
-                />
-              </View>
+        <FilterButtons
+          floating
+          active={activeFilter}
+          onSelect={(value) =>
+            dispatch({
+              type: 'patch',
+              payload: { activeFilter: value, selectedId: null, spiderCenterId: null, refocusNonce: refocusNonce + 1 },
+            })
+          }
+        />
 
-              <Pressable
-                style={[layoutStyles.circleControl, locationButton.dimmed && layoutStyles.circleControlDim]}
-                onPress={handleMyLocation}
-                accessibilityRole="button"
-                accessibilityLabel={locationButton.label}
-              >
-                <Ionicons name="navigate" size={18} color={locationButton.dimmed ? colors['text-tertiary'] : colors['text-primary']} />
-              </Pressable>
-            </View>
+        {locationBanner && (
+          <LocationNotice notice={locationBanner} onDismiss={() => setLocationAsked(false)} />
+        )}
+      </View>
 
-            <View style={layoutStyles.filterRow}>
-              {IG_FILTERS.map((f) => {
-                const active = activeFilter === f.value;
-                return (
-                  <Pressable
-                    key={f.value}
-                    style={[layoutStyles.filterPill, active && layoutStyles.filterPillActive]}
-                    onPress={() =>
-                      dispatch({
-                        type: 'patch',
-                        payload: {
-                          activeFilter: f.value,
-                          selectedId: null,
-                          spiderCenterId: null,
-                          refocusNonce: refocusNonce + 1,
-                        },
-                      })
-                    }
-                  >
-                    <Ionicons name={f.icon} size={14} color={active ? colors['on-primary'] : colors['text-secondary']} />
-                    <Text style={[layoutStyles.filterText, active && layoutStyles.filterTextActive]}>{f.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {locationBanner && (
-              <LocationNotice notice={locationBanner} onDismiss={() => setLocationAsked(false)} />
-            )}
-          </View>
-
-          <Pressable
-            style={layoutStyles.expandButton}
-            onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: true } })}
-            accessibilityRole="button"
-            accessibilityLabel="Expandir mapa"
-          >
-            <Ionicons name="expand-outline" size={18} color={colors['text-primary']} />
-          </Pressable>
-
-          {loading && (
-            <View style={layoutStyles.loadingOverlay}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          )}
-
-          {visibleRestaurants.length === 0 && !error && !loading && (
-            <View style={layoutStyles.emptyOverlay}>
-              <Text style={layoutStyles.emptyTitle}>Tu mapa esta vacio</Text>
-              <Text style={layoutStyles.emptySubtitle}>Guarda tu primer restaurante para empezar</Text>
-            </View>
-          )}
-
-          {error && (
-            <View style={layoutStyles.errorBanner}>
-              <Text style={layoutStyles.errorText}>Error cargando restaurantes: {error}</Text>
-            </View>
-          )}
+      {loading && (
+        <View style={layoutStyles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
 
-      {!mapExpanded && !loading && pendingCount > 0 && (
-        <MatchEntryCard
-          pendingCount={pendingCount}
-          onPress={() => navigation.navigate('Match')}
-          bottomOffset={FAB_BOTTOM_OFFSET + 8}
-        />
+      {visibleRestaurants.length === 0 && !error && !loading && (
+        <View style={layoutStyles.emptyOverlay}>
+          <Text style={layoutStyles.emptyTitle}>Tu mapa esta vacio</Text>
+          <Text style={layoutStyles.emptySubtitle}>Guarda tu primer restaurante para empezar</Text>
+        </View>
       )}
 
-      {selectedRestaurant && !mapExpanded && (
+      {error && (
+        <View style={layoutStyles.errorBanner}>
+          <Text style={layoutStyles.errorText}>No pudimos cargar tus restaurantes. Revisa tu conexión.</Text>
+        </View>
+      )}
+
+      {selectedRestaurant && (
         <MapDetailCard
           restaurant={selectedRestaurant}
           translateY={cardTranslateY}
           metaLine={metaLine}
           etaLoading={etaLoading}
+          savedBy={savedByLabel(selectedRestaurant.createdBy, members, userId)}
+          avatarNames={avatarNames}
           onClose={dismissCard}
           onDetail={() => {
             navigation.navigate('Detail', { restaurantId: selectedRestaurant.id });
@@ -802,35 +738,19 @@ export default function HomeScreen() {
         />
       )}
 
-      <FAB onPress={() => navigation.navigate('Save')} bottomOffset={FAB_BOTTOM_OFFSET + 8} />
+      {!selectedRestaurant && (
+        <Pressable
+          style={[layoutStyles.locationButton, { bottom: fabBottom + FAB_SIZE + 12 }, locationButton.dimmed && layoutStyles.circleControlDim]}
+          onPress={handleMyLocation}
+          accessibilityRole="button"
+          accessibilityLabel={locationButton.label}
+        >
+          <Ionicons name="navigate" size={18} color={locationButton.dimmed ? colors['text-tertiary'] : colors['text-primary']} />
+        </Pressable>
+      )}
 
-      {/* ====== Fullscreen Map Modal ====== */}
-      <Modal
-        visible={mapExpanded}
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}
-      >
-        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <View style={layoutStyles.modalHeader}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar mapa" hitSlop={8} style={layoutStyles.closeButton} onPress={() => dispatch({ type: 'patch', payload: { mapExpanded: false } })}>
-              <Ionicons name="close" size={18} color={colors['text-primary']} />
-            </Pressable>
-            <Text style={layoutStyles.modalTitle}>Explorar mapa</Text>
-            <View style={{ width: 36 }} />
-          </View>
-          <ClusteredMapView
-            ref={modalMapRef}
-            style={{ flex: 1 }}
-            {...mapProps}
-            initialRegion={mapRegion ?? initialRegion}
-            customMapStyle={styleOfMap}
-          >
-            {markers}
-          </ClusteredMapView>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+      <FAB onPress={() => navigation.navigate('Save')} bottomOffset={fabBottom} />
+    </View>
   );
 }
 
@@ -839,72 +759,48 @@ function makeStyles(c: Colors) {
   const float = {
     backgroundColor: c.surface,
     shadowColor: c['text-primary'],
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
-    shadowRadius: 10,
+    shadowRadius: 20,
     elevation: 4,
   } as const;
   return StyleSheet.create({
     mapFull: { flex: 1, backgroundColor: c.background },
-    topOverlay: { position: 'absolute', top: 8, left: 12, right: 12, gap: 10 },
-    topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    topOverlay: { position: 'absolute', left: 12, right: 12, gap: 8 },
     searchPill: {
       ...float,
-      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      borderRadius: 22,
-      paddingHorizontal: 14,
-      height: 44,
+      gap: 10,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      minHeight: 48,
     },
-    searchInput: { flex: 1, color: c['text-primary'], fontSize: 15, paddingVertical: 0 },
-    circleControl: {
+    searchInput: { flex: 1, color: c['text-primary'], fontSize: 15, fontFamily: 'Figtree_400Regular', paddingVertical: 10 },
+    locationButton: {
       ...float,
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      position: 'absolute',
+      right: 24,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
       alignItems: 'center',
       justifyContent: 'center',
     },
     circleControlDim: { opacity: 0.6 },
-    filterRow: { flexDirection: 'row', gap: 8 },
-    filterPill: {
-      ...float,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      height: 34,
-      paddingHorizontal: 12,
-      borderRadius: 18,
-    },
-    filterPillActive: { backgroundColor: c.primary },
-    filterText: { color: c['text-secondary'], fontSize: 13, fontWeight: '600' },
-    filterTextActive: { color: c['on-primary'] },
     loadingOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
-    expandButton: {
-      ...float,
-      position: 'absolute',
-      top: 118,
-      right: 12,
-      width: 42,
-      height: 42,
-      borderRadius: 21,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     emptyOverlay: {
       ...float,
       position: 'absolute',
       left: 16,
       right: 16,
       bottom: 110,
-      borderRadius: 16,
+      borderRadius: 18,
       paddingHorizontal: 16,
       paddingVertical: 14,
     },
-    emptyTitle: { color: c['text-primary'], fontSize: 16, fontWeight: '700', marginBottom: 4 },
-    emptySubtitle: { color: c['text-secondary'], fontSize: 13 },
+    emptyTitle: { color: c['text-primary'], fontSize: 17, fontFamily: 'YoungSerif_400Regular', marginBottom: 4 },
+    emptySubtitle: { color: c['text-secondary'], fontSize: 13, fontFamily: 'Figtree_400Regular' },
     errorBanner: {
       position: 'absolute',
       left: 16,
@@ -916,22 +812,5 @@ function makeStyles(c: Colors) {
       paddingVertical: 10,
     },
     errorText: { color: c['on-danger'], fontSize: 13 },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      backgroundColor: c.background,
-    },
-    closeButton: {
-      ...float,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    modalTitle: { fontSize: 16, fontWeight: '700', color: c['text-primary'] },
   });
 }

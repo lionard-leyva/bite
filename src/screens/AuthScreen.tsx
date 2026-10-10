@@ -174,7 +174,7 @@ export default function AuthScreen() {
                   ? 'Usuario deshabilitado'
                   : e.code === 'auth/network-request-failed'
                     ? 'Sin conexion. Revisa tu internet.'
-                    : e.message ?? 'Error de autenticacion';
+                    : 'No pudimos entrar. Inténtalo de nuevo en un momento.';
       Alert.alert('Error', msg);
       dispatch({ type: 'patch', payload: { loading: false } });
     }
@@ -188,7 +188,6 @@ export default function AuthScreen() {
   return (
     <>
       <KeyboardForm
-        avoid={false}
         containerClassName="flex-1 bg-background"
         scrollClassName="px-6"
         contentContainerStyle={{ flexGrow: 1, paddingTop: 24 + insets.top, paddingBottom: 32 }}

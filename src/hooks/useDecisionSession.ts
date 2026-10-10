@@ -8,6 +8,7 @@ import {
 } from '../services/decisionService';
 import { findMatch } from '../utils/matchLogic';
 import type { DecisionSession, Vote, VotesByUser } from '../types';
+import { friendlyMessage } from '../utils/userError';
 
 interface UseDecisionSessionParams {
   listId: string;
@@ -57,7 +58,7 @@ export function useDecisionSession({
         });
         setSession(s);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'No se pudo iniciar la ronda');
+        setError(friendlyMessage(e, 'No se pudo iniciar la ronda. Inténtalo de nuevo en un momento.'));
       } finally {
         setLoading(false);
       }
@@ -78,7 +79,7 @@ export function useDecisionSession({
       (s) => {
         if (s) setSession(s);
       },
-      (err) => setError(err.message),
+      (err) => setError(friendlyMessage(err, 'No pudimos conectar con la ronda. Inténtalo de nuevo en un momento.')),
     );
   }, [listId]);
 
@@ -88,7 +89,7 @@ export function useDecisionSession({
     setVotes({});
     setPendingVotes({});
     if (!roundId) return;
-    return subscribeVotes(listId, roundId, setVotes, (err) => setError(err.message));
+    return subscribeVotes(listId, roundId, setVotes, (err) => setError(friendlyMessage(err, 'No pudimos conectar con la ronda. Inténtalo de nuevo en un momento.')));
   }, [listId, roundId]);
 
   const mergedVotes = useMemo<VotesByUser>(
@@ -100,7 +101,7 @@ export function useDecisionSession({
     if (!session || session.status !== 'ACTIVE') return;
     const match = findMatch(mergedVotes, session.participants, session.restaurantIds);
     if (match) {
-      markMatched(session.listId, session.roundId, match).catch((err) => setError(err.message));
+      markMatched(session.listId, session.roundId, match).catch((err) => setError(friendlyMessage(err, 'No pudimos conectar con la ronda. Inténtalo de nuevo en un momento.')));
     }
   }, [mergedVotes, session]);
 
@@ -114,7 +115,7 @@ export function useDecisionSession({
         userId,
         restaurantId,
         vote: v,
-      }).catch((err) => setError(err.message));
+      }).catch((err) => setError(friendlyMessage(err, 'No pudimos conectar con la ronda. Inténtalo de nuevo en un momento.')));
     },
     [session, userId],
   );

@@ -27,6 +27,7 @@ jest.mock('../hooks/useLocation', () => ({
   useLocation: () => ({ latitude: null, longitude: null, loading: false, error: null, refresh: jest.fn() }),
 }));
 jest.mock('../hooks/useNavigationETA', () => ({ useNavigationETA: () => ({ eta: null }) }));
+jest.mock('../services/restaurantService', () => ({ countPendingRestaurants: async () => 0 }));
 jest.mock('../services/listService', () => ({
   getListMembers: async () => [
     { userId: 'ana', email: 'ana@x.com', displayName: 'Ana' },

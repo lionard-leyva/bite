@@ -74,21 +74,37 @@ defineFeature(feature, (test) => {
     });
   });
 
-  test('La tarjeta de la lista añade el autor solo cuando es otra persona', ({ given, when, then }) => {
-    let author: string | null = null;
-    let pantalla: ReturnType<typeof render>;
-    given(/^una tarjeta de restaurante guardada (.*) (por Bea|por Ana misma|sin autor conocido)$/, (_cuando: string, quien: string) => {
-      author = quien === 'por Bea' ? 'Bea' : null;
+  const tarjeta = (given: any, when: any) => {
+    let pantalla: ReturnType<typeof render> | null = null;
+    let autor = '';
+    given(/^una tarjeta de restaurante de la lista de Ana y Bea guardada (por Bea|por Ana misma|sin autor conocido)$/, (quien: string) => {
+      autor = quien === 'por Bea' ? 'bea' : quien === 'por Ana misma' ? 'ana' : 'alguien';
     });
     when('Ana mira la lista', () => {
+      const miembros = [
+        { userId: 'ana', email: 'ana@x.com', displayName: 'Ana' },
+        { userId: 'bea', email: 'bea@x.com', displayName: 'Bea' },
+      ];
       const sitio: Restaurant = {
         id: 'r1', name: 'Casa Lucio', address: 'Cava Baja 35', latitude: 40.4, longitude: -3.7, rating: 4, note: '',
-        photoURL: null, photoURLs: [], visited: false, createdBy: 'bea', createdAt: new Date(), updatedAt: new Date(), listId: 'L1',
+        photoURL: null, photoURLs: [], visited: false, createdBy: autor, createdAt: new Date(), updatedAt: new Date(), listId: 'L1',
       };
-      pantalla = render(<RestaurantCard restaurant={sitio} onPress={() => {}} author={author} />);
+      pantalla = render(<RestaurantCard restaurant={sitio} onPress={() => {}} savedBy={savedByLabel(autor, miembros, 'ana')} />);
     });
+    return () => pantalla!;
+  };
+
+  test('La tarjeta de la lista dice quién lo guardó, como en el diseño', ({ given, when, then }) => {
+    const pantalla = tarjeta(given, when);
     then(/^la tarjeta dice "(.*)"$/, (texto: string) => {
-      expect(pantalla.getByText(texto)).toBeTruthy();
+      expect(pantalla().getByText(texto)).toBeTruthy();
+    });
+  });
+
+  test('Sin autor conocido la tarjeta no dice quién lo guardó', ({ given, when, then }) => {
+    const pantalla = tarjeta(given, when);
+    then('la tarjeta no dice quién lo guardó', () => {
+      expect(pantalla().queryByText(/Guardado por/)).toBeNull();
     });
   });
 });

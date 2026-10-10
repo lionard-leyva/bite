@@ -1,5 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useState, useReducer, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,10 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   ScrollView,
+  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import * as Location from 'expo-location';
-import Constants from 'expo-constants';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { doc, getDoc, type Timestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -22,31 +20,35 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
 import { reverseGeocode } from '../services/locationService';
 import { resolveSharedText } from '../services/shareService';
+import { searchPlaces, searchAddresses, placeDetails, newSessionToken, type PlaceSuggestion } from '../services/placesService';
 import { parseSharedText, sourceLabel, cleanUrl, type ShareSource } from '../utils/shareParser';
+import { shouldSearch, saveBlocker, farAwayKm, formatKm, type LatLng } from '../utils/saveRules';
 import { saveRestaurant } from '../services/restaurantService';
 import { saveLocalRestaurant, updateLocalRestaurant, getLocalRestaurants } from '../services/localStorageService';
 import type { RootStackParamList } from '../navigation/types';
 import StarRating from '../components/StarRating';
-import PriceSlider from '../components/PriceSlider';
+import PriceChips from '../components/PriceChips';
 import PhotoPicker from '../components/PhotoPicker';
 import DragHandle from '../components/DragHandle';
-import { PRICE_DEFAULT } from '../config/constants';
+import MiniMap from '../components/MiniMap';
+import { PRICE_DEFAULT, PLACES_API_DEBOUNCE_MS } from '../config/constants';
 import KeyboardForm from '../components/KeyboardForm';
-
-const MAPS_KEY =
-  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
-  '';
-console.log('[SaveScreen] MAPS_KEY length', MAPS_KEY?.length ?? 0);
-
 import { useTheme } from '../theme/ThemeProvider';
+import { withAlpha } from '../theme/color';
+import { friendlyMessage } from '../utils/userError';
 
 type SaveRoute = RouteProp<RootStackParamList, 'Save'>;
 
-function SectionLabel({ children }: { children: string }) {
+const SEARCH_DOWN = 'Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está.';
+// Sin ubicacion de Ana, "Marcar en el mapa" empieza en la Puerta del Sol y se arrastra desde ahi.
+const DEFAULT_CENTER: LatLng = { latitude: 40.4168, longitude: -3.7038 };
+
+function SectionLabel({ children, required = false }: { children: string; required?: boolean }) {
+  const { colors } = useTheme();
   return (
-    <Text className="mb-1 text-label font-medium uppercase tracking-wider text-text-tertiary">
+    <Text className="mb-2 text-label font-sans-bold uppercase tracking-wider text-text-tertiary">
       {children}
+      {required && <Text style={{ color: colors.primary }}> obligatorio</Text>}
     </Text>
   );
 }
@@ -58,40 +60,17 @@ function SaveHeader({ title, onClose }: { title: string; onClose: () => void }) 
   return (
     <View style={{ paddingTop: Platform.OS === 'android' ? insets.top : 0 }}>
       <DragHandle />
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 16,
-          paddingBottom: 8,
-        }}
-      >
-        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar"
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 8 }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar"
           onPress={onClose}
-          hitSlop={12}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            backgroundColor: colors.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          hitSlop={8}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}
         >
-          <Ionicons name="close" size={18} color={colors['text-primary']} />
+          <Ionicons name="close" size={20} color={colors['text-primary']} />
         </Pressable>
-        <Text
-          style={{
-            flex: 1,
-            textAlign: 'center',
-            fontSize: 17,
-            fontFamily: 'YoungSerif_400Regular',
-            color: colors['text-primary'],
-          }}
-        >
-          {title}
-        </Text>
-        <View style={{ width: 32 }} />
+        <Text style={{ flex: 1, fontSize: 24, fontFamily: 'YoungSerif_400Regular', color: colors['text-primary'] }}>{title}</Text>
       </View>
     </View>
   );
@@ -115,8 +94,7 @@ function SharedFromBanner({ banner }: { banner: ShareBanner }) {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginHorizontal: 20,
-        marginTop: 4,
+        marginBottom: 12,
         paddingHorizontal: 12,
         paddingVertical: 10,
         borderRadius: 12,
@@ -134,6 +112,90 @@ function SharedFromBanner({ banner }: { banner: ShareBanner }) {
   );
 }
 
+function Notice({ text, action }: { text: string; action?: { label: string; onPress: () => void } }) {
+  const { colors } = useTheme();
+  return (
+    <View
+      accessibilityRole="alert"
+      style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}
+    >
+      <Ionicons name="alert-circle-outline" size={22} color={colors.warning} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text style={{ fontSize: 15, lineHeight: 22, color: colors['text-primary'] }}>{text}</Text>
+        {action && (
+          <Pressable onPress={action.onPress} accessibilityRole="button" hitSlop={8}>
+            <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 14, color: colors.primary }}>{action.label}</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function SuggestionList({
+  items,
+  onPick,
+  footer,
+}: {
+  items: PlaceSuggestion[];
+  onPick: (s: PlaceSuggestion) => void;
+  footer?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  if (items.length === 0 && !footer) return null;
+  return (
+    <View style={{ marginTop: 8, padding: 6, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}>
+      {items.map((s) => (
+        <Pressable
+          key={s.id}
+          onPress={() => onPick(s)}
+          accessibilityRole="button"
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, backgroundColor: pressed ? colors['primary-light'] : 'transparent' })}
+        >
+          <Ionicons name="location-outline" size={18} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: 'Figtree_600SemiBold', fontSize: 15, color: colors['text-primary'] }}>{s.name}</Text>
+            {!!s.secondary && (
+              <Text style={{ fontSize: 13, color: colors['text-secondary'] }}>
+                {s.distanceMeters != null ? `${s.secondary} · ${formatKm(s.distanceMeters / 1000)}` : s.secondary}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      ))}
+      {footer}
+    </View>
+  );
+}
+
+function ChoiceButton({ label, icon, onPress }: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{ flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+    >
+      <Ionicons name={icon} size={16} color={colors['text-primary']} />
+      <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 14, color: colors['text-primary'] }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function StatusButton({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={{ flex: 1, minHeight: 46, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? colors['text-primary'] : colors.surface, borderWidth: selected ? 0 : 1, borderColor: colors.border }}
+    >
+      <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 15, color: selected ? colors.surface : colors['text-primary'] }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function PhotoSection({
   photoUris,
   onPhotoAdded,
@@ -147,92 +209,58 @@ function PhotoSection({
     <>
       <SectionLabel>Foto (opcional)</SectionLabel>
       <View className="mb-6">
-        <PhotoPicker
-          photoUris={photoUris}
-          onPhotoAdded={onPhotoAdded}
-          onPhotoRemoved={onPhotoRemoved}
-        />
+        <PhotoPicker photoUris={photoUris} onPhotoAdded={onPhotoAdded} onPhotoRemoved={onPhotoRemoved} />
       </View>
     </>
   );
 }
 
+// Dos pasos: buscar el sitio (se rellena solo) o anadirlo a mano marcando donde esta. Nunca se adivina la ubicacion.
 export default function SaveScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation();
   const route = useRoute<SaveRoute>();
   const { userId, listId, skipMode } = useAuth();
-  const location = useUserLocation();
-  const [isSearching, setIsSearching] = useState(false);
+  const userLocation = useUserLocation();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const noteRef = useRef<TextInput>(null);
 
   const editId = route.params?.restaurantId ?? null;
   const sharedText = route.params?.sharedText ?? null;
   const [shareBanner, setShareBanner] = useState<ShareBanner | null>(null);
-  interface SaveFormState {
-    isEditMode: boolean;
-    name: string;
-    address: string;
-    latitude: number | null;
-    longitude: number | null;
-    rating: number;
-    visited: boolean;
-    note: string;
-    photoUris: string[];
-    pricePerPerson: number;
-  }
 
-  type SaveFormAction =
-    | { type: 'patch'; payload: Partial<SaveFormState> }
-    | { type: 'reset' };
+  const [step, setStep] = useState<'search' | 'form'>(editId ? 'form' : 'search');
+  // picked: el sitio salio del buscador (nombre, direccion y coordenadas de Google); si no, se marca a mano.
+  const [picked, setPicked] = useState(false);
+  const [searchDown, setSearchDown] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [addressTyped, setAddressTyped] = useState(false);
+  const [locationHint, setLocationHint] = useState('');
+  const sessionRef = useRef(newSessionToken());
 
-  const initialForm: SaveFormState = {
-    isEditMode: false,
-    name: '',
-    address: '',
-    latitude: null,
-    longitude: null,
-    rating: 0,
-    visited: true,
-    note: '',
-    photoUris: [],
-    pricePerPerson: PRICE_DEFAULT,
-  };
-
-  function formReducer(state: SaveFormState, action: SaveFormAction): SaveFormState {
-    switch (action.type) {
-      case 'patch':
-        return { ...state, ...action.payload };
-      case 'reset':
-        return initialForm;
-      default:
-        return state;
-    }
-  }
-
-  const [form, dispatchForm] = useReducer(formReducer, initialForm);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState<string | undefined>(undefined);
+  const [location, setLocation] = useState<LatLng | null>(null);
+  const [pinToConfirm, setPinToConfirm] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [visited, setVisited] = useState(false);
+  const [note, setNote] = useState('');
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [pricePerPerson, setPricePerPerson] = useState<number>(PRICE_DEFAULT);
   const [saving, setSaving] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [placesError, setPlacesError] = useState('');
-  const [placeSelected, setPlaceSelected] = useState(false);
-  const [gpsState, setGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
-  const nameManualRef = useRef<TextInput>(null);
-  const addressRef = useRef<TextInput>(null);
-  const noteRef = useRef<TextInput>(null);
-  const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const [farAway, setFarAway] = useState<number | null>(null);
+  // Sin ubicacion de Ana, el pin va a Sol: antes de guardar hay que confirmar que es ahi (ADD-08).
+  const [askPinConfirm, setAskPinConfirm] = useState(false);
 
-  const {
-    isEditMode,
-    name,
-    address,
-    latitude,
-    longitude,
-    rating,
-    visited,
-    note,
-    photoUris,
-    pricePerPerson,
-  } = form;
+  const near: LatLng | null =
+    userLocation.latitude != null && userLocation.longitude != null
+      ? { latitude: userLocation.latitude, longitude: userLocation.longitude }
+      : null;
 
   // One-shot read for edit mode — no listener, no re-renders on other screens
   const hasPrePopulated = useRef(false);
@@ -248,7 +276,7 @@ export default function SaveScreen() {
           data = locals.find((r) => r.id === editId);
         } else {
           const snap = await getDoc(doc(db, 'restaurants', editId));
-          if (snap.exists()) {
+          if (snap?.exists()) {
             const d = snap.data();
             const toDate = (v: Timestamp | Date | null | undefined) => {
               if (!v) return new Date();
@@ -260,21 +288,15 @@ export default function SaveScreen() {
           }
         }
         if (!data) return;
-        dispatchForm({
-          type: 'patch',
-          payload: {
-            isEditMode: true,
-            name: data.name,
-            address: data.address,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            rating: data.rating,
-            visited: data.visited,
-            note: data.note,
-            photoUris: data.photoURLs?.length ? data.photoURLs : (data.photoURL ? [data.photoURL] : []),
-            pricePerPerson: data.pricePerPerson ?? PRICE_DEFAULT,
-          },
-        });
+        setIsEditMode(true);
+        setName(data.name ?? '');
+        setAddress(data.address ?? '');
+        if (data.latitude != null && data.longitude != null) setLocation({ latitude: data.latitude, longitude: data.longitude });
+        setRating(data.rating ?? 0);
+        setVisited(!!data.visited);
+        setNote(data.note ?? '');
+        setPhotoUris(data.photoURLs?.length ? data.photoURLs : data.photoURL ? [data.photoURL] : []);
+        setPricePerPerson(data.pricePerPerson ?? PRICE_DEFAULT);
       } catch (err) {
         console.warn('[SaveScreen] Failed to load restaurant for edit:', err);
       }
@@ -307,24 +329,14 @@ export default function SaveScreen() {
         if (cancelled) return;
       }
       const fromSocial = parsed.source === 'instagram' || parsed.source === 'tiktok';
-      dispatchForm({ type: 'reset' });
-      dispatchForm({
-        type: 'patch',
-        payload: {
-          name: parsed.name ?? '',
-          address: addr,
-          latitude: lat,
-          longitude: lng,
-          visited: false,
-          note:
-            fromSocial && parsed.url
-              ? `Visto en ${sourceLabel(parsed.source)}: ${cleanUrl(parsed.url)}`.slice(0, 200)
-              : '',
-        },
-      });
-      // With the Maps pin we already have the place; otherwise confirm it in the Places search
-      setPlaceSelected(false);
-      setManualMode(located);
+      setName(parsed.name ?? '');
+      setAddress(addr);
+      setLocation(located ? { latitude: lat, longitude: lng } : null);
+      setVisited(false);
+      setNote(fromSocial && parsed.url ? `Visto en ${sourceLabel(parsed.source)}: ${cleanUrl(parsed.url)}`.slice(0, 200) : '');
+      setPicked(false);
+      // With the Maps pin we already have the place; otherwise confirm it in the search
+      setStep(located ? 'form' : 'search');
       setShareBanner({ loading: false, source: parsed.source, located, hasName: !!parsed.name });
     })();
 
@@ -333,122 +345,188 @@ export default function SaveScreen() {
     };
   }, [sharedText, editId]);
 
-  const placesRef = useRef<any>(null);
-
-  function formatAddressFromComponents(components: any[] | undefined, fallback: string) {
-    if (!components || components.length === 0) return fallback;
-
-    const pick = (type: string) =>
-      components.find((c) => c.types?.includes(type))?.long_name || '';
-
-    const streetNumber = pick('street_number');
-    const route = pick('route');
-    const postal = pick('postal_code');
-    const district =
-      pick('sublocality') ||
-      pick('sublocality_level_1') ||
-      pick('neighborhood');
-    const city =
-      pick('locality') || pick('administrative_area_level_1');
-
-    const line1 = [route, streetNumber].filter(Boolean).join(' ');
-    const line2 = [district, postal].filter(Boolean).join(' ');
-    const line3 = [city].filter(Boolean).join(' ');
-
-    return [line1, line2, line3].filter(Boolean).join(', ') || fallback;
-  }
-
-  function handlePlaceSelected(data: any, details: any) {
-    const nextName = data.structured_formatting?.main_text ?? data.description;
-    const fallbackAddress = details?.formatted_address ?? data.description;
-    const nextAddress = formatAddressFromComponents(details?.address_components, fallbackAddress);
-    const placeLat = details?.geometry?.location?.lat;
-    const placeLng = details?.geometry?.location?.lng;
-    dispatchForm({
-      type: 'patch',
-      payload: {
-        name: nextName,
-        address: nextAddress,
-        ...(placeLat != null && placeLng != null
-          ? { latitude: placeLat, longitude: placeLng }
-          : {}),
-      },
-    });
-    setPlaceSelected(true);
-    setManualMode(false);
-  }
-
-  async function handleGpsFill() {
-    if (!location.latitude || !location.longitude) return;
-    setGpsState('loading');
-    try {
-      const addr = await reverseGeocode(location.latitude, location.longitude);
-      if (addr) {
-        dispatchForm({ type: 'patch', payload: { address: addr } });
-        setGpsState('filled');
-      } else {
-        setGpsState('idle');
-      }
-    } catch {
-      setGpsState('idle');
-    }
-  }
-
-  async function handleSave() {
-    if (rating === 0) {
-      Alert.alert('Rating', 'Selecciona al menos 1 estrella');
+  // Buscador de sitios: desde 3 letras, cerca de Ana, esperando a que deje de escribir.
+  useEffect(() => {
+    if (step !== 'search' || !shouldSearch(name)) {
+      setSuggestions([]);
+      setSearching(false);
       return;
     }
-
-    const finalName = name.trim();
-    if (!finalName) {
-      Alert.alert('Nombre', 'Introduce el nombre del restaurante');
-      return;
-    }
-
-    setSaving(true);
-
-    let finalLat = latitude;
-    let finalLng = longitude;
-
-    // 1) If no coords from Places selection, geocode the name/address
-    if (finalLat == null || finalLng == null) {
-      const queryAddress = address.trim() || finalName;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setSearching(true);
       try {
-        const results = await Location.geocodeAsync(queryAddress);
-        if (results.length > 0) {
-          finalLat = results[0].latitude;
-          finalLng = results[0].longitude;
-        }
-      } catch (_) {
-        // geocoding failed
+        const found = await searchPlaces(name.trim(), near, sessionRef.current);
+        if (!cancelled) setSuggestions(found);
+      } catch (err) {
+        if (cancelled) return;
+        console.warn('[SaveScreen] Place search failed:', err);
+        goManual(true);
+      } finally {
+        if (!cancelled) setSearching(false);
       }
-    }
+    }, PLACES_API_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // near cambia de objeto en cada render: se compara por coordenadas
+  }, [step, name, near?.latitude, near?.longitude]);
 
-    // 2) Last resort: use GPS location if geocoding failed
-    if (finalLat == null || finalLng == null) {
-      if (location.latitude != null && location.longitude != null) {
-        finalLat = location.latitude;
-        finalLng = location.longitude;
-      }
-    }
-
-    if (finalLat == null || finalLng == null) {
-      setSaving(false);
-      Alert.alert(
-        'Ubicacion',
-        'No se pudo determinar la ubicacion del restaurante. Intenta usar el buscador o introduce una direccion mas precisa.',
-      );
+  // Direcciones que existen, mientras Ana escribe la direccion a mano
+  useEffect(() => {
+    if (step !== 'form' || picked || !addressTyped || !shouldSearch(address)) {
+      setAddressSuggestions([]);
       return;
     }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const found = await searchAddresses(address.trim(), near, sessionRef.current);
+        if (!cancelled) setAddressSuggestions(found);
+      } catch (err) {
+        // Sin sugerencias de direccion quedan "Usar mi ubicacion" y "Marcar en el mapa"
+        if (!cancelled) setAddressSuggestions([]);
+        console.warn('[SaveScreen] Address search failed:', err);
+      }
+    }, PLACES_API_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [step, picked, addressTyped, address, near?.latitude, near?.longitude]);
+
+  function goManual(becauseSearchIsDown = false) {
+    setStep('form');
+    setPicked(false);
+    setSuggestions([]);
+    if (becauseSearchIsDown) {
+      setSearchDown(true);
+      // Sin buscador el pin empieza donde esta Ana, para arrastrarlo al sitio
+      if (near) setLocation((current) => current ?? near);
+    }
+  }
+
+  function backToSearch() {
+    setPicked(false);
+    setLocation(null);
+    setPinToConfirm(false);
+    setAddress('');
+    setCity(undefined);
+    setStep('search');
+  }
+
+  // Un fallo puntual (red, tiempo) no deja a Ana sin buscador para siempre
+  function retrySearch() {
+    setSearchDown(false);
+    backToSearch();
+  }
+
+  async function pickPlace(s: PlaceSuggestion) {
+    try {
+      const d = await placeDetails(s.id, sessionRef.current);
+      setName(d.name || s.name);
+      setAddress(d.address || s.secondary);
+      setCity(d.city);
+      setLocation({ latitude: d.latitude, longitude: d.longitude });
+      setPinToConfirm(false);
+      setPicked(true);
+      setStep('form');
+    } catch (err) {
+      console.warn('[SaveScreen] Place details failed:', err);
+      setName(s.name);
+      goManual(true);
+    } finally {
+      sessionRef.current = newSessionToken();
+    }
+  }
+
+  async function pickAddress(s: PlaceSuggestion) {
+    setAddressTyped(false);
+    setAddressSuggestions([]);
+    try {
+      const d = await placeDetails(s.id, sessionRef.current);
+      setAddress(d.address || s.name);
+      setCity(d.city);
+      setLocation({ latitude: d.latitude, longitude: d.longitude });
+      setPinToConfirm(false);
+      setLocationHint('');
+    } catch (err) {
+      console.warn('[SaveScreen] Address details failed:', err);
+      setLocationHint('No pudimos ubicar esa dirección. Usa tu ubicación o márcalo en el mapa.');
+    } finally {
+      sessionRef.current = newSessionToken();
+    }
+  }
+
+  async function useMyLocation() {
+    const coords = (await userLocation.refresh()) ?? near;
+    if (!coords) {
+      setLocationHint('No sabemos dónde estás. Márcalo en el mapa.');
+      return;
+    }
+    setLocationHint('');
+    await placePin({ latitude: coords.latitude, longitude: coords.longitude });
+  }
+
+  // La direccion siempre es la del pin: al moverlo se pide la del nuevo punto (o se vacia si no hay).
+  async function placePin(next: LatLng) {
+    setLocation(next);
+    setPinToConfirm(false);
+    setCity(undefined);
+    let addr: string | null = null;
+    try {
+      addr = await reverseGeocode(next.latitude, next.longitude);
+    } catch {
+      // the pin is enough to save
+    }
+    setAddress(addr ?? '');
+  }
+
+  function markOnMap() {
+    setLocationHint('');
+    if (location) return;
+    if (near) {
+      void placePin(near);
+      return;
+    }
+    // Sin saber donde esta Ana, el pin sale en un punto por defecto y hay que llevarlo al sitio antes de guardar
+    setLocation(DEFAULT_CENTER);
+    setPinToConfirm(true);
+    setCity(undefined);
+  }
+
+  function movePin(next: LatLng) {
+    void placePin(next);
+  }
+
+  const blocker = saveBlocker({ name, location, rating });
+
+  async function handleSave(confirmedFar = false) {
+    if (blocker || !location) return;
+    if (!confirmedFar) {
+      const km = farAwayKm(location, near);
+      if (km != null) {
+        setFarAway(km);
+        return;
+      }
+      if (pinToConfirm) {
+        setAskPinConfirm(true);
+        return;
+      }
+    }
+    setFarAway(null);
+    setAskPinConfirm(false);
+    setSaving(true);
+    const finalName = name.trim();
     try {
       if (skipMode) {
         const localData = {
           id: editId ?? Date.now().toString(36),
           name: finalName,
-          address: address || '',
-          latitude: finalLat,
-          longitude: finalLng,
+          address: address.trim(),
+          latitude: location.latitude,
+          longitude: location.longitude,
           rating,
           note: note.trim(),
           visited,
@@ -469,9 +547,9 @@ export default function SaveScreen() {
         await saveRestaurant({
           id: editId ?? undefined,
           name: finalName,
-          address: address || '',
-          latitude: finalLat,
-          longitude: finalLng,
+          address: address.trim(),
+          latitude: location.latitude,
+          longitude: location.longitude,
           rating,
           note: note.trim(),
           visited,
@@ -482,14 +560,23 @@ export default function SaveScreen() {
         });
       }
       navigation.goBack();
-    } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo guardar');
+    } catch (e: unknown) {
+      Alert.alert('No se pudo guardar', friendlyMessage(e, 'Inténtalo de nuevo en un momento.'));
     } finally {
       setSaving(false);
     }
   }
 
-  const canSave = rating > 0 && (name.trim().length > 0 || address.length > 0);
+  function changeLocationAfterWarning() {
+    setFarAway(null);
+    setAskPinConfirm(false);
+    // El sitio elegido pasa a editarse a mano: el pin se puede arrastrar o elegir otra direccion
+    setPicked(false);
+  }
+
+  const title = isEditMode ? 'Editar restaurante' : 'Guardar restaurante';
+  const farTitle = farAway != null ? `Este sitio está ${city ? `en ${city}, ` : ''}a ${formatKm(farAway)} de ti` : '¿Está aquí?';
+  const sheetOpen = farAway != null || askPinConfirm;
 
   return (
     <KeyboardAvoidingView
@@ -497,337 +584,217 @@ export default function SaveScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={60}
     >
-      <SaveHeader
-        title={isEditMode ? 'Editar restaurante' : 'Guardar restaurante'}
-        onClose={() => navigation.goBack()}
-      />
+      <SaveHeader title={title} onClose={() => navigation.goBack()} />
 
-      {shareBanner && <SharedFromBanner banner={shareBanner} />}
+      <KeyboardForm
+        avoid={false}
+        scrollRef={scrollRef}
+        scrollClassName="flex-1 px-5"
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 + insets.bottom }}
+      >
+        {shareBanner && <SharedFromBanner banner={shareBanner} />}
 
-      <View className="px-5 pt-4">
-        {/* Restaurant name */}
-        <SectionLabel>Restaurante</SectionLabel>
-        {!manualMode && MAPS_KEY ? (
-          <View className="z-10 mb-4">
-            <GooglePlacesAutocomplete
-              ref={placesRef}
-              placeholder="Nombre del restaurante..."
-              fetchDetails
-              listViewDisplayed={isSearching}
-              onPress={(data, details) => {
-                handlePlaceSelected(data, details);
-                setIsSearching(false);
-              }}
-              onFail={(err) => {
-                console.warn('[SaveScreen] Places autocomplete failed:', err);
-                setPlacesError('No se pudo cargar sugerencias. Revisa tu conexion o la API key.');
-                setIsSearching(false);
-                setManualMode(true);
-              }}
-              query={{
-                key: MAPS_KEY,
-                language: 'es',
-                components: 'country:es',
-                location:
-                  location.latitude != null && location.longitude != null
-                    ? `${location.latitude},${location.longitude}`
-                    : '40.4168,-3.7038',
-                radius: 30000,
-                strictbounds: true,
-              }}
-              nearbyPlacesAPI="GoogleReverseGeocoding"
-              currentLocation={false}
-              styles={{
-                container: { flex: 0 },
-                textInput: {
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 12,
-                  paddingHorizontal: 16,
-                  minHeight: 48,
-                  fontSize: 16,
-                  lineHeight: 24,
-                  backgroundColor: colors.surface,
-                  color: colors['text-primary'],
-                  textAlignVertical: 'center',
-                },
-                listView: {
-                  marginTop: 8,
-                  backgroundColor: colors.surface,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  overflow: 'hidden',
-                  shadowColor: colors['text-primary'],
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 12,
-                  elevation: 6,
-                },
-                row: {
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  backgroundColor: colors.surface,
-                },
-                separator: {
-                  height: 1,
-                  backgroundColor: colors.border,
-                },
-                description: {
-                  color: colors['text-primary'],
-                  fontSize: 14,
-                },
-                poweredContainer: { display: 'none' },
-              }}
-              textInputProps={{
-                value: name,
-                onFocus: () => {
-                  setIsSearching(true);
-                  if (placesError) setPlacesError('');
-                },
-                onBlur: () => setIsSearching(false),
-                onChangeText: (text) => {
-                  dispatchForm({ type: 'patch', payload: { name: text } });
-                  if (!isSearching) setIsSearching(true);
-                  if (placeSelected) {
-                    setPlaceSelected(false);
-                    dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
-                  }
-                },
-                placeholderTextColor: colors['text-tertiary'],
-                returnKeyType: 'next',
-                onSubmitEditing: () => addressRef.current?.focus(),
-              }}
+        {step === 'search' ? (
+          <View>
+            <SectionLabel>Busca el restaurante</SectionLabel>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, borderRadius: 14, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.surface, paddingHorizontal: 14 }}>
+              <Ionicons name="search" size={18} color={colors['text-secondary']} />
+              <TextInput
+                style={{ flex: 1, fontSize: 17, lineHeight: 24, minHeight: 48, color: colors['text-primary'], textAlignVertical: 'center' }}
+                placeholder="Nombre del restaurante"
+                placeholderTextColor={colors['text-tertiary']}
+                maxLength={120}
+                value={name}
+                onChangeText={setName}
+                autoFocus={!sharedText}
+                returnKeyType="search"
+                accessibilityLabel="Busca el restaurante"
+              />
+              {searching && <ActivityIndicator testID="buscando" size="small" color={colors['text-secondary']} />}
+            </View>
+            <SuggestionList
+              items={suggestions}
+              onPick={pickPlace}
+              footer={
+                <Pressable
+                  onPress={() => goManual()}
+                  accessibilityRole="button"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderTopWidth: suggestions.length ? 1 : 0, borderColor: colors.border }}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.primary} />
+                  <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 15, color: colors.primary }}>¿No aparece? Añádelo a mano</Text>
+                </Pressable>
+              }
             />
-            {!!placesError && (
-              <Text className="mt-2 text-xs text-danger">
-                {placesError}
+            <Text style={{ marginTop: 12, fontSize: 13, lineHeight: 19, color: colors['text-secondary'] }}>
+              Sugerencias cerca de ti desde 3 letras. Elige una y se rellenan solos el nombre, la dirección y el sitio en el mapa.
+            </Text>
+          </View>
+        ) : (
+          <View>
+            {searchDown && <Notice text={SEARCH_DOWN} action={{ label: 'Volver a buscar', onPress: retrySearch }} />}
+
+            {picked && location ? (
+              <View style={{ marginBottom: 16, padding: 8, borderRadius: 18, backgroundColor: colors.surface }}>
+                <MiniMap location={location} label={name} height={150} />
+                <View style={{ paddingHorizontal: 6, paddingTop: 8, paddingBottom: 4, gap: 4 }}>
+                  <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 22, color: colors['text-primary'] }}>{name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="location-outline" size={16} color={colors.visited} />
+                    <Text style={{ flex: 1, fontSize: 14, color: colors['text-secondary'] }}>{address}</Text>
+                    <Pressable onPress={backToSearch} accessibilityRole="button" accessibilityLabel="Cambiar el sitio" hitSlop={8}>
+                      <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 14, color: colors.primary }}>Cambiar</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={{ marginBottom: 16 }}>
+                <SectionLabel>Nombre</SectionLabel>
+                <TextInput
+                  className="mb-4 rounded-input border border-border bg-surface px-4 text-text-primary"
+                  placeholder="Nombre del restaurante"
+                  maxLength={120}
+                  placeholderTextColor={colors['text-tertiary']}
+                  value={name}
+                  onChangeText={setName}
+                  returnKeyType="next"
+                  style={{ fontSize: 17, lineHeight: 24, minHeight: 52, textAlignVertical: 'center' }}
+                />
+
+                <SectionLabel required>¿Dónde está?</SectionLabel>
+                <TextInput
+                  className="rounded-input border border-border bg-surface px-4 text-text-primary"
+                  placeholder="Direccion del restaurante"
+                  maxLength={200}
+                  placeholderTextColor={colors['text-tertiary']}
+                  value={address}
+                  onChangeText={(text) => {
+                    setAddress(text);
+                    setAddressTyped(true);
+                  }}
+                  returnKeyType="next"
+                  style={{ fontSize: 17, lineHeight: 24, minHeight: 52, textAlignVertical: 'center' }}
+                />
+                <SuggestionList items={addressSuggestions} onPick={pickAddress} />
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginBottom: 8 }}>
+                  <ChoiceButton label="Usar mi ubicación" icon="locate" onPress={useMyLocation} />
+                  <ChoiceButton label="Marcar en el mapa" icon="map-outline" onPress={markOnMap} />
+                </View>
+                {!!locationHint && <Text style={{ marginBottom: 8, fontSize: 13, color: colors['text-secondary'] }}>{locationHint}</Text>}
+                {location ? (
+                  <MiniMap
+                    location={location}
+                    label={name.trim() || 'Arrástrame'}
+                    draggable
+                    onMove={movePin}
+                    caption="Arrastra el pin hasta el sitio"
+                  />
+                ) : (
+                  <View style={{ height: 150, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+                    <Text style={{ textAlign: 'center', fontSize: 14, color: colors['text-secondary'] }}>
+                      Elige una dirección, tu ubicación o toca el mapa: aquí verás el pin antes de guardar
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <SectionLabel>Valoración</SectionLabel>
+            <View className="mb-4">
+              <StarRating rating={rating} onRate={setRating} />
+            </View>
+
+            <SectionLabel>Estado</SectionLabel>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <StatusButton label="Pendiente" selected={!visited} onPress={() => setVisited(false)} />
+              <StatusButton label="Visitado" selected={visited} onPress={() => setVisited(true)} />
+            </View>
+
+            <SectionLabel>Precio por persona</SectionLabel>
+            <View className="mb-4">
+              <PriceChips value={pricePerPerson} onChange={setPricePerPerson} />
+            </View>
+
+            <SectionLabel>Nota (opcional)</SectionLabel>
+            <TextInput
+              ref={noteRef}
+              className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
+              placeholder="Ej: La pasta increible"
+              placeholderTextColor={colors['text-tertiary']}
+              value={note}
+              onChangeText={setNote}
+              multiline
+              onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
+              maxLength={200}
+              returnKeyType="done"
+              blurOnSubmit
+              style={{ minHeight: 80, textAlignVertical: 'top' }}
+            />
+
+            <PhotoSection
+              photoUris={photoUris}
+              onPhotoAdded={(uri) => setPhotoUris((list) => [...list, uri])}
+              onPhotoRemoved={(index) => setPhotoUris((list) => list.filter((_, i) => i !== index))}
+            />
+
+            {!!blocker && (
+              <Text accessibilityLiveRegion="polite" style={{ marginBottom: 8, textAlign: 'center', fontSize: 13, color: colors['text-secondary'] }}>
+                {blocker}
               </Text>
             )}
             <Pressable
-              onPress={() => setManualMode(true)}
-              className="mt-2"
-            >
-              <Text className="text-xs text-text-tertiary">
-                No aparece mi restaurante. Ingresar manualmente.
-              </Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View className="mb-4">
-            <TextInput
-              ref={nameManualRef}
-              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-              placeholder="Nombre del restaurante"
-              maxLength={120}
-              placeholderTextColor={colors['text-tertiary']}
-              value={name}
-              onFocus={() => setIsSearching(false)}
-              onChangeText={(text) => {
-                dispatchForm({ type: 'patch', payload: { name: text } });
-                if (placeSelected) {
-                  setPlaceSelected(false);
-                  dispatchForm({ type: 'patch', payload: { address: '', latitude: null, longitude: null } });
-                }
-              }}
-              returnKeyType="next"
-              onSubmitEditing={() => addressRef.current?.focus()}
-              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center' }}
-            />
-            {!!placesError && <Text className="mt-2 text-xs text-danger">{placesError}</Text>}
-          </View>
-        )}
-      </View>
-
-      {!isSearching && (
-        <KeyboardForm
-          avoid={false}
-          scrollRef={scrollRef}
-          scrollClassName="flex-1 px-5"
-          contentContainerStyle={{ paddingBottom: 24 + insets.bottom }}
-        >
-
-        {/* Address with GPS button */}
-        <SectionLabel>Direccion</SectionLabel>
-        {placeSelected ? (
-          <View style={{ position: 'relative', marginBottom: 16 }}>
-            <TextInput
-              ref={addressRef}
-              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-              placeholder="Direccion del restaurante"
-              maxLength={200}
-              placeholderTextColor={colors['text-tertiary']}
-              value={address}
-              editable={false}
-              returnKeyType="next"
-              onSubmitEditing={() => noteRef.current?.focus()}
-              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
-            />
-            <Pressable
-              onPress={() => {
-                setPlaceSelected(false);
-                setManualMode(true);
-              }}
-              hitSlop={8}
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: 8,
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                borderWidth: 1.5,
-                borderColor: colors['text-tertiary'],
-                backgroundColor: 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              className={`mb-8 items-center rounded-button py-4 ${!blocker && !saving ? 'bg-primary' : 'bg-border'}`}
+              onPress={() => handleSave()}
+              disabled={!!blocker || saving}
               accessibilityRole="button"
-              accessibilityLabel="Editar direccion"
+              accessibilityState={{ disabled: !!blocker || saving }}
+              style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
             >
-              <Ionicons name="pencil-outline" size={16} color={colors['text-secondary']} />
-            </Pressable>
-          </View>
-        ) : (
-          <View style={{ position: 'relative', marginBottom: 16 }}>
-            <TextInput
-              ref={addressRef}
-              className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-              placeholder="Direccion del restaurante"
-              maxLength={200}
-              placeholderTextColor={colors['text-tertiary']}
-              value={address}
-              onChangeText={(text) => {
-                dispatchForm({ type: 'patch', payload: { address: text } });
-                if (gpsState === 'filled') setGpsState('idle');
-              }}
-              returnKeyType="next"
-              onSubmitEditing={() => noteRef.current?.focus()}
-              style={{ fontSize: 16, minHeight: 48, textAlignVertical: 'center', paddingRight: 48 }}
-            />
-            <Pressable
-              onPress={handleGpsFill}
-              disabled={gpsState === 'loading' || !location.latitude}
-              hitSlop={8}
-              style={{
-                position: 'absolute',
-                right: 8,
-                top: 8,
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                borderWidth: gpsState === 'filled' ? 0 : 1.5,
-                borderColor: colors['text-tertiary'],
-                backgroundColor: gpsState === 'filled' ? colors.visited : 'transparent',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Rellenar direccion con GPS"
-            >
-              {gpsState === 'loading' ? (
-                <ActivityIndicator size={14} color={colors['text-secondary']} />
+              {saving ? (
+                <ActivityIndicator color={colors['text-secondary']} />
               ) : (
-                <Ionicons
-                  name="locate"
-                  size={16}
-                  color={gpsState === 'filled' ? colors['on-visited'] : colors['text-secondary']}
-                />
+                <Text className={`text-body font-sans-semibold ${!blocker ? 'text-on-primary' : 'text-text-secondary'}`}>
+                  {isEditMode ? 'Actualizar' : 'Guardar'}
+                </Text>
               )}
             </Pressable>
           </View>
         )}
+      </KeyboardForm>
 
-        {/* Rating */}
-        <SectionLabel>Rating</SectionLabel>
-        <View className="mb-4">
-          <StarRating rating={rating} onRate={(v) => dispatchForm({ type: 'patch', payload: { rating: v } })} />
-        </View>
-
-        {/* Visited toggle */}
-        <SectionLabel>Estado</SectionLabel>
-        <View className="mb-4 flex-row gap-2">
-          <Pressable
-            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${visited ? 'border-visited bg-visited/10' : 'border-border'}`}
-            onPress={() => dispatchForm({ type: 'patch', payload: { visited: true } })}
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={changeLocationAfterWarning}>
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: withAlpha(colors['text-primary'], 0.45) }}>
+          <View
+            accessibilityViewIsModal
+            style={{ backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 28 + insets.bottom, gap: 14 }}
           >
-            <Ionicons
-              name={visited ? 'checkmark-circle' : 'checkmark-circle-outline'}
-              size={16}
-              color={visited ? colors.visited : colors['text-tertiary']}
-            />
-            <Text
-              className={`text-sm font-medium ${visited ? 'text-visited' : 'text-text-tertiary'}`}
-            >
-              Visitado
+            {location && <MiniMap location={location} label={name} height={150} />}
+            <Text style={{ fontFamily: 'YoungSerif_400Regular', fontSize: 22, lineHeight: 28, color: colors['text-primary'] }}>{farTitle}</Text>
+            <Text style={{ fontSize: 15, lineHeight: 22, color: colors['text-secondary'] }}>
+              {farAway != null
+                ? '¿Es correcto? Si no, cambia la dirección o mueve el pin antes de guardar.'
+                : 'No sabemos dónde estás. El pin está en Sol: si el restaurante está ahí, guárdalo; si no, cambia la ubicación y mueve el pin.'}
             </Text>
-          </Pressable>
-          <Pressable
-            className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-button border py-2.5 ${!visited ? 'border-primary bg-primary/10' : 'border-border'}`}
-            onPress={() => dispatchForm({ type: 'patch', payload: { visited: false } })}
-          >
-            <Ionicons
-              name={!visited ? 'time' : 'time-outline'}
-              size={16}
-              color={!visited ? colors.primary : colors['text-tertiary']}
-            />
-            <Text
-              className={`text-sm font-medium ${!visited ? 'text-primary' : 'text-text-tertiary'}`}
+            <Pressable
+              onPress={changeLocationAfterWarning}
+              accessibilityRole="button"
+              style={{ minHeight: 52, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}
             >
-              Pendiente
-            </Text>
-          </Pressable>
-        </View>
-
-        {/* Price */}
-        <SectionLabel>Precio por persona</SectionLabel>
-        <View className="mb-4">
-          <PriceSlider value={pricePerPerson} onChange={(v) => dispatchForm({ type: 'patch', payload: { pricePerPerson: v } })} />
-        </View>
-
-        {/* Note */}
-        <SectionLabel>Nota (opcional)</SectionLabel>
-        <TextInput
-          ref={noteRef}
-          className="mb-4 rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
-          placeholder="Ej: La pasta increible"
-          placeholderTextColor={colors['text-tertiary']}
-          value={note}
-          onChangeText={(text) => dispatchForm({ type: 'patch', payload: { note: text } })}
-          multiline
-          onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
-          maxLength={200}
-          returnKeyType="done"
-          blurOnSubmit
-          onSubmitEditing={handleSave}
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
-        />
-
-        {/* Photo */}
-        <PhotoSection
-          photoUris={photoUris}
-          onPhotoAdded={(uri) => dispatchForm({ type: 'patch', payload: { photoUris: [...photoUris, uri] } })}
-          onPhotoRemoved={(index) => dispatchForm({ type: 'patch', payload: { photoUris: photoUris.filter((_, i) => i !== index) } })}
-        />
-
-        {/* Save button */}
-          <Pressable
-            className={`mb-8 items-center rounded-button py-4 ${canSave && !saving ? 'bg-primary' : 'bg-border'}`}
-            onPress={handleSave}
-            disabled={!canSave || saving}
-            style={({ pressed }) => [{ opacity: pressed ? 0.85 : 1 }]}
-          >
-            {saving ? (
-              <ActivityIndicator color={colors['text-secondary']} />
-            ) : (
-              <Text className={`text-body font-semibold ${canSave ? 'text-on-primary' : 'text-text-secondary'}`}>
-                {isEditMode ? 'Actualizar' : 'Guardar'}
+              <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 16, color: colors['on-primary'] }}>Cambiar ubicación</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleSave(true)}
+              accessibilityRole="button"
+              style={{ minHeight: 52, borderRadius: 16, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ fontFamily: 'Figtree_700Bold', fontSize: 16, color: colors['text-primary'] }}>
+                {city ? `Sí, está en ${city}` : 'Sí, guardar aquí'}
               </Text>
-            )}
-          </Pressable>
-        </KeyboardForm>
-      )}
-
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

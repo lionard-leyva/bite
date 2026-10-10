@@ -17,6 +17,7 @@ import { joinListByCode } from '../services/listService';
 import InviteCodeDisplay from './InviteCodeDisplay';
 import DragHandle from './DragHandle';
 import { useTheme } from '../theme/ThemeProvider';
+import { friendlyMessage } from '../utils/userError';
 
 type Tab = 'create' | 'join';
 
@@ -52,7 +53,7 @@ export default function ShareListModal({
       Alert.alert('Conectado', `Conectado con ${ownerName}!`);
       onJoined(listId);
     } catch (e: any) {
-      Alert.alert('Error', e.message ?? 'No se pudo unir');
+      Alert.alert('No se pudo unir', friendlyMessage(e, 'Revisa el código e inténtalo de nuevo.'));
     } finally {
       setLoading(false);
     }

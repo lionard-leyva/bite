@@ -1,7 +1,7 @@
-// Acceptance: features/busqueda-de-lugares.feature (ADD-03 del plan E2E). SaveScreen real; el buscador de Google se simula
-// y se le provoca el fallo. Proyecto Jest "components". La clave de Google se lee al cargar el modulo, por eso cada
-// escenario recarga SaveScreen (isolateModules) antes de montarla.
+// Acceptance: features/busqueda-de-lugares.feature (ADD-03 del plan E2E). SaveScreen real; el buscador de sitios
+// (placesService) se simula fallando, igual que sin red o sin cuota. Proyecto Jest "components".
 import { defineFeature, loadFeature } from 'jest-cucumber';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn() }),
@@ -12,139 +12,132 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: require('react-native').View,
 }));
 jest.mock('expo-location', () => ({}));
-jest.mock('expo-constants', () => ({ expoConfig: { extra: { GOOGLE_MAPS_API_KEY: 'clave-de-prueba' } } }));
+jest.mock('expo-constants', () => ({ expoConfig: { extra: {} } }));
 jest.mock('firebase/firestore', () => ({ doc: jest.fn(), getDoc: jest.fn() }));
-jest.mock('../config/firebase', () => ({ db: {} }));
+jest.mock('../config/firebase', () => ({ db: {}, auth: { currentUser: null } }));
 jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ userId: 'ana', listId: 'L1', skipMode: false }) }));
+let mockUbicacion: { latitude: number | null; longitude: number | null } = { latitude: null, longitude: null };
 jest.mock('../hooks/useLocation', () => ({
-  useLocation: () => ({ latitude: null, longitude: null, loading: false, error: null, refresh: jest.fn() }),
+  useLocation: () => ({ ...mockUbicacion, loading: false, error: null, refresh: async () => null }),
 }));
-jest.mock('../services/locationService', () => ({ reverseGeocode: jest.fn() }));
+jest.mock('../services/locationService', () => ({ reverseGeocode: jest.fn(async () => null) }));
 jest.mock('../services/shareService', () => ({ resolveSharedText: jest.fn() }));
-jest.mock('../services/restaurantService', () => ({ saveRestaurant: jest.fn() }));
+const mockSave = jest.fn(async (_r: any) => 'nuevo');
+jest.mock('../services/restaurantService', () => ({ saveRestaurant: (r: any) => mockSave(r) }));
 jest.mock('../services/localStorageService', () => ({
   saveLocalRestaurant: jest.fn(),
   updateLocalRestaurant: jest.fn(),
   getLocalRestaurants: jest.fn(async () => []),
 }));
 jest.mock('../components/PhotoPicker', () => () => null);
-jest.mock('../components/PriceSlider', () => () => null);
-
-// Buscador de Google simulado: un campo de texto que guarda sus props para poder provocar onFail.
-let propsBuscador: any = null;
-jest.mock('react-native-google-places-autocomplete', () => {
-  const React = require('react');
-  const { TextInput } = require('react-native');
+jest.mock('react-native-maps', () => {
+  const { View } = require('react-native');
   return {
-    GooglePlacesAutocomplete: React.forwardRef((props: any, _ref: unknown) => {
-      propsBuscador = props;
-      return <TextInput testID="buscador-google" {...props.textInputProps} placeholder={props.placeholder} />;
-    }),
+    __esModule: true,
+    default: (props: any) => <View testID="mini-mapa" {...props} />,
+    Marker: (props: any) => <View testID="pin-del-sitio" {...props} />,
   };
 });
+const mockSearchPlaces = jest.fn(async (..._a: unknown[]): Promise<unknown[]> => {
+  throw new Error('places/autocomplete 503');
+});
+jest.mock('../services/placesService', () => ({
+  searchPlaces: (...a: unknown[]) => mockSearchPlaces(...a),
+  searchAddresses: async () => {
+    throw new Error('places/autocomplete 503');
+  },
+  placeDetails: jest.fn(),
+  newSessionToken: () => 's',
+}));
 
 jest.setTimeout(30000);
 
+import SaveScreen from '../screens/SaveScreen';
+
 const feature = loadFeature('features/busqueda-de-lugares.feature');
-
-const lib = require('@testing-library/react-native') as typeof import('@testing-library/react-native');
-const React = require('react');
-
-// Solo se recarga SaveScreen (su clave de Google se fija al cargar); React y el renderer son los de arriba.
-function abrirGuardar(claveDeGoogle: string) {
-  let Pantalla: any;
-  jest.isolateModules(() => {
-    jest.doMock('react', () => React);
-    jest.doMock('expo-constants', () => ({ expoConfig: { extra: { GOOGLE_MAPS_API_KEY: claveDeGoogle } } }));
-    Pantalla = require('../screens/SaveScreen').default;
-  });
-  return { lib, pantalla: lib.render(React.createElement(Pantalla)) };
-}
-
-const NOMBRE_MANUAL = 'Nombre del restaurante';
-const DIRECCION = 'Direccion del restaurante';
-const AVISO = 'No se pudo cargar sugerencias. Revisa tu conexion o la API key.';
+const MADRID = { latitude: 40.4168, longitude: -3.7038 };
+const NOMBRE = 'Nombre del restaurante';
 
 defineFeature(feature, (test) => {
-  let sesion: ReturnType<typeof abrirGuardar>;
+  let p: ReturnType<typeof render>;
   beforeEach(() => {
-    propsBuscador = null;
+    mockSave.mockClear();
+    mockSearchPlaces.mockReset();
+    mockSearchPlaces.mockImplementation(async () => {
+      throw new Error('places/autocomplete 503');
+    });
     jest.spyOn(console, 'warn').mockImplementation(() => {});
-    jest.spyOn(console, 'log').mockImplementation(() => {});
   });
   afterEach(() => jest.restoreAllMocks());
 
-  const conClave = (given: (re: string, fn: () => void) => void) =>
-    given('que Bite tiene la clave de Google configurada', () => {});
-  const abierta = (step: (re: string, fn: () => void) => void) =>
-    step('que Ana ha abierto la pantalla de guardar un restaurante', () => {
-      sesion = abrirGuardar('clave-de-prueba');
+  const enMadrid = (given: any) =>
+    given('que Ana está en Madrid y abre la pantalla de guardar un restaurante', () => {
+      mockUbicacion = MADRID;
+      p = render(<SaveScreen />);
     });
-  const googleFalla = (step: (re: string, fn: () => void) => void) =>
-    step('Google no responde por falta de red o de cuota', () => {
-      sesion.lib.act(() => propsBuscador.onFail('OVER_QUERY_LIMIT'));
+  const buscadorCaido = (when: any) =>
+    when(/^escribe "(.*)" y el buscador de sitios no responde$/, async (texto: string) => {
+      fireEvent.changeText(p.getByPlaceholderText(NOMBRE), texto);
+      await waitFor(() => expect(mockSearchPlaces).toHaveBeenCalled());
+      await act(async () => {});
     });
+  const valora = (and: any) =>
+    and('lo valora con 4 estrellas', () => fireEvent.press(p.getByLabelText('4 estrellas')));
 
-  test('Con el buscador disponible se busca en Google', ({ given, when, then, and }) => {
-    conClave(given);
-    when('Ana abre la pantalla de guardar un restaurante', () => {
-      sesion = abrirGuardar('clave-de-prueba');
+  test('Si el buscador no responde, Bite pasa a escribir a mano y lo explica', ({ given, when, then, and }) => {
+    enMadrid(given);
+    buscadorCaido(when);
+    then(/^ve el aviso "(.*)"$/, async (aviso: string) => {
+      expect(await p.findByText(aviso)).toBeTruthy();
+      expect(p.queryByText(/API|clave|503/i)).toBeNull();
     });
-    then('Ana busca el restaurante con el buscador de Google', () => {
-      expect(sesion.pantalla.getByTestId('buscador-google')).toBeTruthy();
-    });
-    and('no se le pide escribir el nombre a mano', () => {
-      expect(sesion.pantalla.queryByPlaceholderText(NOMBRE_MANUAL)).toBeNull();
+    and(/^el nombre a mano ya dice "(.*)"$/, (texto: string) => {
+      expect(p.getByPlaceholderText(NOMBRE).props.value).toBe(texto);
+      expect(p.getByPlaceholderText('Direccion del restaurante')).toBeTruthy();
     });
   });
 
-  test('Si Google falla, Bite pasa a escribir a mano y lo explica', ({ given, when, then, and }) => {
-    conClave(given);
-    abierta(and);
-    googleFalla(when);
-    then('Ana puede escribir el nombre del restaurante a mano', () => {
-      expect(sesion.pantalla.getByPlaceholderText(NOMBRE_MANUAL)).toBeTruthy();
-      expect(sesion.pantalla.queryByTestId('buscador-google')).toBeNull();
+  test('Sin buscador, el pin empieza donde está Ana y se puede guardar ahí', ({ given, when, then, and }) => {
+    enMadrid(given);
+    buscadorCaido(when);
+    valora(and);
+    then('ve el pin donde está ella', async () => {
+      await waitFor(() => expect(p.getByTestId('pin-del-sitio').props.coordinate).toEqual(MADRID));
+      expect(p.getByTestId('pin-del-sitio').props.draggable).toBe(true);
     });
-    and('ve un aviso de que las sugerencias no se pudieron cargar', () => {
-      expect(sesion.pantalla.getByText(AVISO)).toBeTruthy();
-    });
-  });
-
-  test('Lo que Ana ya había escrito no se pierde al pasar a mano', ({ given, when, then, and }) => {
-    conClave(given);
-    abierta(and);
-    and('que Ana ha escrito "Casa Lu" en el buscador', () => {
-      sesion.lib.act(() => propsBuscador.textInputProps.onChangeText('Casa Lu'));
-    });
-    googleFalla(when);
-    then('el nombre a mano ya dice "Casa Lu"', () => {
-      expect(sesion.pantalla.getByPlaceholderText(NOMBRE_MANUAL).props.value).toBe('Casa Lu');
+    and(/^al guardar, se guarda "(.*)" donde está Ana$/, async (nombre: string) => {
+      fireEvent.press(p.getByText('Guardar'));
+      await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
+      expect(mockSave.mock.calls[0][0]).toMatchObject({ name: nombre, ...MADRID });
     });
   });
 
-  test('Si Google falla mientras Ana escribe, el resto del formulario sigue a la vista', ({ given, when, then, and }) => {
-    conClave(given);
-    abierta(and);
-    and('que Ana está escribiendo en el buscador', () => {
-      sesion.lib.act(() => propsBuscador.textInputProps.onFocus());
-      // Mientras se busca, la pantalla esconde el resto del formulario para dejar sitio a las sugerencias.
-      expect(sesion.pantalla.queryByPlaceholderText(DIRECCION)).toBeNull();
+  test('Sin buscador ni ubicación de Ana, hay que marcar dónde está', ({ given, when, then, and }) => {
+    given('que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante', () => {
+      mockUbicacion = { latitude: null, longitude: null };
+      p = render(<SaveScreen />);
     });
-    googleFalla(when);
-    then('Ana ve el campo de la dirección', () => {
-      expect(sesion.pantalla.getByPlaceholderText(DIRECCION)).toBeTruthy();
+    buscadorCaido(when);
+    valora(and);
+    then(/^no puede guardar y ve "(.*)"$/, async (aviso: string) => {
+      expect(await p.findByText(aviso)).toBeTruthy();
+      fireEvent.press(p.getByText('Guardar'));
+      await act(async () => {});
+      expect(mockSave).not.toHaveBeenCalled();
+      expect(p.queryByTestId('pin-del-sitio')).toBeNull();
     });
   });
 
-  test('Sin clave de Google se escribe a mano desde el principio', ({ given, when, then }) => {
-    given('que Bite no tiene clave de Google', () => {});
-    when('Ana abre la pantalla de guardar un restaurante', () => {
-      sesion = abrirGuardar('');
+  test('Si el buscador vuelve, Ana puede volver a buscar', ({ given, when, then, and }) => {
+    enMadrid(given);
+    buscadorCaido(when);
+    and(/^el buscador vuelve a funcionar y Ana pulsa "(.*)"$/, (boton: string) => {
+      mockSearchPlaces.mockImplementation(async () => [{ id: 'p1', name: 'Los Horizontes', secondary: 'Madrid' }]);
+      fireEvent.press(p.getByText(boton));
     });
-    then('Ana puede escribir el nombre del restaurante a mano', () => {
-      expect(sesion.pantalla.getByPlaceholderText(NOMBRE_MANUAL)).toBeTruthy();
-      expect(sesion.pantalla.queryByTestId('buscador-google')).toBeNull();
+    then(/^ve la sugerencia "(.*)" para "(.*)"$/, async (nombre: string, texto: string) => {
+      expect(await p.findByText(nombre)).toBeTruthy();
+      expect(mockSearchPlaces.mock.calls.at(-1)?.[0]).toBe(texto);
     });
   });
 });

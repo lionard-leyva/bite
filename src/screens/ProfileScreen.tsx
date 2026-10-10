@@ -5,8 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../hooks/useAuth';
+import { buildProfilePayload } from '../utils/profilePayload';
 import { useLocation as useUserLocation } from '../hooks/useLocation';
-import Constants from 'expo-constants';
 import { getListInviteCode, getListMembers, leaveSharedList } from '../services/listService';
 import { getLocalRestaurantCount } from '../services/localStorageService';
 import { reverseGeocode } from '../services/locationService';
@@ -15,13 +15,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import KeyboardForm from '../components/KeyboardForm';
 import { auth, db } from '../config/firebase';
 import { pickImage, uploadAvatar } from '../services/imageService';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { useTheme } from '../theme/ThemeProvider';
-
-const MAPS_KEY =
-  Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY ??
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ??
-  '';
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
@@ -150,7 +144,6 @@ export default function ProfileScreen() {
   const [editAddressLat, setEditAddressLat] = useState<number | null>(null);
   const [editAddressLng, setEditAddressLng] = useState<number | null>(null);
   const [editAvatarUri, setEditAvatarUri] = useState<string | null>(null);
-  const [cityModalVisible, setCityModalVisible] = useState(false);
   const [addressGpsState, setAddressGpsState] = useState<'idle' | 'loading' | 'filled'>('idle');
   const nameRef = useRef<TextInput>(null);
   const addressRef = useRef<TextInput>(null);
@@ -184,22 +177,18 @@ export default function ProfileScreen() {
       if (editAvatarUri) {
         photoURL = await uploadAvatar(editAvatarUri, userId);
       }
-      const payload: Record<string, unknown> = {
+      const payload = buildProfilePayload({
         displayName: editName.trim(),
         bio: editBio.trim(),
         birthday: editBirthday.trim(),
         city: editCity.trim(),
         address: editAddress.trim(),
         photoURL,
-      };
-      if (editCityLat != null && editCityLng != null) {
-        payload.cityLat = editCityLat;
-        payload.cityLng = editCityLng;
-      }
-      if (editAddressLat != null && editAddressLng != null) {
-        payload.addressLat = editAddressLat;
-        payload.addressLng = editAddressLng;
-      }
+        cityLat: editCityLat,
+        cityLng: editCityLng,
+        addressLat: editAddressLat,
+        addressLng: editAddressLng,
+      });
       await setDoc(doc(db, 'users', userId), payload, { merge: true });
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
@@ -481,32 +470,7 @@ export default function ProfileScreen() {
               style={{ fontSize: 16, minHeight: 48 }}
             />
             <View className="h-3" />
-            {MAPS_KEY ? (
-              <View className="mb-2">
-                <Pressable
-                  onPress={() => setCityModalVisible(true)}
-                  className="rounded-input border border-border bg-surface px-4 py-3"
-                  style={{ minHeight: 48, justifyContent: 'center' }}
-                >
-                  <Text className={`text-base ${editCity ? 'text-text-primary' : 'text-text-tertiary'}`}>
-                    {editCity || 'Ciudad'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="mt-2 flex-row items-center gap-2"
-                  onPress={() => {
-                    if (location.city && location.latitude && location.longitude) {
-                      setEditCity(location.city);
-                      setEditCityLat(location.latitude);
-                      setEditCityLng(location.longitude);
-                    }
-                  }}
-                >
-                  <Ionicons name="locate" size={14} color={colors['text-secondary']} />
-                  <Text className="text-xs text-text-tertiary">Usar ubicacion actual</Text>
-                </Pressable>
-              </View>
-            ) : (
+            <View className="mb-2">
               <TextInput
                 className="rounded-input border border-border bg-surface px-4 py-3 text-text-primary"
                 placeholder="Ciudad"
@@ -520,7 +484,20 @@ export default function ProfileScreen() {
                 autoCapitalize="words"
                 style={{ fontSize: 16, minHeight: 48 }}
               />
-            )}
+              <Pressable
+                className="mt-2 flex-row items-center gap-2"
+                onPress={() => {
+                  if (location.city && location.latitude && location.longitude) {
+                    setEditCity(location.city);
+                    setEditCityLat(location.latitude);
+                    setEditCityLng(location.longitude);
+                  }
+                }}
+              >
+                <Ionicons name="locate" size={14} color={colors['text-secondary']} />
+                <Text className="text-xs text-text-tertiary">Usar ubicacion actual</Text>
+              </Pressable>
+            </View>
             <View className="h-3" />
             <View style={{ position: 'relative' }}>
             <TextInput
@@ -621,90 +598,6 @@ export default function ProfileScreen() {
         onClose={() => dispatch({ type: 'patch', payload: { shareModalVisible: false } })}
         onJoined={handleJoined}
       />
-
-      <Modal visible={cityModalVisible} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView
-          className="flex-1 bg-background"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={90}
-        >
-          <View className="flex-1 px-6 pt-6">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-title font-display text-text-primary">Selecciona ciudad</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8}
-                className="h-8 w-8 items-center justify-center rounded-full bg-border"
-                onPress={() => setCityModalVisible(false)}
-              >
-                <Ionicons name="close" size={18} color={colors['text-primary']} />
-              </Pressable>
-            </View>
-
-            <GooglePlacesAutocomplete
-              placeholder="Ciudad"
-              fetchDetails
-              onPress={(data, details) => {
-                const cityName =
-                  details?.address_components?.find((c: any) =>
-                    c.types?.includes('locality'),
-                  )?.long_name ||
-                  details?.address_components?.find((c: any) =>
-                    c.types?.includes('administrative_area_level_1'),
-                  )?.long_name ||
-                  data?.description ||
-                  '';
-                const cityLat = details?.geometry?.location?.lat ?? null;
-                const cityLng = details?.geometry?.location?.lng ?? null;
-                setEditCity(cityName);
-                setEditCityLat(cityLat);
-                setEditCityLng(cityLng);
-                setCityModalVisible(false);
-              }}
-              query={{
-                key: MAPS_KEY,
-                language: 'es',
-                types: '(cities)',
-                components: 'country:es',
-                location:
-                  location.latitude != null && location.longitude != null
-                    ? `${location.latitude},${location.longitude}`
-                    : undefined,
-                radius: 30000,
-                strictbounds: true,
-              }}
-              nearbyPlacesAPI="GoogleReverseGeocoding"
-              currentLocation={false}
-              styles={{
-                container: { flex: 0 },
-                textInput: {
-                  borderWidth: 1,
-                  borderColor: colors['border'],
-                  borderRadius: 12,
-                  paddingHorizontal: 16,
-                  minHeight: 48,
-                  fontSize: 16,
-                  lineHeight: 24,
-                  backgroundColor: colors['surface'],
-                  color: colors['text-primary'],
-                  textAlignVertical: 'center',
-                },
-                listView: {
-                  marginTop: 8,
-                  backgroundColor: colors['surface'],
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: colors['border'],
-                  overflow: 'hidden',
-                },
-                row: { paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors['surface'] },
-                separator: { height: 1, backgroundColor: colors['border'] },
-                description: { color: colors['text-primary'], fontSize: 14 },
-                poweredContainer: { display: 'none' },
-              }}
-              textInputProps={{ placeholderTextColor: colors['text-tertiary'] }}
-            />
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
       <ConfirmModal
         visible={state.logoutModalVisible}

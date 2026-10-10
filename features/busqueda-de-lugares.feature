@@ -1,44 +1,36 @@
 # language: es
-Característica: Buscar el restaurante al guardarlo
-  Para poder guardar un sitio aunque Google no responda
-  Bite pasa a escribir el nombre a mano cuando el buscador de lugares falla
+Característica: Guardar un restaurante aunque el buscador de sitios no responda
+  Para poder guardar un sitio sin red o sin cuota de Google
+  Bite pasa a escribir el nombre a mano, lo explica sin tecnicismos y pone el pin donde está Ana para ajustarlo
 
-  # SaveScreen real con el buscador de Google simulado (se le provoca el fallo de red o de cuota). No se comprueba
-  # la API de Google, solo lo que hace Bite cuando no contesta.
-
-  @ADD-03
-  Escenario: Con el buscador disponible se busca en Google
-    Dado que Bite tiene la clave de Google configurada
-    Cuando Ana abre la pantalla de guardar un restaurante
-    Entonces Ana busca el restaurante con el buscador de Google
-    Y no se le pide escribir el nombre a mano
+  # SaveScreen real con el buscador de sitios (placesService) simulado y fallando. No se comprueba Google ni el
+  # servidor, solo lo que hace Bite cuando no contestan.
 
   @ADD-03
-  Escenario: Si Google falla, Bite pasa a escribir a mano y lo explica
-    Dado que Bite tiene la clave de Google configurada
-    Y que Ana ha abierto la pantalla de guardar un restaurante
-    Cuando Google no responde por falta de red o de cuota
-    Entonces Ana puede escribir el nombre del restaurante a mano
-    Y ve un aviso de que las sugerencias no se pudieron cargar
+  Escenario: Si el buscador no responde, Bite pasa a escribir a mano y lo explica
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Cuando escribe "Los horiz" y el buscador de sitios no responde
+    Entonces ve el aviso "Ahora no podemos buscar sitios. Escribe el nombre y marca dónde está."
+    Y el nombre a mano ya dice "Los horiz"
 
   @ADD-03
-  Escenario: Lo que Ana ya había escrito no se pierde al pasar a mano
-    Dado que Bite tiene la clave de Google configurada
-    Y que Ana ha abierto la pantalla de guardar un restaurante
-    Y que Ana ha escrito "Casa Lu" en el buscador
-    Cuando Google no responde por falta de red o de cuota
-    Entonces el nombre a mano ya dice "Casa Lu"
+  Escenario: Sin buscador, el pin empieza donde está Ana y se puede guardar ahí
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Cuando escribe "Los horiz" y el buscador de sitios no responde
+    Y lo valora con 4 estrellas
+    Entonces ve el pin donde está ella
+    Y al guardar, se guarda "Los horiz" donde está Ana
 
   @ADD-03
-  Escenario: Si Google falla mientras Ana escribe, el resto del formulario sigue a la vista
-    Dado que Bite tiene la clave de Google configurada
-    Y que Ana ha abierto la pantalla de guardar un restaurante
-    Y que Ana está escribiendo en el buscador
-    Cuando Google no responde por falta de red o de cuota
-    Entonces Ana ve el campo de la dirección
+  Escenario: Sin buscador ni ubicación de Ana, hay que marcar dónde está
+    Dado que Ana no comparte su ubicación y abre la pantalla de guardar un restaurante
+    Cuando escribe "Los horiz" y el buscador de sitios no responde
+    Y lo valora con 4 estrellas
+    Entonces no puede guardar y ve "Marca dónde está para poder guardar"
 
   @ADD-03
-  Escenario: Sin clave de Google se escribe a mano desde el principio
-    Dado que Bite no tiene clave de Google
-    Cuando Ana abre la pantalla de guardar un restaurante
-    Entonces Ana puede escribir el nombre del restaurante a mano
+  Escenario: Si el buscador vuelve, Ana puede volver a buscar
+    Dado que Ana está en Madrid y abre la pantalla de guardar un restaurante
+    Cuando escribe "Los horiz" y el buscador de sitios no responde
+    Y el buscador vuelve a funcionar y Ana pulsa "Volver a buscar"
+    Entonces ve la sugerencia "Los Horizontes" para "Los horiz"

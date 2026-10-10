@@ -26,13 +26,18 @@ Característica: En una lista compartida se ve quién guardó cada sitio
     Entonces ve "Guardado por Bea"
 
   @SAV-03
-  Esquema del escenario: La tarjeta de la lista añade el autor solo cuando es otra persona
-    Dado una tarjeta de restaurante guardada <cuando> <autor>
+  Esquema del escenario: La tarjeta de la lista dice quién lo guardó, como en el diseño
+    Dado una tarjeta de restaurante de la lista de Ana y Bea guardada <autor>
     Cuando Ana mira la lista
     Entonces la tarjeta dice "<texto>"
 
     Ejemplos:
-      | cuando       | autor           | texto                  |
-      | justo ahora  | por Bea         | Bea · Justo ahora      |
-      | justo ahora  | por Ana misma   | Justo ahora            |
-      | justo ahora  | sin autor conocido | Justo ahora         |
+      | autor         | texto            |
+      | por Bea       | Guardado por Bea |
+      | por Ana misma | Guardado por ti  |
+
+  @SAV-03
+  Escenario: Sin autor conocido la tarjeta no dice quién lo guardó
+    Dado una tarjeta de restaurante de la lista de Ana y Bea guardada sin autor conocido
+    Cuando Ana mira la lista
+    Entonces la tarjeta no dice quién lo guardó

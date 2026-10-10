@@ -1,18 +1,12 @@
 import { View, Text, Pressable, Platform, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import DragHandle from './DragHandle';
+import PhotoHeader from './PhotoHeader';
+import AvatarStack from './AvatarStack';
 import { useTheme } from '../theme/ThemeProvider';
 import { withAlpha } from '../theme/color';
-import { getPrimaryPhoto } from '../types';
 import type { Restaurant } from '../types';
-import {
-  CARD_BOTTOM_POSITION,
-  CARD_HORIZONTAL_MARGIN,
-  CARD_BORDER_RADIUS,
-  CARD_PHOTO_HEIGHT,
-  Z_CARD,
-} from '../config/constants';
+import { CARD_BOTTOM_POSITION, CARD_HORIZONTAL_MARGIN, Z_CARD } from '../config/constants';
 
 interface MapDetailCardProps {
   restaurant: Restaurant;
@@ -20,10 +14,18 @@ interface MapDetailCardProps {
   onClose: () => void;
   onDetail: () => void;
   onNavigate: () => void;
+  /** Precio y distancia o tiempo, ya unidos con " · ". */
   metaLine: string;
   etaLoading: boolean;
+  /** "Guardado por Ana" en una lista compartida; nada en una lista personal. */
+  savedBy?: string | null;
+  avatarNames?: string[];
 }
 
+const RADIUS = 18;
+
+// Hoja inferior del diseno Terracota: foto con estado, nombre en serif, "★ 4 · €€ · a 6 min", quien lo guardo y las
+// dos acciones (Ver detalle en terracota, Ir ahora con contorno).
 export default function MapDetailCard({
   restaurant,
   translateY,
@@ -32,8 +34,11 @@ export default function MapDetailCard({
   onNavigate,
   metaLine,
   etaLoading,
+  savedBy,
+  avatarNames = [],
 }: MapDetailCardProps) {
   const { colors } = useTheme();
+  const rating = Math.max(0, Math.min(5, Math.round(restaurant.rating)));
   return (
     <Animated.View
       style={{
@@ -42,132 +47,92 @@ export default function MapDetailCard({
         left: CARD_HORIZONTAL_MARGIN,
         right: CARD_HORIZONTAL_MARGIN,
         backgroundColor: colors.surface,
-        borderRadius: CARD_BORDER_RADIUS,
+        borderRadius: RADIUS,
+        padding: 8,
+        paddingBottom: 12,
         zIndex: Z_CARD,
         transform: [{ translateY }],
         ...(Platform.OS === 'android'
-          ? { elevation: 6 }
-          : { shadowColor: colors['text-primary'], shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 10 }),
+          ? { elevation: 8 }
+          : { shadowColor: colors['text-primary'], shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.18, shadowRadius: 28 }),
       }}
     >
       <DragHandle />
 
-      {/* Photo */}
-      {getPrimaryPhoto(restaurant) ? (
-        <View style={{ borderRadius: CARD_BORDER_RADIUS - 4, overflow: 'hidden', height: 140, marginHorizontal: 4 }}>
-          <Image
-            source={{ uri: getPrimaryPhoto(restaurant)! }}
-            style={{ width: '100%', height: 140 }}
-            contentFit="cover"
-            cachePolicy="memory-disk"
-            transition={200}
-            placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-          />
-        </View>
-      ) : null}
+      <View>
+        <PhotoHeader restaurant={restaurant} height={112} radius={12} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar tarjeta"
+          onPress={onClose}
+          hitSlop={12}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            width: 30,
+            height: 30,
+            borderRadius: 15,
+            backgroundColor: withAlpha(colors['text-primary'], 0.35),
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="close" size={16} color={colors.surface} />
+        </Pressable>
+      </View>
 
-      {/* Close */}
-      <Pressable accessibilityRole="button" accessibilityLabel="Cerrar tarjeta"
-        onPress={onClose}
-        hitSlop={12}
-        style={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          zIndex: 20,
-          width: 30,
-          height: 30,
-          borderRadius: 15,
-          backgroundColor: withAlpha(colors['text-primary'], 0.6),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Ionicons name="close" size={18} color={colors.background} />
-      </Pressable>
-
-      {/* Info */}
-      <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-        <Text numberOfLines={1} style={{ fontSize: 18, fontFamily: 'YoungSerif_400Regular', color: colors['text-primary'] }}>
+      <View style={{ paddingHorizontal: 6, paddingTop: 10, gap: 4 }}>
+        <Text numberOfLines={1} style={{ fontSize: 21, fontFamily: 'YoungSerif_400Regular', color: colors['text-primary'] }}>
           {restaurant.name}
         </Text>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          <View style={{ flexDirection: 'row' }}>
-            {[0, 1, 2, 3, 4].map((k) => (
-              <Ionicons
-                key={`star-${k}`}
-                name={k < restaurant.rating ? 'star' : 'star-outline'}
-                size={14}
-                color={k < restaurant.rating ? colors.star : colors.border}
-              />
-            ))}
-          </View>
-          <View style={{ backgroundColor: restaurant.visited ? colors['visited-light'] : colors['primary-light'], paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: restaurant.visited ? colors.visited : colors['text-secondary'] }}>
-              {restaurant.visited ? 'Visitado' : 'Pendiente'}
-            </Text>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontFamily: 'Figtree_400Regular', fontSize: 13.5, color: colors['text-secondary'] }}>
+            <Text style={{ color: colors.star }}>★</Text> <Text>{rating}</Text>
+            {!etaLoading && metaLine ? ` · ${metaLine}` : ''}
+          </Text>
+          {etaLoading && <ActivityIndicator size={10} color={colors['text-tertiary']} />}
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-          {etaLoading ? (
-            <ActivityIndicator size={10} color={colors['text-tertiary']} />
-          ) : (
-            <Text style={{ fontSize: 13, color: colors['text-secondary'] }}>
-              {(() => {
-                const parts = metaLine.split(' \u00B7 ');
-                const dist = parts[0] ?? '';
-                const rest = parts.slice(1).join(' \u00B7 ');
-                return (
-                  <>
-                    <Text style={{ fontWeight: '700', color: colors['text-primary'] }}>{dist}</Text>
-                    {rest ? <Text>{` \u00B7 ${rest}`}</Text> : null}
-                  </>
-                );
-              })()}
-            </Text>
-          )}
+        {savedBy ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+            {avatarNames.length > 0 && <AvatarStack names={avatarNames} size={22} filled />}
+            <Text style={{ fontFamily: 'Figtree_400Regular', fontSize: 13, color: colors['text-secondary'] }}>{savedBy}</Text>
+          </View>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+          <Pressable
+            onPress={onDetail}
+            accessibilityRole="button"
+            style={{
+              flex: 1,
+              minHeight: 46,
+              borderRadius: 12,
+              backgroundColor: colors.primary,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: colors['on-primary'], fontFamily: 'Figtree_700Bold', fontSize: 15 }}>Ver detalle</Text>
+          </Pressable>
+          <Pressable
+            onPress={onNavigate}
+            accessibilityRole="button"
+            style={{
+              flex: 1,
+              minHeight: 46,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: colors.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: colors['text-primary'], fontFamily: 'Figtree_700Bold', fontSize: 15 }}>Ir ahora</Text>
+          </Pressable>
         </View>
-      </View>
-
-      {/* Buttons */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10, marginTop: 2 }}>
-        <Pressable
-          onPress={onDetail}
-          style={{
-            flex: 1,
-            backgroundColor: colors.primary,
-            paddingVertical: 10,
-            borderRadius: 8,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'row',
-            gap: 6,
-            minHeight: 44,
-          }}
-        >
-          <Ionicons name="information-circle-outline" size={16} color={colors['on-primary']} />
-          <Text style={{ color: colors['on-primary'], fontWeight: '700', fontSize: 14 }}>Ver detalle</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onNavigate}
-          style={{
-            flex: 1,
-            backgroundColor: colors.visited,
-            paddingVertical: 10,
-            borderRadius: 8,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'row',
-            gap: 6,
-            minHeight: 44,
-          }}
-        >
-          <Ionicons name="navigate" size={16} color={colors['on-visited']} />
-          <Text style={{ color: colors['on-visited'], fontWeight: '700', fontSize: 14 }}>Ir ahora</Text>
-        </Pressable>
       </View>
     </Animated.View>
   );

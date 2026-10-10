@@ -49,7 +49,7 @@ const BLOCKS = [
     { id: 'KBD-01', p: 1, retry: 1, title: 'teclado y descendentes', cmd: npm('qa:keyboard') },
     { id: 'SAF-01', p: 1, retry: 1, title: 'safe areas', cmd: npm('qa:safearea', '--restaurant', gyoza) },
     { id: 'SAF-02', p: 2, retry: 1, title: 'safe areas con navegacion de 3 botones', cmd: npm('qa:safearea', '--nav3') },
-    { id: 'MAP-06', p: 1, retry: 1, title: 'buscar en el mapa y expandirlo', cmd: npm('qa:map-controls', '--match', 'lucio') },
+    { id: 'MAP-06', p: 1, retry: 1, title: 'buscar en el mapa (sin modo expandido)', cmd: npm('qa:map-controls', '--match', 'lucio') },
     { id: 'PRF-01', p: 1, retry: 1, title: 'Perfil sin cuenta (Crear cuenta, sin compartir)', cmd: npm('qa:profile', '--count', String(SEED.length + 1)) },
     { id: 'DET-02', p: 0, title: 'eliminar (al final: borra datos)', cmd: npm('qa:detail', '--restaurant', gyoza, '--delete') },
   ] },

@@ -34,20 +34,6 @@ export async function compressImage(uri: string): Promise<string> {
   return result.uri;
 }
 
-export async function uploadPhoto(
-  uri: string,
-  userId: string,
-  restaurantId: string,
-): Promise<string> {
-  const compressed = await compressImage(uri);
-  const response = await fetch(compressed);
-  const blob = await response.blob();
-
-  const photoRef = ref(storage, `photos/${userId}/${restaurantId}.jpg`);
-  await uploadBytes(photoRef, blob);
-  return getDownloadURL(photoRef);
-}
-
 export async function uploadPhotos(
   uris: string[],
   userId: string,

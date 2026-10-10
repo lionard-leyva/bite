@@ -39,9 +39,10 @@ const shQuote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
     const settled = q.parseNodes(await q.dumpUi()).map((n) => n.text || n.desc).filter(Boolean);
     const banner = settled.find((t) => /^(Desde|Leyendo)/.test(t)) || '';
     if (args.banner) checks.push({ name: `banner "${args.banner}"`, ok: banner.startsWith(args.banner), info: banner });
-    const i = settled.indexOf('RESTAURANTE');
-    const nameField = i >= 0 ? settled[i + 1] : '';
-    const hasName = !!nameField && nameField !== 'DIRECCION' && !/^(Nombre|Ej:)/i.test(nameField);
+    // Con coordenadas se abre la ficha ("NOMBRE"); sin ellas, el buscador ("BUSCA EL RESTAURANTE"). Los iconos son un glifo suelto.
+    const i = settled.findIndex((t) => t === 'NOMBRE' || t === 'BUSCA EL RESTAURANTE');
+    const nameField = i >= 0 ? settled.slice(i + 1).find((t) => !/^[\uE000-\uF8FF]$/.test(t)) || '' : '';
+    const hasName = !!nameField && !/^(¿DÓNDE|Nombre del|Ej:)/i.test(nameField);
     if (args.name) checks.push({ name: `nombre prellenado "${args.name}"`, ok: nameField === args.name, info: nameField });
     else checks.push({ name: 'sin nombre prellenado', ok: !hasName, info: hasName ? nameField : '' });
   }
@@ -55,10 +56,10 @@ const shQuote = (s) => `'${s.replace(/'/g, `'\\''`)}'`;
     await q.sleep(1500);
     const name = args.name || '';
     const inAll = await q.inList(name);
-    await q.tapLabel(/pendientes/i, 8000);
+    await q.tapLabel(/^pendientes$/i, 8000);
     await q.sleep(1000);
     const inPending = await q.inList(name);
-    await q.tapLabel(/visitados/i, 8000);
+    await q.tapLabel(/^visitados$/i, 8000);
     await q.sleep(1000);
     const inVisited = await q.inList(name);
     checks.push({ name: 'guardado: aparece en Lista', ok: inAll });

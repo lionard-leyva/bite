@@ -1,281 +1,64 @@
-# CLAUDE.md - Bite
+# CLAUDE.md — Bite
 
-## 1. Resumen del Proyecto
+App móvil para parejas: guardar un restaurante en 2 toques y compartir la lista en tiempo real.
+React Native + Expo 57 · Firebase 12 (Auth, Firestore, Storage) · TypeScript · NativeWind · servidor Express en `server/`.
+Producto: `SPEC.md`. Plan de pruebas: `docs/qa/e2e-plan.md`. Comportamientos: `features/*.feature`.
 
-**Bite** - App movil para guardar y recordar restaurantes en pareja/amigos. Guardar un sitio en 2 taps, compartir lista en tiempo real.
+## Reglas de trabajo
+- Rama de trabajo: `master-hzgidc`. No subir a otra rama sin permiso.
+- Un comportamiento nuevo empieza en un `.feature` en español con su ID del plan. Verlo fallar, luego implementar.
+- Tras implementar, muta el código a propósito: si un escenario sobrevive, es decorativo.
+- No afirmes que algo funciona sin haber ejecutado `npm run typecheck` y `npm test` en esa respuesta.
+- No saltes, desactives ni borres tests para pasar. Corrige el código o el script.
+- Sin atribución a Claude ni a ningún modelo: ni en commits, ni en PRs, ni en comentarios, código o docs (sin `Co-Authored-By`, `Claude-Session`, "Generated with", enlaces de sesión, nombres de modelo).
+- PRs en borrador. Se fusionan con squash y solo con `CI ok` en verde.
+- No despliegues en Firebase ni toques reglas, índices o credenciales desde aquí.
+- Secretos fuera de git. `.env` nunca se commitea.
+- Comentarios solo si la lógica no es obvia. Textos de UI y nombres de features en español.
+- Un push nuevo cancela el E2E en marcha de la misma rama: espera a que termine antes de subir cambios pequeños.
 
-**Stack**: React Native + Expo + Firebase (Auth, Firestore, Storage) + TypeScript + NativeWind + Express proxy (directions)
+## Vista previa y E2E
+- `expo-preview.yml` publica en Expo Go tras typecheck y Jest, y solo con el E2E P0 del cambio en verde.
+- El E2E se revisa cuando termina; no se espera parado.
+- Si un caso P0 falla: depurar, corregir con un push validado y no publicar.
 
-Spec completa en `SPEC.md`.
+## Arquitectura
+- Colecciones raíz: `users`, `restaurants`, `lists`, `decisionSessions`, `decisionVotes`. Se enlazan por `listId`, sin subcolecciones.
+- Tiempo real con `onSnapshot`. La búsqueda es local (`utils/searchMatch`: sin tildes ni mayúsculas).
+- Modo sin cuenta en AsyncStorage. Al loguearse se ofrece migrar (`migrationService`).
+- Fotos: 800 px, calidad 0,7, antes de subir a `photos/{userId}/{id}.jpg`.
+- Restaurantes no se editan en v1: se borran y se guardan de nuevo.
+- Guardar (`SaveScreen`): buscador de sitios desde 3 letras, vía `placesService` y el servidor. Nunca se geocodifica el nombre. Sin ubicación, el pin se arrastra. A más de 150 km se pide confirmar (`utils/saveRules`).
+- Lista compartida: código de 6 caracteres en `lists/{id}.inviteCode`.
+- "¿Dónde cenamos hoy?": ronda en `decisionSessions/{listId}`, votos ocultos solo en la UI, caduca a las 12 h.
+- Guardar desde Compartir (Android): `modules/share-intent` + `utils/shareParser`.
+- La clave de Google vive solo en el servidor. El JS no la lee.
 
-## 2. Decisiones de Arquitectura Criticas
+## Tema Terracota
+- Colores solo desde `src/theme/palette.js`, vía `useTheme()` o clases Tailwind. Nada de hex ni `rgba()` en la UI.
+- Siempre claro (`userInterfaceStyle: light`).
+- Títulos en Young Serif (`font-display`); texto en Figtree (`font-sans*`). No uses `font-bold`.
+- Botones de solo icono con `accessibilityLabel`. Las animaciones respetan `useReducedMotion`.
+- iOS: Apple Maps ignora `customMapStyle`; se usa `mapType: mutedStandard`.
 
-**Top-level collections vs subcollections**: `users`, `restaurants`, `lists` son colecciones raiz con referencias por `listId`. No subcollections. Queries simples (`where("listId", "==", X)`), un read por documento, no nested reads. Menor coste Firestore y collection group queries innecesarias.
-
-**onSnapshot vs polling**: Firestore `onSnapshot` listeners para real-time sync. Cuando la pareja agrega un restaurante, aparece inmediatamente sin necesidad de refresh ni intervalo de polling.
-
-**Skip login habilitado**: Reduce friccion de onboarding. Datos guardados en AsyncStorage localmente. Funcionalidad completa excepto compartir. Al hacer login posterior, modal pregunta si migrar X restaurantes a Firestore. Login solo requerido para sync entre dispositivos y compartir lista.
-
-**Storage path**: `photos/{userId}/{restaurantId}.jpg` (no `{listId}`) para que funcione en modo skip donde userId = deviceId temporal. Al loguearse, se re-sube con Firebase UID. Security rule: `request.auth.uid == userId`.
-
-**Compresion de fotos**: `expo-image-manipulator`, resize max 800px, quality 0.7. Resultado < 200KB tipico. Siempre ANTES de subir a Storage. Si storage > 4GB, reducir a quality 0.6.
-
-**Busqueda local**: Filtro en cliente sobre array cacheado, no Firestore queries (no soporta full-text search). Funciona offline y ignora mayusculas y tildes (`utils/searchMatch.matchesQuery`: "cafe" encuentra "Café"):
-```typescript
-restaurants.filter(r => matchesQuery(r, query))
-```
-
-**No editar restaurantes en v1**: Si se equivoca, eliminar y re-guardar. Evita conflictos de edicion concurrente entre pareja. Editar es post-MVP.
-
-**Directions proxy**: El cliente NO llama a Google Directions API directamente. Un servidor Express ligero en `server/` actua como proxy (`POST /api/directions`), mantiene la API key server-side, cachea respuestas 5 min, deduplica requests simultaneos y aplica rate limiting. El cliente solo envia `{ origin: {lat,lng}, destination: {lat,lng} }` y recibe `{ distanceKm, durationMinutes }`. Si el proxy no responde, el callout muestra distancia Haversine como fallback.
-
-## 3. Estructura del Proyecto
-
-```
-server/             # Express proxy (directions API, resolve-link de Maps, rate limit, cache)
-modules/share-intent/ # Modulo Expo local (Android): texto compartido a Bite (ACTION_SEND)
-src/
-├── __tests__/      # Jest tests (timeAgo, searchFilter, matchLogic, StarRating, RestaurantCard, MatchEntryCard)
-features/           # Aceptacion en Gherkin (.feature en espanol), ejecutada por jest-cucumber (ver §10)
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay, MatchEntryCard, LocationNotice
-├── screens/        # HomeScreen, SaveScreen, ListScreen, DetailScreen, ProfileScreen, AuthScreen, MatchScreen
-├── navigation/     # RootNavigator (stack) + TabNavigator (Mapa | Lista | Perfil)
-├── contexts/       # AuthContext (auth state, skip mode, migracion, refreshListId)
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService, navigationService, decisionService, migrationService
-├── hooks/          # useRestaurants (onSnapshot/local), useAuth, useLocation, useNavigationETA, useDecisionSession, useReducedMotion
-├── types/          # User, Restaurant, RestaurantList, DecisionSession (interfaces TypeScript)
-├── utils/          # timeAgo, geo (haversine), matchLogic, matchAccess, locationNotice, shareParser
-├── theme/          # palette.js (unica fuente de colores, claro/oscuro), ThemeProvider (useTheme), mapStyle, color (withAlpha)
-└── config/         # firebase.ts, constants.ts
-```
-
-## 4. Flujo de Datos Critico
-
-### Skip login + migracion a Firestore
-1. Primera apertura: usuario toca "Saltar" en AuthScreen
-2. Se genera un deviceId temporal, datos se guardan en AsyncStorage
-3. App funciona completa (guardar, ver, buscar) excepto compartir
-4. Cuando decide loguearse (desde Perfil o al intentar compartir):
-   - Login con email o Google
-   - Se detectan datos en AsyncStorage
-   - Modal: "Tienes X restaurantes guardados. Migrarlos a tu cuenta?"
-   - Si acepta: crea lista en Firestore, sube restaurants + fotos con nuevo userId
-   - Si rechaza: datos quedan en local, puede migrar despues desde Perfil
-5. AsyncStorage se limpia tras migracion exitosa
-
-### Compartir lista (inviteCode)
-1. Owner va a Perfil → "Compartir con pareja"
-2. Se genera inviteCode de 6 chars uppercase en `lists/{listId}.inviteCode`
-3. Owner comparte el codigo (copiar, mensaje, etc.)
-4. Pareja va a Perfil → "Unirse a lista" → ingresa codigo
-5. Query: `lists where inviteCode == codigo` → se agrega pareja a `members[]`
-6. Se actualiza `users/{parejaId}.sharedListId = listId`
-7. Listener `onSnapshot` en `restaurants where listId == X` sincroniza todo automaticamente
-
-### Sync en tiempo real (onSnapshot)
-1. Al abrir app (logged in), se activa listener: `onSnapshot(query(restaurants, where("listId", "==", userListId)))`
-2. Cada cambio (add/modify/remove) dispara callback que actualiza estado local
-3. UI se re-renderiza automaticamente con datos nuevos
-4. Si pareja agrega restaurante → aparece en tu lista/mapa sin refresh
-5. Listener se desuscribe al cerrar app o hacer logout
-
-### ¿Dónde cenamos hoy? (Match)
-1. En el Mapa, la tarjeta "¿Dónde cenamos hoy?" abre `MatchScreen` (solo con cuenta y lista compartida)
-2. `decisionSessions/{listId}`: una ronda activa por lista (`roundId`, `participants`, `restaurantIds`, `status: ACTIVE | MATCHED | CLOSED`, `matchedRestaurantId`). Se crea en transaccion para que ambos caigan en la misma ronda; caduca a las 12 h
-3. Candidatos: pendientes ordenados por Haversine, maximo 10. ETA real del proxy solo para la tarjeta visible
-4. Votos en `decisionVotes/{roundId}_{userId}` (`votes: { restaurantId: LIKE | PASS }`). La UI nunca muestra los votos del otro, solo el match
-5. Cuando todos los participantes dan LIKE al mismo sitio, el primer cliente que lo detecta marca `MATCHED` en transaccion y ambos ven la pantalla de match
-
-### Guardar desde Compartir (Android)
-1. `intentFilters` SEND text/plain en `app.config.js` + `modules/share-intent` (lee EXTRA_SUBJECT/EXTRA_TEXT; arranque en frio `getInitialShare`, en caliente evento `onShare`)
-2. `useShareIntent` (montado en TabNavigator) abre `Save` con `{ sharedText }`
-3. `shareParser`: Google Maps largo → nombre (`/place/`) + coords (`!3d!4d` > `?q=` > `@`); `maps.app.goo.gl` → `POST /api/resolve-link` (sigue redirects solo a hosts de Maps, desenvuelve consent.google.com; fallback: fetch en el dispositivo). Instagram/TikTok → nombre del texto si es corto, nota "Visto en X: url"
-4. SaveScreen prellena como Pendiente: con coords en modo manual; sin coords en el buscador de Places para confirmar
-
-### Offline (Firestore persistence)
-1. `enablePersistentCacheIndexAutoCreation` activado en init de Firebase
-2. Datos se cachean automaticamente en dispositivo
-3. Sin conexion: reads sirven datos cacheados, lista/mapa se ven normal
-4. Sin conexion: writes se encolan localmente
-5. Al reconectar: writes encolados se sincronizan automaticamente con servidor
-6. En modo skip login: AsyncStorage ya es 100% local, offline por defecto
-
-## 5. Dependencias Clave y Por Que
-
-```json
-{
-  "@react-navigation/native": "navegacion",
-  "firebase": "backend",
-  "react-native-maps": "mapa de restaurantes",
-  "expo-image-picker": "fotos",
-  "expo-image-manipulator": "compresion",
-  "expo-location": "auto-detectar ubicacion",
-  "@react-native-async-storage/async-storage": "modo skip login",
-  "nativewind": "Tailwind para React Native",
-  "react-native-google-places-autocomplete": "buscar restaurantes por nombre",
-  "expo-font": "carga Young Serif y Figtree (@expo-google-fonts/*)",
-  "expo-haptics": "toque tactil al guardar, votar y hacer match"
-}
-```
-
-## 6. Comandos
-
+## Comandos
 ```bash
-npm install && npx expo start          # app (dev build en Android Emulator)
-cd server && npm install && npm run dev # proxy directions (otra terminal)
-npm run sync                            # PC: git pull + npm install si cambio el lock + aviso de rebuild nativo
-npm test                                # client (jest)
-npm run server:test                     # server (directions + resolveLink)
-npm run test:emulator                   # 2 usuarios + firestore.rules contra Firebase Emulator (necesita Java 21+; no toca bite-ba28f)
-npm run typecheck                       # tsc --noEmit
-npx jest src/__tests__/<archivo>        # test especifico antes que regresion completa
-eas build --platform android            # build (ios igual)
+npm install && npx expo start
+cd server && npm install && npm run dev   # directions en :3001
+npm run typecheck                         # tsc --noEmit
+npm test                                  # Jest unit + components
+npm run server:test
+npm run test:emulator                     # reglas de Firestore (Java 21+)
+npm run qa:all -- --p0                    # E2E en emulador Android (ver e2e-plan)
 ```
 
-## 7. Variables de Entorno Necesarias
+## Variables de entorno
+- App (`.env`, lee `app.config.js`): `FIREBASE_*`, `GOOGLE_MAPS_API_KEY` (solo SDK nativo), `DIRECTIONS_PROXY_URL`, `API_BASE_URL` (opcional).
+- Servidor (`server/.env`): `GOOGLE_DIRECTIONS_API_KEY`, `CORS_ORIGINS`, `PORT`.
 
-```
-FIREBASE_API_KEY=
-FIREBASE_AUTH_DOMAIN=
-FIREBASE_PROJECT_ID=
-FIREBASE_STORAGE_BUCKET=
-FIREBASE_MESSAGING_SENDER_ID=
-FIREBASE_APP_ID=
-GOOGLE_MAPS_API_KEY=
-DIRECTIONS_PROXY_URL=http://localhost:3001/api/directions
-```
-
-Server (`server/.env`):
-```
-GOOGLE_DIRECTIONS_API_KEY=
-CORS_ORIGINS=
-PORT=3001
-```
-
-No commitear `.env`. App usa `app.config.js` con `expo-constants`. Server usa `process.env` directamente. `GOOGLE_DIRECTIONS_API_KEY` solo vive en el server, nunca en el cliente.
-
-## 8. Reglas de Codigo (Code Conventions)
-
-- Componentes: PascalCase (SaveScreen.tsx)
-- Hooks: camelCase con prefijo 'use' (useRestaurants.ts)
-- Services: camelCase (firebaseService.ts)
-- Types: PascalCase en interfaces (Restaurant, User)
-- Comentarios: Solo cuando la logica no es obvia
-- TODO: Usar `// TODO:` con descripcion clara
-
-## 9. Problemas Conocidos
-
-- **Firebase `getReactNativePersistence` type warning**: La funcion existe en runtime pero carece de declaracion de tipos en Firebase v12. Resuelto con `@ts-ignore` en `src/config/firebase.ts`. No afecta funcionalidad.
-- Si Firebase falla en emulador → usar dispositivo real
-- Si Google Places excede cuota → fallback automatico a input manual (detectado en `SaveScreen` via `onFail`)
-- Si fotos saturan Storage → reducir compresion a quality 0.6 en `src/config/constants.ts`
-- **Migracion de fotos locales**: `migrateLocalData()` pasa las `photoURLs` locales a `saveRestaurant`, que las sube en segundo plano con el UID nuevo. Si el archivo local ya no existe, la subida falla y solo se registra en consola.
-- **Toggle visitado en skip mode**: en modo sin cuenta `DetailScreen` lo guarda en AsyncStorage (`updateLocalRestaurantVisited`).
-- **Composite index requerido en Firestore**: La query `where('listId', '==', X) + orderBy('createdAt', 'desc')` en `useRestaurants` requiere un composite index en la coleccion `restaurants`. Esta versionado en `firestore.indexes.json` (desplegar con `firebase deploy --only firestore:indexes`). Sin este index, el listener falla silenciosamente y los restaurantes no se muestran al estar logueado.
-- **Match: votos a ciegas solo en la UI**: Los clientes leen los votos de la ronda para detectar el match, asi que el secreto es de interfaz, no de seguridad. `firestore.rules` (propuesta, no desplegada) limita `decisionSessions` y `decisionVotes` a miembros de la lista; `subscribeVotes` filtra por `listId` + `roundId` para que la regla acepte la query. Minimo si no se despliegan: `request.auth != null`.
-- **Mapa en iOS**: `react-native-maps` usa Apple Maps en iOS (sin `provider` Google), que ignora `customMapStyle`: el estilo Terracota del mapa (agua, parques, oscuro) solo se ve en Android. Con Expo Go el boton azul de engranaje flotante es del menu de desarrollo de Expo, no de Bite (se oculta desde ese menu).
-- **Geocodificar por nombre**: `SaveScreen` geocodifica el nombre si no hay coordenadas (`Location.geocodeAsync`) y puede ubicar el sitio en otra ciudad o continente; el mapa ya no se aleja por eso (`mapFocus`), pero el pin quedaria lejos. Elegir el sitio en el buscador de Places da coordenadas exactas.
-- **Compartir a Bite**: solo Android y solo en dev/prod build (el modulo nativo es `null` en Expo Go/iOS/Jest). Cambios en `modules/share-intent` o `intentFilters` requieren rebuild nativo. Instagram/TikTok no dan el nombre del local, solo URL/caption.
-- **Firestore security rules**: Para que guardar funcione con cuenta, las security rules deben permitir write en `restaurants` a usuarios autenticados. Regla minima: `allow read, write: if request.auth != null;` en la coleccion `restaurants`.
-
-## 10. Testing y QA
-
-Orden: test especifico > `npm test` > QA en emulador solo si el cambio es visual/nativo.
-
-CI (`.github/workflows`), estrategia por niveles: lo barato y determinista bloquea, lo lento avisa.
-- **Puerta de fusion** (`ci.yml`, ~3 min, en cada PR): jobs en paralelo (typecheck, Jest, Jest de `qaScripts` aparte porque tarda ~90 s, server, bundle Android, reglas con Firebase Emulator) y un job final `CI ok` que depende de todos. Solo `CI ok` se marca como obligatorio en la proteccion de rama. `src/__tests__/ciWorkflow.test.ts` falla si se anade un job sin meterlo en la puerta.
-- **Aviso temprano** (`qa-e2e.yml`, ~50 min, no bloquea): en PR solo corre si el cambio toca algo visible o nativo (`src/` salvo tests, `modules/`, `assets/`, `scripts/qa/`, `app.config.js`, dependencias...) y solo con los casos P0 (`E2E_SCOPE=p0`). Un push nuevo cancela el run anterior de la misma rama.
-- **Suite entera**: de noche sobre master (P0, P1 y P2) y a demanda con `scope` full o p0. Sube `qa-out/`; los casos visuales se revisan en las capturas.
-- Regla de trabajo: se fusiona con `CI ok` en verde; el E2E se mira cuando termina, no se espera. Si falla en master, se arregla en un PR aparte.
-- Un fallo del E2E nunca se arregla saltando o desactivando el caso: se corrige el codigo o el script.
-- **Vista previa en el movil** (`expo-preview.yml`, Expo Go): es lo que ve el usuario, asi que pasa typecheck y Jest antes de `eas update`, y tras tocar pantallas solo se publica con el E2E P0 de ese cambio en verde. El 9-oct se publico sin esperarlo y el Mapa se cerraba con datos guardados sin cuenta (`createdAt` en texto desde AsyncStorage): MAP-09 lo cubre.
-
-Plan E2E completo, casos y runbook: `docs/qa/e2e-plan.md` (`npm run qa:all`, `-- --static` sin emulador).
-
-Jest multi-project en `package.json`: **unit** (node: `timeAgo`, `searchFilter`, `matchLogic`, `shareParser`, `qaSeed`, `listService` y `decisionService` contra Firestore en memoria `jest/fakeFirestore.js`) y **components** (jest-expo/ios: `StarRating`, `RestaurantCard`, `MatchEntryCard`, `useLocation`). Requiere `react-native-worklets` (peer dep de RN 0.81). Server: `server/__tests__/` (directions: validacion + cache; resolveLink: allowlist, consent, loops).
-
-### QA automatizado (adb, sin dependencias)
-
-Entorno: PC Windows, Android Emulator Pixel 9, `adb` en PATH, Metro corriendo y dev build instalado (`com.lionardleyva.bite`). Scripts en `scripts/qa/` (helpers en `adb.js`: dump UI por uiautomator, tap por texto/accessibilityLabel, screenshot, logcat). Salida compacta `OK/FAIL` por check, exit code 1 si falla, screenshots en `qa-out/` (ignorado). Usar estos scripts en vez de navegar paso a paso con Mobile MCP; Mobile MCP solo para mirar el screenshot o flujos nuevos.
-
-| Comando | Flujo | Verifica |
-|---|---|---|
-| `npm run qa:map -- --restaurant "Nombre" [--marker X,Y] [--open-detail]` | abrir app > Continuar sin cuenta > Mapa > tocar marker | MapDetailCard con nombre, "Ver detalle", "Ir ahora"; con `--open-detail` (MAP-02) "Ver detalle" abre el detalle del mismo restaurante; sin errores JS en logcat |
-| `npm run qa:location -- [--lat 40.4168 --lng -3.7038] [--deny]` | permisos + `adb emu geo fix` (Madrid por defecto) > abrir app > Mapa > "Ir a mi ubicacion" | `dumpsys location` tiene la ubicacion inyectada; sin rechazos/errores en logcat; screenshot del mapa centrado |
-| `npm run qa:logs` | - | errores JS/nativos recientes en logcat |
-| `npm run qa:share -- --text "<texto>" [--state closed] [--name X] [--banner "Desde Google Maps"] [--save]` | compartir texto hacia Bite (`ACTION_SEND`) > Guardar restaurante prellenado > con `--save` guardar y comprobar que queda Pendiente | pantalla abierta, banner `Desde <origen>`, nombre esperado (o ninguno), sin errores JS |
-| `npm run qa:all [-- --p0 \| --static \| --only IDs \| --release]` | suite E2E por bloques (estatico > reset+semilla > P0 > P1 > logs) | resumen `OK/FAIL/SKIP` por caso; exit 1 si falla un P0 |
-| `npm run qa:seed [-- --visited]` | 3 restaurantes por Compartir (URLs de `seed-data.js`) + "QA Visitado" manual | quedan guardados |
-| `npm run qa:save -- --name X [--state visitado] [--note T] \| --empty` | FAB > Ingresar manualmente > rellenar > Guardar | aparece en Lista con su estado; vacio no guarda |
-| `npm run qa:list -- [--filter F] [--search T] --expect A,B [--absent C] [--restore C]` | Lista > filtro/busqueda > limpiar | nombres visibles/ocultos |
-| `npm run qa:detail -- --restaurant X [--state S] [--toggle] [--delete]` | Lista > detalle | nombre, estado, toggle, eliminar |
-| `npm run qa:keyboard` | escribe `gjpqy Gyoza` en Nombre, Direccion, Nota y Buscar | texto en el campo, campo sobre el teclado; descendentes en `qa-out/keyboard-*.png` |
-| `npm run qa:safearea -- [--restaurant X] [--nav3]` | Mapa, Lista, Perfil, Guardar, Detalle | ningun nodo de Bite bajo status bar ni barra de gestos; con `--nav3` (SAF-02) lo repite con la navegacion de 3 botones y restaura el modo que habia |
-| `npm run qa:empty` | `pm clear` > Mapa sin restaurantes (MAP-04) | "Tu mapa esta vacio", invitacion a guardar el primero, sin la tarjeta de "Donde cenamos hoy" |
-| `npm run qa:map-controls -- [--match lucio]` | Mapa > buscar > Expandir mapa (MAP-06) | la busqueda sin coincidencias vacia el mapa, la que coincide no; "Explorar mapa" abre y atras vuelve |
-| `npm run qa:profile -- [--count N]` | Perfil sin cuenta (PRF-01) | "Crear cuenta" y el contador local; no ofrece compartir; cancelar el aviso (nunca pulsa "Continuar") |
-
-Notas:
-- Los markers de Google Maps no salen en el arbol de accesibilidad si no tienen `title`: si `qa:map` no lo localiza, mira `qa-out/map-before.png` y pasa `--marker X,Y`.
-- `qa:map` necesita al menos un restaurante guardado en modo sin cuenta (AsyncStorage persiste entre lanzamientos).
-- `qa:location` no puede leer las coords del estado JS; la verificacion de que el mapa se centra es el screenshot.
-- `adb emu geo fix` recibe longitud primero.
-- `qa:share --state closed` no vale en una development build: el icono pasa por el launcher de dev-client y el texto compartido se pierde. Para el arranque en frio compila una release (`cd android && ./gradlew.bat assembleRelease -PreactNativeArchitectures=x86_64`, instalar con `adb install -r`) y ejecuta con `BITE_RELEASE=1`.
-- `qa:location` da PASS aunque el mapa no se centre: solo comprueba `dumpsys` y logcat. Mira siempre `qa-out/location.png`. En el emulador la posicion solo llega con `Accuracy.High` (o con una posicion ya en cache); con `Balanced` (el valor de `locationService`) la peticion no se resuelve, no es un bug de Bite. Para forzarla usa un movil real.
-- Metro con `npx expo start --dev-client --lan` sin `CI=1` (en modo CI no recarga los cambios). Emulador con `-gpu swiftshader_indirect` (con la GPU del host las capturas salen negras).
-- Mobile MCP deja un `DeviceServer` que ocupa UiAutomation; `adb.js` lo cierra antes de volcar la UI (si no, `uiautomator` falla con "already registered").
-- Tras `pm clear` el dev-client muestra su bienvenida/menu y Gboard el aviso "Try out your stylus": `adb.js` cierra el menu y desactiva `stylus_handwriting_enabled`. El boton flotante de engranaje (arriba a la derecha) es del dev-client, no de Bite.
-- Capturas que hay que juzgar a ojo (`location.png`, `keyboard-*.png`, `safearea-*.png`): subagente `qa-visual-triage` (`.claude/agents/`), no Mobile MCP.
-- Los scripts `empty.js`, `map-controls.js`, `profile.js`, `safearea.js --nav3` y `map-callout.js --open-detail` se prueban sin emulador en `src/__tests__/qaScripts.test.ts` con un `adb` falso (`src/__tests__/helpers/fakeAdb.ts`: la pantalla responde segun lo que el script toca y escribe; `BITE_QA_TIME_SCALE` acorta las esperas). Eso comprueba la logica del script, no la app: la validacion real la da `qa-e2e.yml`.
-- `expo prebuild` reescribe los scripts `android`/`ios` de `package.json`: revertirlos.
-
-### Pruebas de aceptacion en Gherkin (`features/`)
-
-Los comportamientos de negocio se definen en `.feature` en espanol (`# language: es`) y se ejecutan con `jest-cucumber`. El `.feature` es la fuente: pasos declarativos y de negocio (nunca de interfaz), un escenario por comportamiento, etiquetado con el ID del caso de `docs/qa/e2e-plan.md` (`@SHL-02`, `@MCH-03`...). No es una traduccion 1:1 de `qa:all`.
-
-| Feature | Casos | Ejecuta | Proyecto Jest |
-|---|---|---|---|
-| `compartir-lista.feature` | SHL-01..03 | `listService` en Firestore en memoria | unit |
-| `donde-cenamos.feature` | MCH-01, 02, 03, 06 | `decisionService` + `matchLogic` en memoria | unit |
-| `guardar-desde-compartir.feature` | SHR-01, 02, 04 | `shareParser` | unit |
-| `pareja-y-seguridad.feature` | EMU-01, 02, 05, 06, 07, RUL-01, 02, SHL-04 | servicios reales + `firestore.rules` en el Firebase Emulator | emulator |
-| `acceso-a-decision.feature` | MCH-05 | `utils/matchAccess` (quien llega a jugar y cuando falta la pareja) | unit |
-| `visitado.feature` | VIS-03 | `restaurantService.toggleVisited` en Firestore en memoria | unit |
-| `migracion.feature` | PRF-03 | `migrationService` (skip a cuenta) con almacenamiento local real y Firestore en memoria | unit |
-| `tema*.feature`, `botones-con-nombre.feature`, `movimiento-reducido.feature` | UI-01..UI-09 (paleta y contraste, tema activo, mapa, sin colores sueltos, botones con nombre, reducir movimiento) | Jest (paleta, Tailwind, `ThemeProvider`, reglas estaticas, componentes) | unit / components |
-| `ubicacion-denegada.feature` | LOC-02 | `useLocation` + `locationService` + reglas del aviso (`utils/locationNotice`) + `LocationNotice` reales con `expo-location` y `Linking.openSettings` simulados | components |
-| `pantalla-decision.feature` | MCH-06 | `MatchScreen` real con los hooks de datos simulados (prueba metamorfica: los votos del otro no cambian lo que ves) | components |
-| `distancia-sin-proxy.feature` | MAP-05 | `useNavigationETA` + `navigationService` reales con `fetch` simulado (proxy caido, con error, colgado, recuperado, cambio de sitio) | components |
-| `fotos.feature` | ADD-04 | `imageService` real con manipulador de imagenes, Storage y `fetch` simulados (800 px, JPEG, calidad 0,7 antes de subir) | unit |
-| `busqueda-de-lugares.feature` | ADD-03 | `SaveScreen` real con el buscador de Google simulado (se le provoca `onFail`; pasa a entrada manual, avisa y conserva el nombre) | components |
-| `detalle-inexistente.feature` | DET-03 | `DetailScreen` real con la lista de restaurantes simulada ("Restaurante no encontrado") | components |
-| `campos-de-texto.feature` | KBD-03 | regla estatica sobre el codigo (`src/__tests__/helpers/textInputAudit.ts`): ningun `TextInput` con `height` menor que su interlineado | unit |
-| `encuadre-del-mapa.feature` | MAP-07, MAP-08 | `utils/mapFocus` (encuadre en torno a donde estas, ignorando sitios a mas de 150 km, y enfoque del restaurante recien guardado) | unit |
-| `pantalla-de-acceso.feature` | SAF-04 | `AuthScreen` real con la barra superior simulada (59 px): el contenido empieza por debajo | components |
-
-- Definiciones de pasos: `src/__tests__/*.feature.test.ts` (unit) y `*.feature.test.tsx` (components, necesitan el renderer de React Native; `package.json` deja transformar `jest-cucumber`, `@cucumber/*` y `uuid` en ese proyecto); ambas corren con `npm test` y en `ci.yml` y `*.feature.emulator.test.ts` (`npm run test:emulator`, Java 21+, en serie con `--runInBand` porque comparten emulador y `clearFirestore`). Mocks de dominio: `jest.mock('firebase/firestore', () => require('../../jest/fakeFirestore'))` + `jest.mock('../config/firebase', () => ({ db: {} }))`; `fake.__reset/__get/__put`.
-- `RULES_FILE=<ruta> npm run test:emulator` prueba una copia de las reglas (para mutaciones) sin tocar `firestore.rules`.
-- `featureLinks.test.ts` exige que cada `@ID` este enlazado desde `docs/qa/e2e-plan.md`.
-- **Regla: un comportamiento nuevo se describe primero en un `.feature`** (con su ID del plan), se ve fallar por falta de pasos/comportamiento y solo entonces se implementa. Despues, una mutacion a proposito del codigo (o de las reglas) debe romper el escenario; si sobrevive, el escenario es decorativo.
-- Limites: el estado "Pendiente" y la nota "Visto en X" los fija `SaveScreen` (UI) y no estan cubiertos; MCH-06 comprueba que la sesion no lleva votos ni revela match prematuro, no lo que pinta `MatchScreen`. La migracion skip a cuenta vive en `services/migrationService` (la llama `AuthContext.migrateLocalData`, que conserva la comprobacion de sesion).
-
-### Tema y diseno (Terracota)
-
-- Los colores salen **solo** de `src/theme/palette.js` (claro y oscuro). Las clases de Tailwind (`bg-primary`, `text-text-secondary`) leen variables CSS que pone `ThemeProvider`; para iconos, sombras y estilos en linea usa `const { colors } = useTheme()`. Nada de hex, `rgba()`, `'white'` ni `text-red-600` en la interfaz: `temaMigrado.feature.test.ts` (UI-05) lo vigila en todo `src/`.
-- `userInterfaceStyle: automatic` (UI-07): la app sigue el claro/oscuro del telefono. Es un cambio nativo (rebuild). Probar el oscuro: `adb shell cmd uimode night yes`.
-- Fuentes: Young Serif para titulos (`font-display`, regla UI-11 sobre `text-title`/`text-hero`) y Figtree para texto con peso (`font-sans`, `font-sans-medium|semibold|bold`). `theme/FontGate` las carga con `expo-font` y espera a que esten listas (si fallan, sigue con la del sistema). Las fuentes custom ignoran `fontWeight`: elige la clase de familia, no `font-bold`.
-- Todo boton de solo icono lleva `accessibilityLabel` (UI-08). Las animaciones de pulsacion, el pulso del punto de ubicacion y el match respetan "reducir movimiento" con `useReducedMotion` (UI-09).
-
-### Manual (solo flujos no automatizados)
-
-- **Compartir**: cuenta A > Perfil > "Compartir con pareja" (codigo) > cuenta B > Perfil > "Unirme" > codigo > ambos ven restaurantes en tiempo real.
-- **Migracion**: modo sin cuenta con restaurantes > Perfil > "Crear cuenta" > registrarse > aceptar "Migrar restaurantes?".
-- **GPS en Guardar (LOC-04)**: con permiso y posicion real, Guardar > boton de GPS junto a Direccion > se rellena la direccion.
-- **Editar perfil (PRF-02)**: con cuenta, Perfil > "Editar perfil" > ciudad > "Guardar cambios" > reabrir y comprobar que persiste.
-- **Offline**: guardar con conexion > modo avion > mapa/lista siguen > reconectar > sync.
-
-## 11. Referencias Rapidas
-
-- `SPEC.md`: Especificacion completa del producto
-- `CHANGELOG.md`: Historial de versiones
-- `README.md`: Setup e instrucciones de desarrollo
+## Trampas conocidas
+- `getReactNativePersistence` sin tipos en Firebase 12: `@ts-ignore` en `src/config/firebase.ts`.
+- La lista necesita el índice de `firestore.indexes.json`; sin él no aparecen restaurantes con sesión.
+- El buscador de sitios falla en el móvil hasta desplegar `/api/places/*` (PR B). Entonces Guardar pasa a "a mano" con aviso.
+- Compartir a Bite: solo Android, en build de desarrollo o producción. Cambiar `modules/` o `intentFilters` exige recompilar.
+- Perfil: al cambiar la ciudad a mano, `cityLat/cityLng` anteriores quedan en Firestore (nadie los lee hoy).

@@ -11,3 +11,9 @@ Característica: El formulario vuelve a su sitio al cerrar el teclado
     Cuando el teclado se abre y el formulario se desplaza hacia el final
     Y el teclado se cierra
     Entonces el formulario vuelve a los 120 píxeles
+
+  @KBD-02
+  Escenario: En la pantalla de acceso, el teclado no tapa el campo que Ana escribe
+    Dado que la pantalla de acceso tiene varios campos de texto
+    Cuando Ana abre el teclado para escribir en cualquiera de ellos
+    Entonces el formulario de acceso se ajusta al teclado
