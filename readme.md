@@ -1,176 +1,94 @@
 # Bite
 
-App movil para parejas y amigos que siempre olvidan buenos restaurantes. Guarda un sitio en 2 taps, comparte tu lista en tiempo real.
+App móvil para parejas y amigos que siempre olvidan los buenos restaurantes. Guardas un sitio en dos toques, lo veis en el mapa y en una lista compartida en tiempo real, y cuando no sabéis dónde cenar, decidís juntos sin ver lo que vota el otro.
 
-**Problema**: Descubres un restaurante increible, lo olvidas en 2 dias. Tu pareja te pregunta "donde era ese sitio?" y ninguno se acuerda.
+## Qué hace
 
-**Solucion**: Bite te permite guardar restaurantes al instante (nombre, foto, estrellas, ubicacion), verlos en mapa o lista, y compartir una lista sincronizada con tu pareja en tiempo real.
+- **Guardar en el sitio correcto**: buscas el restaurante desde 3 letras (sugerencias cerca de ti) y se rellenan solos el nombre, la dirección y el pin. Si no aparece, lo añades a mano y marcas dónde está con tu ubicación, una dirección sugerida o arrastrando el pin. Nunca se adivina la ubicación; si el sitio está a más de 150 km, Bite te pregunta antes de guardar.
+- **Mapa**: a pantalla completa, con pines en píldora (terracota pendiente, ✓ visitado), filtros Todos / Pendientes / Visitados y una hoja con foto, "★ 4 · €€ · a 6 min", quién lo guardó, "Ver detalle" e "Ir ahora".
+- **Lista**: "Tu lista" o "Vuestra lista", búsqueda sin tildes ni mayúsculas, filtros y tarjetas con foto.
+- **¿Dónde cenamos hoy?**: los dos votáis los pendientes a ciegas; cuando coincidís, hay match.
+- **Compartir lista**: código de invitación de 6 caracteres y sincronización al instante (Firestore `onSnapshot`).
+- **Guardar desde Compartir** (Android): compartes un enlace de Google Maps, Instagram o TikTok con Bite y se abre el formulario prellenado.
+- **Sin cuenta**: todo funciona en el móvil (AsyncStorage); al crear cuenta se ofrece migrar los restaurantes.
+- **Offline**: los datos se ven sin conexión y lo guardado se sincroniza al volver.
 
-## Features (MVP)
-
-- **Guardar rapido**: Busqueda por nombre con Google Places o input manual, foto desde camara/galeria, rating 1-5 estrellas, nota opcional
-- **Vista mapa**: Pins de colores (verde = visitado, naranja = pendiente) con tu ubicacion
-- **Vista lista**: Cards con foto, estrellas, busqueda y filtros (todos/visitados/pendientes)
-- **Detalle**: Foto, rating, nota, boton "como llegar", toggle visitado/pendiente, eliminar
-- **Compartir lista**: Codigo de invitacion de 6 caracteres, sync en tiempo real via Firestore
-- **Modo sin cuenta**: Funcionalidad completa sin registro, datos locales, migracion al crear cuenta
-- **Offline**: Datos cacheados, writes encolados, sync automatico al reconectar
+Diseño **A · Terracota**, siempre en claro, con Young Serif y Figtree.
 
 ## Stack
 
-- **React Native + Expo SDK 54** — iOS + Android desde una base
-- **Firebase** — Auth (email/password), Firestore (datos), Storage (fotos)
-- **Google Maps** — Mapa, pins, busqueda de lugares
-- **TypeScript** — Strict mode
-- **NativeWind v4** — Tailwind CSS para React Native
+- **React Native 0.86 + Expo SDK 57**, TypeScript estricto, NativeWind 4
+- **Firebase 12**: Auth, Firestore y Storage
+- **react-native-maps**: Google Maps en Android, Apple Maps en iOS
+- **Servidor propio** (`server/`, Express): direcciones y resolución de enlaces cortos de Maps. La búsqueda de sitios (`/places/*`) llegará con Firebase Functions; hasta entonces Guardar pasa a "a mano". Las claves de Google viven en el servidor, nunca en la app.
 
-## Setup
-
-### 1. Instalar dependencias
+## Puesta en marcha
 
 ```bash
 npm install
+cp .env.example .env      # rellena las variables de abajo
+npx expo start            # app (dev build o Expo Go)
+cd server && npm install && npm run dev   # servidor en otra terminal (puerto 3001)
 ```
 
-### 2. Configurar variables de entorno
+Variables de la app (`.env`, las lee `app.config.js`):
 
-```bash
-cp .env.example .env
-```
+| Variable | Para qué |
+|---|---|
+| `FIREBASE_*` | Configuración web del proyecto de Firebase |
+| `GOOGLE_MAPS_API_KEY` | Solo el SDK nativo del mapa (restríngela a la app en Google Cloud). El código JS no la lee. |
+| `DIRECTIONS_PROXY_URL` | URL del servidor para direcciones (por defecto `http://localhost:3001/api/directions`) |
+| `API_BASE_URL` | Opcional: base del servidor para `/places/*`; por defecto la de `DIRECTIONS_PROXY_URL` sin `/directions` |
 
-Rellena `.env` con tus credenciales:
+Variables del servidor (`server/.env`): `GOOGLE_DIRECTIONS_API_KEY`, `CORS_ORIGINS`, `PORT`.
 
-```
-FIREBASE_API_KEY=
-FIREBASE_AUTH_DOMAIN=
-FIREBASE_PROJECT_ID=
-FIREBASE_STORAGE_BUCKET=
-FIREBASE_MESSAGING_SENDER_ID=
-FIREBASE_APP_ID=
-GOOGLE_MAPS_API_KEY=
-```
-
-Las variables se leen en `app.config.js` y se exponen via `expo-constants` en runtime.
-
-### 3. Firebase
-
-1. Crea un proyecto en [Firebase Console](https://console.firebase.google.com)
-2. Activa **Authentication** → Email/Password
-3. Crea una base de datos **Firestore** (produccion o test mode)
-4. Activa **Storage**
-5. Copia las credenciales del SDK web a tu `.env`
-
-Colecciones Firestore (se crean automaticamente):
-- `users` — perfil y referencia a lista
-- `restaurants` — restaurantes con `listId` para filtrar
-- `lists` — listas compartidas con `members[]` e `inviteCode`
-
-### 4. Google Maps
-
-1. En [Google Cloud Console](https://console.cloud.google.com), activa:
-   - Maps SDK for iOS
-   - Maps SDK for Android
-   - Places API
-2. Copia la API key a `GOOGLE_MAPS_API_KEY` en `.env`
-
-## Desarrollo
-
-```bash
-# Iniciar Expo dev server
-npx expo start
-
-# Plataforma especifica
-npx expo start --ios
-npx expo start --android
-```
+Firebase: activa Authentication (email/contraseña), Firestore y Storage. Las colecciones `users`, `restaurants`, `lists`, `decisionSessions` y `decisionVotes` se crean solas. Las reglas están en `firestore.rules` y el índice que necesita la lista en `firestore.indexes.json`.
 
 ## Tests
 
 ```bash
-# Ejecutar todos los tests (28 tests, 4 suites)
-npm test
-
-# Watch mode
-npm run test:watch
+npm run typecheck       # tsc --noEmit
+npm test                # Jest: unit + components (53 suites, 420 tests)
+npm run server:test     # servidor
+npm run test:emulator   # reglas de Firestore y dos usuarios en el Firebase Emulator (Java 21+)
 ```
 
-Tests incluyen:
-- `timeAgo` — utilidad de formato de tiempo relativo
-- `searchFilter` — logica de busqueda y filtrado de restaurantes
-- `StarRating` — componente de rating interactivo
-- `RestaurantCard` — card de restaurante con datos y accesibilidad
+Los comportamientos se escriben primero en Gherkin, en español (`features/*.feature`), y se ejecutan con `jest-cucumber`. Cada escenario lleva el ID de su caso en `docs/qa/e2e-plan.md`. Las pruebas en el emulador de Android están en `scripts/qa/` (`npm run qa:all`).
 
-## Build (APK para compartir)
+## CI y vista previa
 
-Este proyecto usa `app.config.js` (config dinamica). La configuracion Android ya incluye:
+- **`ci.yml`** (en cada PR, ~3 min): typecheck, Jest, servidor, bundle de Android y reglas de Firestore. Solo se fusiona con **CI ok** en verde.
+- **`qa-e2e.yml`** (~50 min): la app en un emulador de Android. En los PR que tocan pantallas corre los casos P0; de noche, la suite entera.
+- **`expo-preview.yml`**: publica en Expo Go (rama `preview`) después de typecheck y Jest, y solo con el E2E P0 del cambio en verde.
 
-- `package: "com.lionardleyva.bite"`
-- `versionCode: 1`
-- permisos: `ACCESS_FINE_LOCATION`, `CAMERA`, `READ_EXTERNAL_STORAGE`
-- Maps API key via `GOOGLE_MAPS_API_KEY`
-
-### 1. Instalar EAS CLI
+## Build
 
 ```bash
-npm install -g eas-cli
+npm install -g eas-cli && eas login
+eas build --platform android --profile preview   # APK para instalar y compartir
+eas build --platform android --profile production # AAB para Play Store
 ```
 
-### 2. Login y vincular proyecto
-
-```bash
-eas login
-```
-
-El proyecto EAS queda ligado por `extra.eas.projectId` en `app.config.js`.
-
-### 3. Crear variable de entorno para Maps (produccion)
-
-```bash
-eas env:create production --name GOOGLE_MAPS_API_KEY --value TU_KEY_AQUI --visibility secret
-```
-
-### 4. Build APK (perfil preview)
-
-```bash
-eas build --platform android --profile preview
-```
-
-### 5. Descargar y compartir
-
-- EAS devuelve un link de descarga del `.apk`.
-- Compartelo por WhatsApp/email.
-- El receptor instala en Android.
-
-Notas:
-- `buildType: "apk"` genera instalable.
-- `production` usa `app-bundle` para Play Store.
-
-## Arquitectura
+## Estructura
 
 ```
 src/
-├── components/     # Reutilizables: StarRating, RestaurantCard, FAB, SearchBar, FilterButtons, PhotoPicker, ShareListModal, InviteCodeDisplay
-├── screens/        # HomeScreen (mapa), ListScreen, SaveScreen (modal), DetailScreen, ProfileScreen, AuthScreen
-├── navigation/     # RootNavigator (stack) + TabNavigator (tabs: Mapa | Lista | Perfil)
-├── contexts/       # AuthContext — estado global de auth, skip mode, migracion
-├── hooks/          # useRestaurants (onSnapshot), useAuth, useLocation
-├── services/       # restaurantService, listService, imageService, localStorageService, locationService
-├── types/          # User, Restaurant, RestaurantList
-├── utils/          # timeAgo
-└── config/         # firebase.ts, constants.ts
+├── screens/     Home (mapa), List, Save, Detail, Match, Profile, Auth
+├── components/  MapMarker, MapDetailCard, MiniMap, RestaurantCard, MatchEntryCard, FilterButtons, PriceChips, ...
+├── services/    restaurant, list, places, image, localStorage, location, navigation, decision, migration, share
+├── hooks/       useRestaurants, useAuth, useLocation, useNavigationETA, useDecisionSession, ...
+├── utils/       saveRules, mapFocus, matchLogic, shareParser, searchMatch, userError, price, geo, ...
+├── theme/       palette.js (única fuente de colores), ThemeProvider, mapStyle, FontGate
+└── config/      firebase.ts, constants.ts
+server/          Express: /api/directions, /api/resolve-link
+modules/         share-intent (Android, recibir texto compartido)
+features/        Gherkin en español
+scripts/qa/      E2E por adb
 ```
 
-Flujo de datos: Screen → Hook → Service → Firebase/AsyncStorage. Real-time sync via `onSnapshot` listeners.
+## Documentación
 
-Para detalles de arquitectura, decisiones criticas y flujos de datos, ver `CLAUDE.md`.
-
-## Documentacion
-
-- `SPEC.md` — Especificacion completa del producto (user stories, data models, wireframes, security rules)
-- `CLAUDE.md` — Guia de arquitectura y decisiones para desarrollo asistido por IA
-- `CHANGELOG.md` — Historial de versiones
-
-## Screenshots
-
-<!-- TODO: Añadir screenshots de las pantallas principales -->
-<!-- Mapa | Lista | Guardar | Detalle | Perfil | Compartir -->
+- `CLAUDE.md`: arquitectura, decisiones, problemas conocidos y forma de trabajar (TDD con Gherkin, CI por niveles)
+- `SPEC.md`: especificación del producto
+- `docs/qa/e2e-plan.md`: plan de pruebas con todos los casos
+- `CHANGELOG.md`: historial de versiones
